@@ -3,6 +3,7 @@
 # "un-ignore in the root folder
 !.gitignore
 !*.md
+!*.m
 
 # "un-ignore the Local folder =========Local========
 !/Local
