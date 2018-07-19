@@ -1,0 +1,13 @@
+#first ignore everything
+/*
+# "un-ignore in the root folder
+!.gitignore
+!*.md
+
+# "un-ignore the Local folder =========Local========
+!/Local
+#Now ignore all the content of the folder Local
+/Local/*
+#Un-ignore the source code
+!/Local/*.md
+!/Local/*.sh
