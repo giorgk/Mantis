@@ -36,5 +36,11 @@ Download from https://github.com/ucd-cws/nitrates-cv the Ngw tifs for each year 
 * _Ngw_2020.tif_
 * _Ngw_2035.tif_
 * _Ngw_2050.tif_
+
+---
+# Tule River Model files
+Inside the local folder I created the folder **Tule** and I added the 
+Well Unit response functions.
+
 	
 

@@ -4,6 +4,8 @@
 !.gitignore
 !*.md
 !*.m
+!*.fig
+!*mantis1.jpeg
 
 # "un-ignore the Local folder =========Local========
 !/Local
@@ -12,3 +14,6 @@
 #Un-ignore the source code
 !/Local/*.md
 !/Local/*.sh
+
+# "un-ignore the gis_data folder =========gis_data========
+!/gis_data
