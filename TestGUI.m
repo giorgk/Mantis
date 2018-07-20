@@ -74,7 +74,7 @@ varargout{1} = handles.output;
 ha = axes('units','normalized', 'Tag','logo',...
             'position',[0.925 0.895 0.1*0.7 0.1]);
 uistack(ha,'bottom');
-I=imread('Local/mantis1.jpeg');
+I=imread('mantis1.jpeg');
 hi = imagesc(I);
 set(ha,'handlevisibility','off', ...
             'visible','off')
@@ -164,7 +164,7 @@ set(hObject, 'String', LU.LU_name);
 if true
     yrs = 1945:15:2050;
     URFS = load('Local/Tule/ALLURFS'); % Unit Response Function data
-    Spnts = shaperead('gis_data/TuleStrmlnPoints'); % URF end Points at the land side
+    Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land side
     assignin('base', 'URFS', URFS);
     assignin('base', 'Spnts', Spnts);
     % Load Ngw
@@ -233,4 +233,5 @@ function pushbutton1_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 LU = evalin('base','LU');
-out = MainRun( [LU.LU_cat, LU.perc] );
+%ax = findobj('Tag','MainPlot');
+out = MainRun( [LU.LU_cat, LU.perc], [] );

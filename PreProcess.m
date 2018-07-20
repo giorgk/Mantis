@@ -17,8 +17,9 @@ WriteAscii4Raster('Local/LU_2005_ascii',LU, -223300, -344600, 50, 0);
 %% Load URF data and make sure they are in the same coordinate system
 % First make one variable with all streamline points
 URFS = [];
-for ii = 1:4 % This is the number of processors used in the simulation
-    w = load(['Local/Tule/wellURFS_000' num2str(ii-1) '.mat']);
+for ii = 1:6 % This is the number of processors used in the simulation
+    % w = load(['Local/Tule/wellURFS_000' num2str(ii-1) '.mat']);
+    w = load(['Local/Tule/TuleRiverURFs_' num2str(ii-1) '.mat']);
     URFS = [URFS; w.WellURF];
 end
 %% Create a shapefile with the streamlines points at the land side.
@@ -42,4 +43,5 @@ end
 shapewrite(S,'Local/Tule/TuleStrmlnPoints');
 %% load the converted shapefile
 % The converted shapefile has coordinates on EPSG:3310
-S = shaperead('gis_data/TuleStrmlnPoints');
+% S = shaperead('gis_data/TuleStrmlnPoints');
+S = shaperead('gis_data/TuleStrmlnPointsHome');
