@@ -17,3 +17,10 @@
 
 # "un-ignore the gis_data folder =========gis_data========
 !/gis_data
+
+# "un-ignore the pyCode folder =========pyCode========
+!/pyCode
+#Now ignore all the content of the folder pyCode
+/pyCode/*
+#Un-ignore the source code
+!/pyCode/*.py
