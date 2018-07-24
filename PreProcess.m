@@ -45,3 +45,33 @@ shapewrite(S,'Local/Tule/TuleStrmlnPoints');
 % The converted shapefile has coordinates on EPSG:3310
 % S = shaperead('gis_data/TuleStrmlnPoints');
 S = shaperead('gis_data/TuleStrmlnPointsHome');
+%% Save all data into one file for loading from python
+years = 1945:15:2050;
+for ii = 1:8
+    if ii <= 5
+        eval(['LU' num2str(years(ii)) ' = LUmaps{' num2str(ii) ',1};']);
+    end
+    eval(['Ngw' num2str(years(ii)) ' = Ngw{' num2str(ii) ',1};']);
+end
+%%
+save('data4python.mat','LU1945','Ngw1945','-v7');
+for ii = 2:8
+    if ii <= 5
+        save('data4python.mat',['LU' num2str(years(ii))], ['Ngw' num2str(years(ii))], '-append','-v7');
+    else
+        save('data4python.mat', ['Ngw' num2str(years(ii))], '-append','-v7');
+    end
+    
+end
+%% 
+Spnts = shaperead('gis_data/TuleStrmlnPointsHome');
+Sxyv = [[Spnts.X]' [Spnts.Y]' [Spnts.Vland]'];
+Sid =  [[Spnts.Eid]' [Spnts.Sid]'];
+urfs = zeros(size(URFS.URFS,1),200);
+for ii = 1:size(URFS.URFS,1)
+    urfs(ii,:) = URFS.URFS(ii,1).URF;
+end
+urfV = [URFS.URFS.v_lnd]';
+save('URFdata.mat', 'Sxyv', 'Sid', 'urfs', 'urfV', '-v7');
+%%
+
