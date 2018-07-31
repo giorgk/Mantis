@@ -54,12 +54,13 @@ for ii = 1:8
     eval(['Ngw' num2str(years(ii)) ' = Ngw{' num2str(ii) ',1};']);
 end
 %%
-save('data4python.mat','LU1945','Ngw1945','-v7');
+LUcat = LU.LU_cat;
+save('data4python.mat', 'LUcat', 'LU1945','Ngw1945','-v7');
 for ii = 2:8
     if ii <= 5
-        save('data4python.mat',['LU' num2str(years(ii))], ['Ngw' num2str(years(ii))], '-append','-v7');
+        save('data4python.mat',['LU' num2str(years(ii))], ['Ngw' num2str(years(ii))], '-append');
     else
-        save('data4python.mat', ['Ngw' num2str(years(ii))], '-append','-v7');
+        save('data4python.mat', ['Ngw' num2str(years(ii))], '-append');
     end
     
 end

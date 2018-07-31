@@ -112,8 +112,8 @@ xticklabels(datestr(datenum(1950:10:2050,1,1),'YY'))
 xlim([1945 2050]);
 grid on
 stat_str{1,1} = ['Stats: Lfnc : ' num2str(time_lf) ' sec'];
-stat_str{1,2} = ['          BTC  : ' num2str(time_bct) ' sec'];
-stat_str{1,3} = ['          Stat : ' num2str(time_stat) ' sec'];
+stat_str{1,2} = ['           BTC  : ' num2str(time_bct) ' sec'];
+stat_str{1,3} = ['           Stat : ' num2str(time_stat) ' sec'];
 set(hstat,'String', stat_str);
 
 end
