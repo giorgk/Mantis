@@ -41,7 +41,7 @@ _It is very important to keep this naming format_
 ---
 # Tule River Model files
 Inside the local folder create the folder **Tule** and add the 
-Unit response function data. You can download the dat from 
+Unit response function data. You can download the data from 
 [here](https://drive.google.com/drive/u/2/folders/1yc3J3oWBz87f7L5FNgqvsqTeN2QcBcxZ)
 
 	
