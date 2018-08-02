@@ -6,7 +6,7 @@ phase of the NPSAT. At the moment there are two implementations.
 2. Python
 
 ## Matlab implementation
-At the moment Matlab requires just one line code that loads the GUI
+Matlab requires just one line code that loads the GUI
 ```
 TestGUI
 ```
@@ -24,7 +24,7 @@ The last step is to press run and wait...
 This code depends on some functions of the 
 [mSim toolbox](http://subsurface.gr/software/msim/). Simply 
 [download](http://subsurface.gr/software/msim/msim-download/) and follow
-few steps to install it.
+few simple steps to install it.
 
 ## Python implementation
 Not alot to say here as this is in primitive stage.
