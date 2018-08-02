@@ -8,6 +8,8 @@ for ii = 1:length(LU_cat)
    id = find( temp1(:,1) == LU_cat(ii));
    LU_name{ii,1} = temp2{id,1};
 end
+%% save this to a mat file
+save('LU_data', 'LU_cat','LU_name');
 %% Create an Raster Ascii for GIS. This is just for test purposes
 % from the Local/Ngw_2005.tif.xml it appears that the 
 % left lower corner of the raster is at -223300, -344600

@@ -2,7 +2,7 @@
 In the local folder put all large data files to keep the size of the repo relatively small.
 
 # List of files and sources
-_Not all data are publicly available_
+_Unfortunatelly at the moment not all data are publicly available_
 
 **Land use groups**
 
@@ -26,7 +26,8 @@ Download from box nitrates_shared/land_use the following files
 
 **Ngw**
 
-Download from https://github.com/ucd-cws/nitrates-cv the Ngw tifs for each year and rename them as below
+Download from https://github.com/ucd-cws/nitrates-cv the Ngw tifs for each year and rename them as below:
+_It is very important to keep this naming format_
 
 * _Ngw_1945.tif_
 * _Ngw_1960.tif_
@@ -39,8 +40,9 @@ Download from https://github.com/ucd-cws/nitrates-cv the Ngw tifs for each year 
 
 ---
 # Tule River Model files
-Inside the local folder I created the folder **Tule** and I added the 
-Well Unit response functions.
+Inside the local folder create the folder **Tule** and add the 
+Unit response function data. You can download the dat from 
+[here](https://drive.google.com/drive/u/2/folders/1yc3J3oWBz87f7L5FNgqvsqTeN2QcBcxZ)
 
 	
 
