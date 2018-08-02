@@ -7,6 +7,8 @@ function out = MainRun( LUinfo )
 
 out = [];
 yrs = 1945:15:2050;
+sim_yrs = 1945:2100;
+Nsim_yrs = length(sim_yrs);
 %ax = findobj('Tag','MainPlot');
 hstat = findobj('Tag','Stats');
 % ====================LOAD DATA AREA=======================================
@@ -20,15 +22,16 @@ Wellids = unique([Spnts.Eid]');
 % find the IJ in a vectorized fashion
 IJ = findIJ([Spnts.X]', [Spnts.Y]');
 
-LFNC = zeros(size(Spnts, 1),105);
-LFNC_base = zeros(size(Spnts, 1),105);
+LFNC = zeros(size(Spnts, 1), Nsim_yrs);
+LFNC_base = zeros(size(Spnts, 1), Nsim_yrs);
 ALLURFS = zeros(size(Spnts, 1),length(URFS.URFS(1).URF));
 set(hstat,'String', 'Building Loading functions...');
 drawnow
 tic
 for ii = 1:size(Spnts, 1)
     % create the loading function
-    LF = nan(1,105);
+    LF = nan(1,Nsim_yrs);
+    LF_base = nan(1,Nsim_yrs);
     % find pixel landuse
     for k = 1:length(yrs)-1
         Val_start = Ngw{k,1}(IJ(ii,1),IJ(ii,2));
@@ -59,11 +62,20 @@ for ii = 1:size(Spnts, 1)
             red_e = LUinfo(id_e,2);
         end
         
-        % distribute the reduced loading 
-        LF((k-1)*15+1:(k)*15) = linspace(Val_start*(red_s/100), ...
-                                         Val_end*(red_e/100), 15);
-        LF_base((k-1)*15+1:(k)*15) = linspace(Val_start, Val_end, 15);
+        % distribute the reduced loading after 2020
+        if yrs(k) >= 2020
+            LF((k-1)*15+1:k*15) = linspace(Val_start*(red_s/100), ...
+                                             Val_end*(red_e/100), 15);
+        else
+            LF((k-1)*15+1:k*15) = linspace(Val_start, Val_end, 15);
+        end
+        LF_base((k-1)*15+1:k*15) = linspace(Val_start, Val_end, 15);
     end
+    
+    % after 2050 assume constant loading
+    LF(k*15+1:end) = LF(k*15);
+    LF_base(k*15+1:end) = LF_base(k*15);
+    
     LFNC(ii,:) = LF;
     LFNC_base(ii,:) = LF_base;
     ALLURFS(ii,:) = URFS.URFS(ii).URF;
@@ -102,14 +114,14 @@ perc = prctile(wells_btc,10:10:90,1);
 perc_base = prctile(wells_btc_base,10:10:90,1);
 time_stat = toc;
 
-plot(1946:2050, perc','r', 'linewidth', 1.5);
+plot(sim_yrs, perc','r', 'linewidth', 1.5);
 hold on
-plot(1946:2050, perc_base','--k', 'linewidth', 1.5);
+plot(sim_yrs, perc_base','--k', 'linewidth', 1.5);
 xlabel('Time[years]');
 ylabel('Concentration [mg/l]');
-xticks([1950:10:2050]);
-xticklabels(datestr(datenum(1950:10:2050,1,1),'YY'))
-xlim([1945 2050]);
+xticks([1950:20:2100]);
+xticklabels(datestr(datenum(1950:20:2100,1,1),'YY'))
+xlim([sim_yrs(1) sim_yrs(end)]);
 grid on
 stat_str{1,1} = ['Stats: Lfnc : ' num2str(time_lf) ' sec'];
 stat_str{1,2} = ['           BTC  : ' num2str(time_bct) ' sec'];
