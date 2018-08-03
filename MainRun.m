@@ -1,4 +1,4 @@
-function out = MainRun( LUinfo )
+function out = MainRun( LUinfo, RunTag )
 %MainRun runs the convolution for a given Land use reduction
 %   The input of the function is a N x 2 matrix. 
 %   The first column is the land use id and 
@@ -23,7 +23,7 @@ Wellids = unique([Spnts.Eid]');
 IJ = findIJ([Spnts.X]', [Spnts.Y]');
 
 LFNC = zeros(size(Spnts, 1), Nsim_yrs);
-LFNC_base = zeros(size(Spnts, 1), Nsim_yrs);
+%LFNC_base = zeros(size(Spnts, 1), Nsim_yrs);
 ALLURFS = zeros(size(Spnts, 1),length(URFS.URFS(1).URF));
 set(hstat,'String', 'Building Loading functions...');
 drawnow
@@ -31,7 +31,7 @@ tic
 for ii = 1:size(Spnts, 1)
     % create the loading function
     LF = nan(1,Nsim_yrs);
-    LF_base = nan(1,Nsim_yrs);
+    %LF_base = nan(1,Nsim_yrs);
     % find pixel landuse
     for k = 1:length(yrs)-1
         Val_start = Ngw{k,1}(IJ(ii,1),IJ(ii,2));
@@ -69,15 +69,15 @@ for ii = 1:size(Spnts, 1)
         else
             LF((k-1)*15+1:k*15) = linspace(Val_start, Val_end, 15);
         end
-        LF_base((k-1)*15+1:k*15) = linspace(Val_start, Val_end, 15);
+        %LF_base((k-1)*15+1:k*15) = linspace(Val_start, Val_end, 15);
     end
     
     % after 2050 assume constant loading
     LF(k*15+1:end) = LF(k*15);
-    LF_base(k*15+1:end) = LF_base(k*15);
+    %LF_base(k*15+1:end) = LF_base(k*15);
     
     LFNC(ii,:) = LF;
-    LFNC_base(ii,:) = LF_base;
+    %LFNC_base(ii,:) = LF_base;
     ALLURFS(ii,:) = URFS.URFS(ii).URF;
 end
 time_lf = toc;
@@ -85,12 +85,12 @@ set(hstat,'String', 'Calculating BTC...');
 drawnow
 tic
 BTC = ConvoluteURF(ALLURFS, LFNC, 'vect');
-BTC_base = ConvoluteURF(ALLURFS, LFNC_base, 'vect');
+%BTC_base = ConvoluteURF(ALLURFS, LFNC_base, 'vect');
 time_bct = toc;
 
 tic
 wells_btc = zeros(length(Wellids), size(LFNC,2));
-wells_btc_base = zeros(length(Wellids), size(LFNC,2));
+%wells_btc_base = zeros(length(Wellids), size(LFNC,2));
 Eid = [Spnts.Eid]';
 wgh = [URFS.URFS.v_cds]';
 for ii = 1:length(Wellids)
@@ -100,15 +100,23 @@ for ii = 1:length(Wellids)
         continue;
     end
     btc_temp = BTC(id,:);
-    btc_temp_base = BTC_base(id,:);
+    %btc_temp_base = BTC_base(id,:);
     weight = wgh(id,1);%[URFS.URFS(id,1).v_cds]';
     weight = weight/sum(weight);
     btc_temp = bsxfun(@times,btc_temp,weight);
-    btc_temp_base = bsxfun(@times,btc_temp_base,weight);
+    %btc_temp_base = bsxfun(@times,btc_temp_base,weight);
     wells_btc(ii,:) = sum(btc_temp,1);
-    wells_btc_base(ii,:) = sum(btc_temp_base,1);
+    %wells_btc_base(ii,:) = sum(btc_temp_base,1);
 end
+time_stat = toc;
+stat_str{1,1} = ['Stats: Lfnc : ' num2str(time_lf) ' sec'];
+stat_str{1,2} = ['           BTC  : ' num2str(time_bct) ' sec'];
+stat_str{1,3} = ['           Stat : ' num2str(time_stat) ' sec'];
+set(hstat,'String', stat_str);
 
+out.Tag = RunTag;
+out.WellBTC = wells_btc;
+return;
 
 perc = prctile(wells_btc,10:10:90,1);
 perc_base = prctile(wells_btc_base,10:10:90,1);
