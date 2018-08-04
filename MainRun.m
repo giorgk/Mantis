@@ -1,4 +1,4 @@
-function out = MainRun( LUinfo, RunTag )
+function out = MainRun( LUinfo, RunTag, accuracy)
 %MainRun runs the convolution for a given Land use reduction
 %   The input of the function is a N x 2 matrix. 
 %   The first column is the land use id and 
@@ -17,10 +17,22 @@ Spnts = evalin('base','Spnts');
 Ngw = evalin('base','Ngw');
 LUmaps = evalin('base','LUmaps');
 
-Wellids = unique([Spnts.Eid]');
+Spnts_Eid = [Spnts.Eid]';
+Spnts_X = [Spnts.X]';
+Spnts_Y = [Spnts.Y]';
+
+Wellids = unique(Spnts_Eid);
+
+% choose a number of wells based on the accuracy
+Nwells = max(10, length(Wellids)*accuracy);
+well_rand = randperm(length(Wellids));
+well_sim_id = well_rand(1:Nwells);
+
+% find the streamlines associated with the selected wells
+Spnt_sim_id = findElemAinB(well_sim_id, Spnts_Eid);
 
 % find the IJ in a vectorized fashion
-IJ = findIJ([Spnts.X]', [Spnts.Y]');
+IJ = findIJ(Spnts_X, Spnts_Y);
 
 LFNC = zeros(size(Spnts, 1), Nsim_yrs);
 %LFNC_base = zeros(size(Spnts, 1), Nsim_yrs);
@@ -110,8 +122,8 @@ for ii = 1:length(Wellids)
 end
 time_stat = toc;
 stat_str{1,1} = ['Stats: Lfnc : ' num2str(time_lf) ' sec'];
-stat_str{1,2} = ['           BTC  : ' num2str(time_bct) ' sec'];
-stat_str{1,3} = ['           Stat : ' num2str(time_stat) ' sec'];
+stat_str{1,2} = ['          BTC  : ' num2str(time_bct) ' sec'];
+stat_str{1,3} = ['          Stat : ' num2str(time_stat) ' sec'];
 set(hstat,'String', stat_str);
 
 out.Tag = RunTag;
@@ -166,4 +178,12 @@ function IJ = findIJ(x, y)
         end
     end
 end
+
+function id = findElemAinB(A,B)
+id = [];
+for ii = 1:length(A)
+    id = [id; find(B == A(ii))];
+end
+end
+
 

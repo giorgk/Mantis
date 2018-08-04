@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 03-Aug-2018 05:40:13
+% Last Modified by GUIDE v2.5 04-Aug-2018 10:13:05
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -149,11 +149,13 @@ end
 
 LU = load('LU_data');
 RUNS = [];
+opt = setMantisoptions;
 % Append percentage loading
 LU.perc = 100*rand(length(LU.LU_cat),1);
 LU.selected = -9;
 assignin('base', 'LU', LU);
 assignin('base', 'RUNS', RUNS);
+assignin('base', 'opt', opt);
 
 set(hObject, 'String', LU.LU_name);
 %h=findobj('Tag','LandUseList');
@@ -253,9 +255,10 @@ end
 
 
 LU = evalin('base','LU');
+opt = evalin('base', 'opt');
 RUNS = evalin('base','RUNS');
 %ax = findobj('Tag','MainPlot');
-out = MainRun( [LU.LU_cat, LU.perc], runtag );
+out = MainRun( [LU.LU_cat, LU.perc], runtag, opt.sim_accuracy );
 RUNS = [RUNS;out];
 assignin('base', 'RUNS', RUNS);
 set(hTagList, 'String', ListofRuns);
@@ -451,3 +454,127 @@ function PlotButton_Callback(hObject, eventdata, handles)
 % hObject    handle to PlotButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+% get the data
+RUNS = evalin('base','RUNS');
+% get the GUI elements
+hScenarioList = findobj('Tag', 'ListofRuns');
+hPlotType = findobj('Tag', 'PlotingStylesMenu');
+hPlot = findobj('Tag', 'MainPlot');
+
+iscenario = get(hScenarioList,'Value');
+ScenarioNames = cellstr(get(hScenarioList,'String'));
+SelectedScenario = ScenarioNames{iscenario};
+
+opt = evalin('base', 'opt');
+
+for ii = 1:size(RUNS,1)
+    if strcmp(SelectedScenario, RUNS(ii,1).Tag)
+        PlotTypes = cellstr(get(hPlotType,'String'));
+        selectedPlotType = PlotTypes{get(hPlotType, 'Value')};
+        
+        if strcmp(selectedPlotType, '10:10:90')
+            perc = prctile(RUNS(ii,1).WellBTC, 10:10:90, 1);
+            
+        elseif strcmp(selectedPlotType, '5 50 95')
+            perc = prctile(RUNS(ii,1).WellBTC, [5 50 95], 1);
+            
+        elseif strcmp(selectedPlotType, 'Mean')
+            perc = mean(RUNS(ii,1).WellBTC,1);
+            
+        end
+        
+        sim_yrs = 1945:2100;
+        hold(hPlot, 'on');
+        plot(hPlot, sim_yrs, perc', 'color', opt.clr_list(opt.clr_id,:), ...
+            'linewidth', 1.5, 'DisplayName', RUNS(ii,1).Tag);
+        opt = updateColorIndex(opt);
+        set(get(hPlot,'XLabel'), 'String', 'Time[years]');
+        set(get(hPlot,'YLabel'), 'String', 'Concentration [mg/l]');
+        set(hPlot, 'XTick', [1950:20:2100]);
+        set(hPlot, 'XTickLabel', datestr(datenum(1950:20:2100,1,1),'YY'));
+        set(hPlot, 'XLim', [sim_yrs(1) sim_yrs(end)]);
+        legend(hPlot,'Location', 'northwest');
+        grid(hPlot, 'on');
+        %xticks([1950:20:2100]);
+        %xticklabels(datestr(datenum(1950:20:2100,1,1),'YY'))
+        %xlim([sim_yrs(1) sim_yrs(end)]);
+        %grid on
+    end
+end
+assignin('base', 'opt', opt);
+
+
+% --- Executes on button press in ClearScenarioListButton.
+function ClearScenarioListButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ClearScenarioListButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
+% --- Executes on button press in ClearPlotButton.
+function ClearPlotButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ClearPlotButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+hPlot = findobj('Tag', 'MainPlot');
+cla(hPlot);
+opt = evalin('base', 'opt');
+opt.clr_id = 1;
+assignin('base', 'opt', opt);
+
+
+% --- If Enable == 'on', executes on mouse press in 5 pixel border.
+% --- Otherwise, executes on mouse press in 5 pixel border or over ClearScenarioListButton.
+function ClearScenarioListButton_ButtonDownFcn(hObject, eventdata, handles)
+% hObject    handle to ClearScenarioListButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+hListofRuns = findobj('Tag', 'ListofRuns');
+set(hListofRuns, 'String', {});
+RUNS = evalin('base', 'RUNS');
+RUNS = [];
+assignin('base', 'RUNS', RUNS);
+
+function opt = setMantisoptions
+hPlot = findobj('Tag', 'MainPlot');
+opt.clr_list = get(hPlot, 'colororder');
+opt.clr_id = 1;
+
+hAccSlider = findobj('Tag', 'AccuracySlider');
+accuracy = get(hAccSlider,'Value');
+opt.sim_accuracy = accuracy;
+
+function opt = updateColorIndex(opt)
+opt.clr_id = opt.clr_id + 1;
+if opt.clr_id > size(opt.clr_list,1)
+    opt.clr_id = 1;
+end
+
+
+% --- Executes on slider movement.
+function AccuracySlider_Callback(hObject, eventdata, handles)
+% hObject    handle to AccuracySlider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'Value') returns position of slider
+%        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
+accuracy = get(hObject,'Value');
+opt = evalin('base', 'opt');
+
+
+
+
+% --- Executes during object creation, after setting all properties.
+function AccuracySlider_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to AccuracySlider (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: slider controls usually have a light gray background.
+if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor',[.9 .9 .9]);
+end
+
+
