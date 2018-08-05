@@ -12,6 +12,8 @@ Nsim_yrs = length(sim_yrs);
 %ax = findobj('Tag','MainPlot');
 hstat = findobj('Tag','Stats');
 % ====================LOAD DATA AREA=======================================
+set(hstat,'String', 'Boiling data...');
+drawnow
 URFS = evalin('base','URFS');
 Spnts = evalin('base','Spnts');
 Ngw = evalin('base','Ngw');
@@ -20,27 +22,33 @@ LUmaps = evalin('base','LUmaps');
 Spnts_Eid = [Spnts.Eid]';
 Spnts_X = [Spnts.X]';
 Spnts_Y = [Spnts.Y]';
+Spnts_V = [Spnts.Vland]';
 
 Wellids = unique(Spnts_Eid);
 
 % choose a number of wells based on the accuracy
-Nwells = max(10, length(Wellids)*accuracy);
+Nwells = ceil(max(10, length(Wellids)*accuracy));
 well_rand = randperm(length(Wellids));
-well_sim_id = well_rand(1:Nwells);
+well_sim_id = Wellids(well_rand(1:Nwells));
+well_sim_id = sort(well_sim_id);
 
 % find the streamlines associated with the selected wells
 Spnt_sim_id = findElemAinB(well_sim_id, Spnts_Eid);
+Spnts_Eid = Spnts_Eid(Spnt_sim_id);
+Spnts_X = Spnts_X(Spnt_sim_id);
+Spnts_Y = Spnts_Y(Spnt_sim_id);
+Spnts_V = Spnts_V(Spnt_sim_id);
+tempurf = URFS.URFS(Spnt_sim_id,:);
 
 % find the IJ in a vectorized fashion
 IJ = findIJ(Spnts_X, Spnts_Y);
 
-LFNC = zeros(size(Spnts, 1), Nsim_yrs);
-%LFNC_base = zeros(size(Spnts, 1), Nsim_yrs);
-ALLURFS = zeros(size(Spnts, 1),length(URFS.URFS(1).URF));
+LFNC = zeros(length(Spnt_sim_id), Nsim_yrs);
+ALLURFS = zeros(length(Spnt_sim_id),length(URFS.URFS(1).URF));
 set(hstat,'String', 'Building Loading functions...');
 drawnow
 tic
-for ii = 1:size(Spnts, 1)
+for ii = 1:length(Spnt_sim_id)
     % create the loading function
     LF = nan(1,Nsim_yrs);
     %LF_base = nan(1,Nsim_yrs);
@@ -90,35 +98,30 @@ for ii = 1:size(Spnts, 1)
     
     LFNC(ii,:) = LF;
     %LFNC_base(ii,:) = LF_base;
-    ALLURFS(ii,:) = URFS.URFS(ii).URF;
+    ALLURFS(ii,:) = tempurf(ii).URF;
 end
 time_lf = toc;
 set(hstat,'String', 'Calculating BTC...');
 drawnow
 tic
-BTC = ConvoluteURF(ALLURFS, LFNC, 'vect');
+BTC = ConvoluteURF(ALLURFS, LFNC, 'cpp');
 %BTC_base = ConvoluteURF(ALLURFS, LFNC_base, 'vect');
 time_bct = toc;
 
 tic
-wells_btc = zeros(length(Wellids), size(LFNC,2));
-%wells_btc_base = zeros(length(Wellids), size(LFNC,2));
-Eid = [Spnts.Eid]';
-wgh = [URFS.URFS.v_cds]';
-for ii = 1:length(Wellids)
+wells_btc = zeros(length(well_sim_id), size(LFNC,2));
+wgh = [tempurf.v_cds]';
+for ii = 1:length(well_sim_id)
     % find the streamlines of well ii
-    id = find(Eid == Wellids(ii));
+    id = find(Spnts_Eid == well_sim_id(ii));
     if isempty(id)
         continue;
     end
     btc_temp = BTC(id,:);
-    %btc_temp_base = BTC_base(id,:);
     weight = wgh(id,1);%[URFS.URFS(id,1).v_cds]';
     weight = weight/sum(weight);
     btc_temp = bsxfun(@times,btc_temp,weight);
-    %btc_temp_base = bsxfun(@times,btc_temp_base,weight);
     wells_btc(ii,:) = sum(btc_temp,1);
-    %wells_btc_base(ii,:) = sum(btc_temp_base,1);
 end
 time_stat = toc;
 stat_str{1,1} = ['Stats: Lfnc : ' num2str(time_lf) ' sec'];
@@ -128,6 +131,7 @@ set(hstat,'String', stat_str);
 
 out.Tag = RunTag;
 out.WellBTC = wells_btc;
+out.wellid = well_sim_id;
 return;
 
 perc = prctile(wells_btc,10:10:90,1);

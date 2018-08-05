@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 04-Aug-2018 10:13:05
+% Last Modified by GUIDE v2.5 05-Aug-2018 02:15:26
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -234,13 +234,20 @@ function RunButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+LU = evalin('base','LU');
+opt = evalin('base', 'opt');
+RUNS = evalin('base','RUNS');
+
 % set a tag
 htagbox = findobj('Tag', 'NickNameRun');
 hTagList = findobj('Tag', 'ListofRuns');
 runtag = get(htagbox,'String');
-if isempty(runtag)
+if isempty(runtag) || strcmp('Set a tag for each run',runtag)
     runtag = 'Run 1';
 end
+% append the accuracy
+runtag = [runtag '_{ac' num2str(round(opt.sim_accuracy*100)) '}'];
+
 ListofRuns = cellstr(get(hTagList,'String'));
 if length(ListofRuns) == 1
     if isempty(ListofRuns{1,1})
@@ -254,14 +261,14 @@ end
 
 
 
-LU = evalin('base','LU');
-opt = evalin('base', 'opt');
-RUNS = evalin('base','RUNS');
+
 %ax = findobj('Tag','MainPlot');
 out = MainRun( [LU.LU_cat, LU.perc], runtag, opt.sim_accuracy );
 RUNS = [RUNS;out];
 assignin('base', 'RUNS', RUNS);
 set(hTagList, 'String', ListofRuns);
+set(hTagList, 'Value', length(ListofRuns));
+drawnow
 
 
 
@@ -486,8 +493,12 @@ for ii = 1:size(RUNS,1)
         
         sim_yrs = 1945:2100;
         hold(hPlot, 'on');
-        plot(hPlot, sim_yrs, perc', 'color', opt.clr_list(opt.clr_id,:), ...
-            'linewidth', 1.5, 'DisplayName', RUNS(ii,1).Tag);
+        linesPlot = plot(hPlot, sim_yrs, perc', 'color', opt.clr_list(opt.clr_id,:), ...
+                        'linewidth', 1.5); %, 'DisplayName', RUNS(ii,1).Tag
+        linesGroup = hggroup('DisplayName', RUNS(ii,1).Tag);
+        set(linesPlot,'Parent',linesGroup);
+        set(get(get(linesGroup,'Annotation'),'LegendInformation'),'IconDisplayStyle','on');
+        
         opt = updateColorIndex(opt);
         set(get(hPlot,'XLabel'), 'String', 'Time[years]');
         set(get(hPlot,'YLabel'), 'String', 'Concentration [mg/l]');
@@ -510,28 +521,9 @@ function ClearScenarioListButton_Callback(hObject, eventdata, handles)
 % hObject    handle to ClearScenarioListButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-
-% --- Executes on button press in ClearPlotButton.
-function ClearPlotButton_Callback(hObject, eventdata, handles)
-% hObject    handle to ClearPlotButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
-hPlot = findobj('Tag', 'MainPlot');
-cla(hPlot);
-opt = evalin('base', 'opt');
-opt.clr_id = 1;
-assignin('base', 'opt', opt);
-
-
-% --- If Enable == 'on', executes on mouse press in 5 pixel border.
-% --- Otherwise, executes on mouse press in 5 pixel border or over ClearScenarioListButton.
-function ClearScenarioListButton_ButtonDownFcn(hObject, eventdata, handles)
-% hObject    handle to ClearScenarioListButton (see GCBO)
-% eventdata  reserved - to be defined in a future version of MATLAB
-% handles    structure with handles and user data (see GUIDATA)
 hListofRuns = findobj('Tag', 'ListofRuns');
 set(hListofRuns, 'String', {});
+set(hListofRuns, 'Value', []);
 RUNS = evalin('base', 'RUNS');
 RUNS = [];
 assignin('base', 'RUNS', RUNS);
@@ -551,6 +543,26 @@ if opt.clr_id > size(opt.clr_list,1)
     opt.clr_id = 1;
 end
 
+% --- Executes on button press in ClearPlotButton.
+function ClearPlotButton_Callback(hObject, eventdata, handles)
+% hObject    handle to ClearPlotButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+hPlot = findobj('Tag', 'MainPlot');
+cla(hPlot);
+opt = evalin('base', 'opt');
+opt.clr_id = 1;
+assignin('base', 'opt', opt);
+
+
+% --- If Enable == 'on', executes on mouse press in 5 pixel border.
+% --- Otherwise, executes on mouse press in 5 pixel border or over ClearScenarioListButton.
+function ClearScenarioListButton_ButtonDownFcn(hObject, eventdata, handles)
+% hObject    handle to ClearScenarioListButton (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+
 
 % --- Executes on slider movement.
 function AccuracySlider_Callback(hObject, eventdata, handles)
@@ -562,6 +574,8 @@ function AccuracySlider_Callback(hObject, eventdata, handles)
 %        get(hObject,'Min') and get(hObject,'Max') to determine range of slider
 accuracy = get(hObject,'Value');
 opt = evalin('base', 'opt');
+opt.sim_accuracy = accuracy;
+assignin('base', 'opt', opt);
 
 
 
@@ -576,5 +590,3 @@ function AccuracySlider_CreateFcn(hObject, eventdata, handles)
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
-
-
