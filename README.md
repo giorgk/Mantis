@@ -8,7 +8,7 @@ phase of the NPSAT. At the moment there are two implementations.
 ## Matlab implementation
 Matlab requires just one line code that loads the GUI
 ```
-TestGUI
+Mantis
 ```
 The first step is to load the data.
 To keep the size of this repo small I'm not uploading to github the 
@@ -24,7 +24,9 @@ The last step is to press run and wait...
 This code depends on some functions of the 
 [mSim toolbox](http://subsurface.gr/software/msim/). Simply 
 [download](http://subsurface.gr/software/msim/msim-download/) and follow
-few simple steps to install it.
+few simple steps to install it. 
+The `msim_compile` command is quite important as it improves the performance almost 8 times, but the code works even without.
+
 
 ## Python implementation
 Not alot to say here as this is in primitive stage.
