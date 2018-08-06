@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 05-Aug-2018 02:15:26
+% Last Modified by GUIDE v2.5 05-Aug-2018 22:54:17
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -590,3 +590,12 @@ function AccuracySlider_CreateFcn(hObject, eventdata, handles)
 if isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor',[.9 .9 .9]);
 end
+
+
+% --- Executes on button press in cpp_mode.
+function cpp_mode_Callback(hObject, eventdata, handles)
+% hObject    handle to cpp_mode (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hint: get(hObject,'Value') returns toggle state of cpp_mode

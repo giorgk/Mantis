@@ -11,6 +11,7 @@ sim_yrs = 1945:2100;
 Nsim_yrs = length(sim_yrs);
 %ax = findobj('Tag','MainPlot');
 hstat = findobj('Tag','Stats');
+hcppmode = findobj('Tag', 'cpp_mode');
 % ====================LOAD DATA AREA=======================================
 set(hstat,'String', 'Boiling data...');
 drawnow
@@ -104,7 +105,11 @@ time_lf = toc;
 set(hstat,'String', 'Calculating BTC...');
 drawnow
 tic
-BTC = ConvoluteURF(ALLURFS, LFNC, 'cpp');
+if get(hcppmode,'Value') == 1
+    BTC = ConvoluteURF(ALLURFS, LFNC, 'cpp');
+else
+    BTC = ConvoluteURF(ALLURFS, LFNC, 'vect');
+end
 %BTC_base = ConvoluteURF(ALLURFS, LFNC_base, 'vect');
 time_bct = toc;
 
