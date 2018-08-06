@@ -76,5 +76,23 @@ for ii = 1:size(URFS.URFS,1)
 end
 urfV = [URFS.URFS.v_lnd]';
 save('URFdata.mat', 'Sxyv', 'Sid', 'urfs', 'urfV', '-v7');
-%%
+%% Write dummy land categories
+load('LU_data');
+LU_name{1,2} = 'Trees';
+LU_name{2,2} = 'Bushes';
+LU_name{3,2} = 'Dairy lands';
+LU_name{4,2} = 'Urban';
+LU_name{5,2} = 'Native vegetation';
+LU_name{6,2} = 'Rainforests';
+LU_name{1,3} = 'Agricultural land';
+LU_name{2,3} = 'Urban';
+LU_name{3,3} = 'Native vegetation';
+LU_name{1,4} = 'All land uses';
+LU_groups(:,1) = [1:100]';
+LU_groups(:,2) = ceil(6*rand(100,1));
+LU_groups(:,3) = ceil(3*rand(100,1));
+LU_groups(:,4) = 1;
+Ncat = [100;6;3;1];
+groupNames = {'Individual land use', 'Sub Groups', 'Super Groups',  'All land uses'};
+save('LU_data_test', 'LU_cat', 'LU_name', 'LU_groups', 'groupNames','Ncat');
 

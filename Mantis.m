@@ -72,7 +72,7 @@ function varargout = Mantis_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 ha = axes('units','normalized', 'Tag','logo',...
-            'position',[0.92 0.89 0.11*0.7 0.11]);
+            'position',[0.94 0.91 0.09*0.7 0.09]);
 uistack(ha,'bottom');
 I=imread('mantis1.jpeg');
 hi = imagesc(I);
@@ -117,15 +117,18 @@ function LandUseList_Callback(hObject, eventdata, handles)
 %        contents{get(hObject,'Value')} returns selected item from LandUseList
 
 %display(get(hObject,'Value'));
+hSelectionMode = findobj('Tag', 'CropSelectionMenu');
+IselMode = get(hSelectionMode,'Value');
+
 ilu = get(hObject,'Value');
 lulabel = findobj('Tag','SelectedLU');
 LU = evalin('base','LU');
 LU.selected = ilu;
-set(lulabel, 'String', LU.LU_name{ilu});
+set(lulabel, 'String', LU.LU_name{ilu, IselMode});
 luslider = findobj('Tag', 'LoadingSlider');
-set(luslider, 'Value', LU.perc(ilu)/100);
+set(luslider, 'Value', LU.perc(ilu,IselMode)/100);
 percdisp = findobj('Tag','PercDisplay');
-set(percdisp, 'String', num2str(LU.perc(ilu), '%.2f'));
+set(percdisp, 'String', num2str(LU.perc(ilu,IselMode), '%.2f'));
 assignin('base', 'LU', LU)
 
 
@@ -147,17 +150,21 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
     set(hObject,'BackgroundColor','white');
 end
 
-LU = load('LU_data');
+%LU = load('LU_data');
+LU = load('LU_data_test');
 RUNS = [];
 opt = setMantisoptions;
 % Append percentage loading
-LU.perc = 100*rand(length(LU.LU_cat),1);
+LU.perc = 100*rand(size(LU.LU_name));
 LU.selected = -9;
 assignin('base', 'LU', LU);
 assignin('base', 'RUNS', RUNS);
 assignin('base', 'opt', opt);
 
-set(hObject, 'String', LU.LU_name);
+hSelectionMode = findobj('Tag', 'CropSelectionMenu');
+set(hSelectionMode,'String', LU.groupNames);
+set(hObject, 'String', {LU.LU_name{1:LU.Ncat(1),1}}');
+set(hObject, 'Value', 1);
 %h=findobj('Tag','LandUseList');
 %h.Items = LU_name';
 % =============== LOAD data==============================
@@ -330,6 +337,17 @@ function CropSelectionMenu_Callback(hObject, eventdata, handles)
 
 % Hints: contents = cellstr(get(hObject,'String')) returns CropSelectionMenu contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from CropSelectionMenu
+SelectModeOptions = cellstr(get(hObject,'String'));
+LU = evalin('base', 'LU');
+hCropList = findobj('Tag', 'LandUseList');
+
+for ii = 1:length(LU.groupNames)
+    if strcmp(SelectModeOptions{get(hObject, 'Value')}, LU.groupNames{ii})
+        set(hCropList, 'String', {LU.LU_name{1:LU.Ncat(ii),ii}}')
+        set(hCropList, 'Value', 1);
+        break;
+    end
+end
 
 
 % --- Executes during object creation, after setting all properties.
@@ -340,7 +358,6 @@ function CropSelectionMenu_CreateFcn(hObject, eventdata, handles)
 
 % Hint: popupmenu controls usually have a white background on Windows.
 %       See ISPC and COMPUTER.
-set(hObject,'String', {'Individual land use','Land use categories','All land uses'})
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
@@ -355,7 +372,7 @@ hstat = findobj('Tag','Stats');
 hslider = findobj('Tag','LoadingSlider');
 hpercdisp = findobj('Tag','PercDisplay');
 hSelectmode = findobj('Tag', 'CropSelectionMenu');
-SelectModeOptions = cellstr(get(hSelectmode,'String'));
+%SelectModeOptions = cellstr(get(hSelectmode,'String'));
 
 if LU.selected < 0
     set(hstat,'String', 'Select a first a category');
@@ -367,17 +384,21 @@ else
         set(hstat,'String', 'Input value must be numeric only (dont use (,)!');
     else
         if val >= 0 && val <= 100
-            if strcmp(SelectModeOptions{get(hSelectmode, 'Value')},'Individual land use')
-                LU.perc(LU.selected,1) = val;
-            elseif strcmp(SelectModeOptions{get(hSelectmode, 'Value')},'All land uses')
-                for ii = 1:length(LU.perc)
-                    LU.perc(ii) = val;
-                end 
-            end
-            set(hslider, 'Value', LU.perc(LU.selected)/100);
-            set(hpercdisp, 'String', num2str(LU.perc(LU.selected), '%.2f'));
+            iSelMode = get(hSelectmode, 'Value');
+            LU.perc(LU.selected, iSelMode) = val;
+            set(hslider, 'Value', LU.perc(LU.selected, iSelMode)/100);
+            set(hpercdisp, 'String', num2str(LU.perc(LU.selected, iSelMode), '%.2f'));
             set(hstat,'String', '');
             assignin('base', 'LU', LU)
+            
+            %%% propagate the change to the finer categories
+            %id = LU.LU_groups(:,iSelMode) == LU.selected;
+            %if iSelMode > 1
+            %    for ii = iSelMode-1:-1:1
+            %        LU.perc(id, ii) = val;
+            %    end
+            %end
+            
         else
             set(hstat,'String', ['[' num2str(val) '] is not between (0,100)']);
         end
