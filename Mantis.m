@@ -117,18 +117,31 @@ function LandUseList_Callback(hObject, eventdata, handles)
 %        contents{get(hObject,'Value')} returns selected item from LandUseList
 
 %display(get(hObject,'Value'));
-hSelectionMode = findobj('Tag', 'CropSelectionMenu');
-IselMode = get(hSelectionMode,'Value');
-
-ilu = get(hObject,'Value');
-lulabel = findobj('Tag','SelectedLU');
 LU = evalin('base','LU');
-LU.selected = ilu;
-set(lulabel, 'String', LU.LU_name{ilu, IselMode});
-luslider = findobj('Tag', 'LoadingSlider');
-set(luslider, 'Value', LU.perc(ilu,IselMode)/100);
+
+hSelectionMode = findobj('Tag', 'CropSelectionMenu'); % get the crop selection object
+IselMode = get(hSelectionMode,'Value'); % get the id of the selected grouping
+
+ilu = get(hObject,'Value'); % get the id of the selected entry in the crop list
+
+hlulabel = findobj('Tag','SelectedLU'); % get the uicontrol that displays the name of the crop/land
+
+
+set(hlulabel, 'String', LU.class.classes(IselMode).Names{ilu}); % set the name
+
+hluslider = findobj('Tag', 'LoadingSlider'); % get the slider object
+
+% find the percentage that corresponds to the selected crop.
+% if there are more that two crops in the selected ilu set the slider to
+% the percentage of the first
+ids_perc = LU.class.classes(IselMode).CAMLcodes{ilu}(1);
+
+LU.selected = ilu;% maybe this not needed
+
+
+set(hluslider, 'Value', LU.perc(ids_perc,1)/100);
 percdisp = findobj('Tag','PercDisplay');
-set(percdisp, 'String', num2str(LU.perc(ilu,IselMode), '%.2f'));
+set(percdisp, 'String', num2str(LU.perc(ids_perc,1), '%.2f'));
 assignin('base', 'LU', LU)
 
 
@@ -151,41 +164,22 @@ if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgr
 end
 
 %LU = load('LU_data');
-LU = load('LU_data_test');
+LU = load('LU_data_v2');
+% set up random percentages
+LU.perc = 100*rand(length(LU.DWRCAMLCode), 1);
 RUNS = [];
 opt = setMantisoptions;
 % Append percentage loading
-LU.perc = 100*rand(size(LU.LU_name));
 LU.selected = -9;
 assignin('base', 'LU', LU);
 assignin('base', 'RUNS', RUNS);
 assignin('base', 'opt', opt);
 
 hSelectionMode = findobj('Tag', 'CropSelectionMenu');
-set(hSelectionMode,'String', LU.groupNames);
-set(hObject, 'String', {LU.LU_name{1:LU.Ncat(1),1}}');
-set(hObject, 'Value', 1);
-%h=findobj('Tag','LandUseList');
-%h.Items = LU_name';
-% =============== LOAD data==============================
-if false
-    yrs = 1945:15:2050;
-    URFS = load('Local/Tule/ALLURFS'); % Unit Response Function data
-    Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land side
-    assignin('base', 'URFS', URFS);
-    assignin('base', 'Spnts', Spnts);
-    % Load Ngw
-    for jj = 1:length(yrs)
-        Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
-        Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
-    end
-    assignin('base', 'Ngw', Ngw);
-    % Load Land use historic maps
-    for jj = 1:5
-        LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
-    end
-    assignin('base', 'LUmaps', LUmaps);
-end
+set(hSelectionMode,'String', LU.class.GroupNames);
+set(hSelectionMode, 'Value', 1);
+set(hObject, 'String', LU.class.classes(1).Names);
+
 
 
 function SelectedLU_Callback(hObject, eventdata, handles)
@@ -270,7 +264,7 @@ end
 
 
 %ax = findobj('Tag','MainPlot');
-out = MainRun( [LU.LU_cat, LU.perc], runtag, opt.sim_accuracy );
+out = MainRun( [LU.DWRCAMLCode, LU.perc], runtag, opt.sim_accuracy );
 RUNS = [RUNS;out];
 assignin('base', 'RUNS', RUNS);
 set(hTagList, 'String', ListofRuns);
@@ -341,13 +335,12 @@ SelectModeOptions = cellstr(get(hObject,'String'));
 LU = evalin('base', 'LU');
 hCropList = findobj('Tag', 'LandUseList');
 
-for ii = 1:length(LU.groupNames)
-    if strcmp(SelectModeOptions{get(hObject, 'Value')}, LU.groupNames{ii})
-        set(hCropList, 'String', {LU.LU_name{1:LU.Ncat(ii),ii}}')
-        set(hCropList, 'Value', 1);
-        break;
-    end
-end
+set(hCropList, 'Value', 1);
+set(hCropList, 'String', LU.class.classes(get(hObject, 'Value')).Names)
+
+LU.selected = -9;
+assignin('base', 'LU', LU);
+
 
 
 % --- Executes during object creation, after setting all properties.
@@ -372,6 +365,7 @@ hstat = findobj('Tag','Stats');
 hslider = findobj('Tag','LoadingSlider');
 hpercdisp = findobj('Tag','PercDisplay');
 hSelectmode = findobj('Tag', 'CropSelectionMenu');
+hCropList = findobj('Tag', 'LandUseList');
 %SelectModeOptions = cellstr(get(hSelectmode,'String'));
 
 if LU.selected < 0
@@ -385,9 +379,14 @@ else
     else
         if val >= 0 && val <= 100
             iSelMode = get(hSelectmode, 'Value');
-            LU.perc(LU.selected, iSelMode) = val;
-            set(hslider, 'Value', LU.perc(LU.selected, iSelMode)/100);
-            set(hpercdisp, 'String', num2str(LU.perc(LU.selected, iSelMode), '%.2f'));
+            ilu = get(hCropList, 'Value');
+            
+            % find the ids that correspond to the selection
+            ids = LU.class.classes(iSelMode).CAMLcodes{ilu};  
+            
+            LU.perc(ids, 1) = val;
+            set(hslider, 'Value', val/100);
+            set(hpercdisp, 'String', num2str(val, '%.2f'));
             set(hstat,'String', '');
             assignin('base', 'LU', LU)
             

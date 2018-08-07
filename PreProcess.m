@@ -1,4 +1,5 @@
 %% Make a unique list of land uses
+%{
 LU = imread('Local/model_input_LU2005.tif');
 LU_cat = unique(LU);
 %% Find names for each LU category
@@ -95,4 +96,47 @@ LU_groups(:,4) = 1;
 Ncat = [100;6;3;1];
 groupNames = {'Individual land use', 'Sub Groups', 'Super Groups',  'All land uses'};
 save('LU_data_test', 'LU_cat', 'LU_name', 'LU_groups', 'groupNames','Ncat');
+%% Land use groups based on the excel
+% import the excel land use file as column vectors
+for ii = 1:size(LanduseTable20170515,1)
+    LUType{ii,1} = LanduseTable20170515{ii,1}{1};
+    DWRCAMLCode(ii,1) = LanduseTable20170515{ii,2};
+    CropLandGroup{ii,1} = LanduseTable20170515{ii,6}{1};
+end
+%}
+%%
+clear class
+class.GroupNames{1,1} = 'Individual Crop/Land';
+class.GroupNames{2,1} = 'Group Crop/Land';
+class.GroupNames{3,1} = 'All Crop/Land';
+class.classes(1,1).Names =  unique(LUType);
+class.classes(2,1).Names =  unique(CropLandGroup);
+class.classes(3,1).Names =  {'All Crops/Lands'};
+
+%%
+for ii = 1:length(class.classes(1,1).Names)
+    class.classes(1,1).CAMLcodes{ii,1} = [];
+    for jj = 1:length(LUType)
+        if strcmp(LUType{jj,1}, class.classes(1,1).Names{ii,1})
+            class.classes(1,1).CAMLcodes{ii,1} = ...
+                [class.classes(1,1).CAMLcodes{ii,1}; jj];
+        end
+        
+    end
+end
+
+for ii = 1:length(class.classes(2,1).Names)
+    class.classes(2,1).CAMLcodes{ii,1} = [];
+    for jj = 1:length(CropLandGroup)
+        if strcmp(CropLandGroup{jj,1}, class.classes(2,1).Names{ii,1})
+            class.classes(2,1).CAMLcodes{ii,1} = ...
+                [class.classes(2,1).CAMLcodes{ii,1}; jj];
+        end
+        
+    end
+end
+class.classes(3,1).CAMLcodes{1,1} = [1:length(DWRCAMLCode)]';
+%%
+save('LU_data_v2','LUType', 'DWRCAMLCode', 'class');
+
 
