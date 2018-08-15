@@ -1,5 +1,5 @@
 %% Make a unique list of land uses
-%{
+%
 LU = imread('Local/model_input_LU2005.tif');
 LU_cat = unique(LU);
 %% Find names for each LU category
