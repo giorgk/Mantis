@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 05-Aug-2018 22:54:17
+% Last Modified by GUIDE v2.5 17-Sep-2018 06:15:28
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -619,3 +619,26 @@ function cpp_mode_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 
 % Hint: get(hObject,'Value') returns toggle state of cpp_mode
+
+
+% --- Executes on selection change in SpatialSelection.
+function SpatialSelection_Callback(hObject, eventdata, handles)
+% hObject    handle to SpatialSelection (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: contents = cellstr(get(hObject,'String')) returns SpatialSelection contents as cell array
+%        contents{get(hObject,'Value')} returns selected item from SpatialSelection
+
+
+% --- Executes during object creation, after setting all properties.
+function SpatialSelection_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to SpatialSelection (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: popupmenu controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
