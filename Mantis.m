@@ -319,6 +319,12 @@ for jj = 1:5
     LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
 end
 assignin('base', 'LUmaps', LUmaps);
+
+MAPS = load('MAPS.mat');
+assignin('base', 'MAPS', MAPS);
+hPlotMap = findobj('Tag', 'MapPlot');
+plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
+
 set(hstat,'String', 'Loading Done');
 drawnow
 
