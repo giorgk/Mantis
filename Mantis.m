@@ -300,6 +300,14 @@ function LoadDataButton_Callback(hObject, eventdata, handles)
 % hObject    handle to LoadDataButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
+
+MAPS = load('MAPS.mat');
+assignin('base', 'MAPS', MAPS);
+hPlotMap = findobj('Tag', 'MapPlot');
+plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
+axis(hPlotMap,'off','equal');
+
+
 hstat = findobj('Tag','Stats');
 set(hstat,'String', 'Loading Data...');
 drawnow
@@ -320,10 +328,7 @@ for jj = 1:5
 end
 assignin('base', 'LUmaps', LUmaps);
 
-MAPS = load('MAPS.mat');
-assignin('base', 'MAPS', MAPS);
-hPlotMap = findobj('Tag', 'MapPlot');
-plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
+
 
 set(hstat,'String', 'Loading Done');
 drawnow
