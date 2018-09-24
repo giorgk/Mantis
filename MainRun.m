@@ -1,9 +1,12 @@
-function out = MainRun( LUinfo, RunTag, accuracy)
+function out = MainRun(MAPS, LUinfo, RunTag, accuracy)
 %MainRun runs the convolution for a given Land use reduction
-%   The input of the function is a N x 2 matrix. 
-%   The first column is the land use id and 
-%   the second column is the percentage of loading for the given category
-%   100 % means no reduction
+% MAPS : a structure that containts information about the area to compute
+%       the statistics
+% LUinfo: This is a N x 2 matrix. 
+%         The first column is the land use id and 
+%         the second column is the percentage of loading for the given category
+%         100 % means no reduction
+% RunTag: A tag for a given run
 
 out = [];
 yrs = 1945:15:2050;

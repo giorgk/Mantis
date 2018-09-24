@@ -238,6 +238,7 @@ function RunButton_Callback(hObject, eventdata, handles)
 LU = evalin('base','LU');
 opt = evalin('base', 'opt');
 RUNS = evalin('base','RUNS');
+MAPS = evalin('base','MAPS');
 
 % set a tag
 htagbox = findobj('Tag', 'NickNameRun');
@@ -264,7 +265,7 @@ end
 
 
 %ax = findobj('Tag','MainPlot');
-out = MainRun( [LU.DWRCAMLCode, LU.perc], runtag, opt.sim_accuracy );
+out = MainRun(MAPS, [LU.DWRCAMLCode, LU.perc], runtag, opt.sim_accuracy );
 RUNS = [RUNS;out];
 assignin('base', 'RUNS', RUNS);
 set(hTagList, 'String', ListofRuns);
@@ -320,8 +321,11 @@ assignin('base', 'Ngw', Ngw);
 for jj = 1:5
     LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
 end
+
 assignin('base', 'LUmaps', LUmaps);
 
+load('Local/Tule/TuleWells');
+assignin('base', 'Wells', Wells);
 
 
 set(hstat,'String', 'Loading Done');
