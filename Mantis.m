@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 17-Sep-2018 06:15:28
+% Last Modified by GUIDE v2.5 24-Sep-2018 00:50:33
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -300,12 +300,6 @@ function LoadDataButton_Callback(hObject, eventdata, handles)
 % hObject    handle to LoadDataButton (see GCBO)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
-
-MAPS = load('MAPS.mat');
-assignin('base', 'MAPS', MAPS);
-hPlotMap = findobj('Tag', 'MapPlot');
-plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
-axis(hPlotMap,'off','equal');
 
 
 hstat = findobj('Tag','Stats');
@@ -640,6 +634,9 @@ function SpatialSelection_Callback(hObject, eventdata, handles)
 
 % Hints: contents = cellstr(get(hObject,'String')) returns SpatialSelection contents as cell array
 %        contents{get(hObject,'Value')} returns selected item from SpatialSelection
+imap = get(hObject,'Value');
+SetMap(imap);
+
 
 
 % --- Executes during object creation, after setting all properties.
@@ -653,3 +650,75 @@ function SpatialSelection_CreateFcn(hObject, eventdata, handles)
 if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
     set(hObject,'BackgroundColor','white');
 end
+
+MAPS = load('MAPS.mat');
+
+set(hObject,'String', {MAPS.CVmap.name});
+set(hObject,'Value', 1);
+MAPS.imap = 1;
+MAPS.SelPoly = false(1,1);
+assignin('base', 'MAPS', MAPS);
+
+%hPlotMap = findobj('Tag', 'MapPlot');
+%plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
+%axis(hPlotMap,'off','equal');
+
+function SetMap(imap)
+MAPS = evalin('base','MAPS');
+if imap > length(MAPS.CVmap)
+    warndlg(['You tried to set map ' num2str(imap) ' but there are only ' num2str(length(MAPS.CVmap)) ' maps in the list']);
+else
+    hPlotMap = findobj('Tag','MapPlot');
+    
+    cla(hPlotMap);
+    hold(hPlotMap, 'on');
+    for ii = 1:length(MAPS.CVmap(imap).data)
+        plot(hPlotMap, MAPS.CVmap(imap).data(ii,1).X, MAPS.CVmap(imap).data(ii,1).Y, 'color', [0 0.4470 0.7410], 'linewidth', 1.5);
+    end
+    axis(hPlotMap, 'equal','off')
+    
+    hold(hPlotMap, 'off');
+end
+
+MAPS.imap = imap;
+MAPS.SelPoly = false(length(MAPS.CVmap(imap).data),1);
+assignin('base', 'MAPS', MAPS);
+
+
+% --- Executes on button press in PointSelect.
+function PointSelect_Callback(hObject, eventdata, handles)
+% hObject    handle to PointSelect (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+hPlotMap = findobj('Tag','MapPlot');
+axes(hPlotMap);
+p = ginput(1);
+MAPS = evalin('base','MAPS');
+imap = MAPS.imap;
+for ii = 1:length(MAPS.CVmap(imap).data)
+    in = inpolygon(p(1), p(2), MAPS.CVmap(imap).data(ii,1).X, MAPS.CVmap(imap).data(ii,1).Y);
+    if in
+        if MAPS.SelPoly(ii)
+            MAPS.SelPoly(ii)= false;
+        else
+            MAPS.SelPoly(ii)= true;
+        end
+       cla(hPlotMap);
+       hold(hPlotMap, 'on');
+       for jj = 1:length(MAPS.CVmap(imap).data)
+           if ~MAPS.SelPoly(jj)
+                plot(hPlotMap, MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y, 'color', [0 0.4470 0.7410], 'linewidth', 1.5);
+           else
+               [Xs, Ys] = polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
+               for kk = 1:length(Xs)
+                   if ispolycw(Xs{kk,1}, Ys{kk,1})
+                        patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5'); %, 'FaceColor',[0.8500 0.3250 0.0980]
+                   end
+               end
+           end
+       end
+       hold(hPlotMap, 'off');
+       break;
+    end
+end
+assignin('base', 'MAPS', MAPS);
