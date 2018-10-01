@@ -72,12 +72,14 @@ function varargout = Mantis_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 ha = axes('units','normalized', 'Tag','logo',...
-            'position',[0.94 0.91 0.09*0.7 0.09]);
+            'position',[0.949 0.91 0.09*0.7 0.09]);
 uistack(ha,'bottom');
 I=imread('mantis1.jpeg');
 hi = imagesc(I);
 set(ha,'handlevisibility','off', ...
             'visible','off')
+axis(ha,'image');
+
 
 
 % --- Executes on slider movement.
@@ -266,11 +268,13 @@ end
 
 %ax = findobj('Tag','MainPlot');
 out = MainRun(MAPS, [LU.DWRCAMLCode, LU.perc], runtag, opt.sim_accuracy );
-RUNS = [RUNS;out];
-assignin('base', 'RUNS', RUNS);
-set(hTagList, 'String', ListofRuns);
-set(hTagList, 'Value', length(ListofRuns));
-drawnow
+if ~isempty(out)
+    RUNS = [RUNS;out];
+    assignin('base', 'RUNS', RUNS);
+    set(hTagList, 'String', ListofRuns);
+    set(hTagList, 'Value', length(ListofRuns));
+    drawnow
+end
 
 
 
@@ -304,7 +308,7 @@ function LoadDataButton_Callback(hObject, eventdata, handles)
 
 
 hstat = findobj('Tag','Stats');
-set(hstat,'String', 'Loading Data...');
+set(hstat,'String', 'Loading URFS...');
 drawnow
 yrs = 1945:15:2050;
 URFS = load('Local/Tule/ALLURFS'); % Unit Response Function data
@@ -312,19 +316,27 @@ Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land
 assignin('base', 'URFS', URFS);
 assignin('base', 'Spnts', Spnts);
 % Load Ngw
+set(hstat,'String', 'Loading NGW maps...');
+drawnow
 for jj = 1:length(yrs)
     Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
     Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
 end
 assignin('base', 'Ngw', Ngw);
 % Load Land use historic maps
+set(hstat,'String', 'Loading LU maps...');
+drawnow
 for jj = 1:5
     LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
 end
 
 assignin('base', 'LUmaps', LUmaps);
 
-load('Local/Tule/TuleWells');
+% load wells
+set(hstat,'String', 'Loading Wells...');
+drawnow
+Wells = shaperead('Local/Tule/TuleWells3310');
+%load('Local/Tule/TuleWells');
 assignin('base', 'Wells', Wells);
 
 
@@ -524,7 +536,7 @@ for ii = 1:size(RUNS,1)
         hold(hPlot, 'on');
         linesPlot = plot(hPlot, sim_yrs, perc', 'color', opt.clr_list(opt.clr_id,:), ...
                         'linewidth', 1.5); %, 'DisplayName', RUNS(ii,1).Tag
-        linesGroup = hggroup('DisplayName', RUNS(ii,1).Tag);
+        linesGroup = hggroup(hPlot,'DisplayName', RUNS(ii,1).Tag);
         set(linesPlot,'Parent',linesGroup);
         set(get(get(linesGroup,'Annotation'),'LegendInformation'),'IconDisplayStyle','on');
         
@@ -662,6 +674,7 @@ set(hObject,'Value', 1);
 MAPS.imap = 1;
 MAPS.SelPoly = false(1,1);
 assignin('base', 'MAPS', MAPS);
+SetMap(1);
 
 %hPlotMap = findobj('Tag', 'MapPlot');
 %plot(hPlotMap, MAPS.CVmap(1,1).data.X, MAPS.CVmap(1,1).data.Y, 'linewidth',2);
@@ -696,33 +709,45 @@ function PointSelect_Callback(hObject, eventdata, handles)
 % handles    structure with handles and user data (see GUIDATA)
 hPlotMap = findobj('Tag','MapPlot');
 axes(hPlotMap);
-p = ginput(1);
+
 MAPS = evalin('base','MAPS');
-imap = MAPS.imap;
-for ii = 1:length(MAPS.CVmap(imap).data)
-    in = inpolygon(p(1), p(2), MAPS.CVmap(imap).data(ii,1).X, MAPS.CVmap(imap).data(ii,1).Y);
-    if in
-        if MAPS.SelPoly(ii)
-            MAPS.SelPoly(ii)= false;
-        else
-            MAPS.SelPoly(ii)= true;
-        end
-       cla(hPlotMap);
-       hold(hPlotMap, 'on');
-       for jj = 1:length(MAPS.CVmap(imap).data)
-           if ~MAPS.SelPoly(jj)
-                plot(hPlotMap, MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y, 'color', [0 0.4470 0.7410], 'linewidth', 1.5);
-           else
-               [Xs, Ys] = polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
-               for kk = 1:length(Xs)
-                   if ispolycw(Xs{kk,1}, Ys{kk,1})
-                        patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5'); %, 'FaceColor',[0.8500 0.3250 0.0980]
+
+while 1
+    [x, y, button] = ginput(1);
+    if button ~= 1
+        break;
+    end
+    p = [x y];
+
+    %get(gcf,'SelectionType')
+
+    
+    imap = MAPS.imap;
+    for ii = 1:length(MAPS.CVmap(imap).data)
+        in = inpolygon(p(1), p(2), MAPS.CVmap(imap).data(ii,1).X, MAPS.CVmap(imap).data(ii,1).Y);
+        if in
+            if MAPS.SelPoly(ii)
+                MAPS.SelPoly(ii)= false;
+            else
+                MAPS.SelPoly(ii)= true;
+            end
+           cla(hPlotMap);
+           hold(hPlotMap, 'on');
+           for jj = 1:length(MAPS.CVmap(imap).data)
+               if ~MAPS.SelPoly(jj)
+                    plot(hPlotMap, MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y, 'color', [0 0.4470 0.7410], 'linewidth', 1.5);
+               else
+                   [Xs, Ys] = polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
+                   for kk = 1:length(Xs)
+                       if ispolycw(Xs{kk,1}, Ys{kk,1})
+                            patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5'); %, 'FaceColor',[0.8500 0.3250 0.0980]
+                       end
                    end
                end
            end
-       end
-       hold(hPlotMap, 'off');
-       break;
+           hold(hPlotMap, 'off');
+           break;
+        end
     end
 end
 assignin('base', 'MAPS', MAPS);

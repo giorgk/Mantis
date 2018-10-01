@@ -1,12 +1,26 @@
 function out = MainRun(MAPS, LUinfo, RunTag, accuracy)
-%MainRun runs the convolution for a given Land use reduction
+% MainRun runs the convolution for a given Land use reduction
+%
 % MAPS : a structure that containts information about the area to compute
-%       the statistics
+%        the statistics
+%        The fields of the map structure are CVmap, imap, SelPoly
+%   CVmap is also a structure with 2 fields name and data.
+%        the name is what users select from the dropdown menu and the data
+%        contain the structure as it is gread by the shaperead function.
+%   imap is an integer that spans from 1 to length(MAPS.CVmap) indicating
+%        which map is active
+%   SelPoly is a boolean vector of length length(MAPS.CVmap(MAPS.imap,1).data)
+%           where true indicates which areas to consider during the
+%           computations
+%           
 % LUinfo: This is a N x 2 matrix. 
 %         The first column is the land use id and 
 %         the second column is the percentage of loading for the given category
 %         100 % means no reduction
+%
 % RunTag: A tag for a given run
+%
+% accuracy indicats the percantage of wells to use for the computation 
 
 out = [];
 yrs = 1945:15:2050;
@@ -22,6 +36,31 @@ URFS = evalin('base','URFS');
 Spnts = evalin('base','Spnts');
 Ngw = evalin('base','Ngw');
 LUmaps = evalin('base','LUmaps');
+Wells = evalin('base','Wells');
+
+% Pick wells based on the map selection
+if MAPS.imap > length(MAPS.CVmap)
+    error('Wrong Map id')
+end
+id_areas = find(MAPS.SelPoly);
+if ~isempty(id_areas)
+    wx = [Wells.X]';
+    wy = [Wells.Y]';
+    well_ids = [];
+    for ii = 1:length(id_areas)
+        in = inpolygon(wx, wy, MAPS.CVmap(MAPS.imap,1).data(id_areas(ii),1).X,...
+                               MAPS.CVmap(MAPS.imap,1).data(id_areas(ii),1).Y);
+        well_ids = [well_ids; [Wells(in,1).id]'];
+    end
+    if isempty(well_ids)
+        set(hstat,'String', 'No wells found in the selected areas');
+        return
+    end
+        
+else
+    well_ids = [Wells.id]';
+end
+
 
 Spnts_Eid = [Spnts.Eid]';
 Spnts_X = [Spnts.X]';
@@ -29,6 +68,11 @@ Spnts_Y = [Spnts.Y]';
 Spnts_V = [Spnts.Vland]';
 
 Wellids = unique(Spnts_Eid);
+
+% the Wellids are the entity ids of the URFS, while the well_ids are the
+% ids of the wells to consider for the statistical analysis. 
+% Finally the wells is to consider we be a intersection of these two sets.
+Wellids = intersect(well_ids-1,Wellids);
 
 % choose a number of wells based on the accuracy
 Nwells = ceil(max(10, length(Wellids)*accuracy));
