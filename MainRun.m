@@ -50,7 +50,7 @@ if ~isempty(id_areas)
     for ii = 1:length(id_areas)
         in = inpolygon(wx, wy, MAPS.CVmap(MAPS.imap,1).data(id_areas(ii),1).X,...
                                MAPS.CVmap(MAPS.imap,1).data(id_areas(ii),1).Y);
-        well_ids = [well_ids; [Wells(in,1).id]'];
+        well_ids = [well_ids; [Wells(in,1).Eid]'];
     end
     if isempty(well_ids)
         set(hstat,'String', 'No wells found in the selected areas');
@@ -75,8 +75,8 @@ Wellids = unique(Spnts_Eid);
 
 % the Wellids are the entity ids of the URFS, while the well_ids are the
 % ids of the wells to consider for the statistical analysis. 
-% Finally the wells is to consider we be a intersection of these two sets.
-Wellids = intersect(well_ids-1,Wellids);
+% Finally the wells to consider is the intersection of these two sets.
+Wellids = intersect(well_ids, Wellids);
 
 % choose a number of wells based on the accuracy
 Nwells = ceil(max(10, length(Wellids)*accuracy));
@@ -96,7 +96,7 @@ tempurf = URFS.URFS(Spnt_sim_id,:);
 IJ = findIJ(Spnts_X, Spnts_Y);
 
 LFNC = zeros(length(Spnt_sim_id), Nsim_yrs);
-ALLURFS = zeros(length(Spnt_sim_id),length(URFS.URFS(1).URF));
+ALLURFS = zeros(length(Spnt_sim_id),200);
 set(hstat,'String', 'Building Loading functions...');
 drawnow
 tic
@@ -151,7 +151,11 @@ for ii = 1:length(Spnt_sim_id)
     LFNC(ii,:) = LF;
     %LFNC_base(ii,:) = LF_base;
     %ALLURFS(ii,:) = tempurf(ii).URF;
-    ALLURFS(ii,:) = reBuildURF(tempurf(ii).URF.urf.x, tempurf(ii).URF.urf.y);
+    if isempty(tempurf(ii).urf)
+        ALLURFS(ii,:) = zeros(1,200);
+    else
+        ALLURFS(ii,:) = reBuildURF(tempurf(ii).urf.x, tempurf(ii).urf.y);
+    end
 end
 time_lf = toc;
 set(hstat,'String', 'Calculating BTC...');
@@ -167,7 +171,7 @@ time_bct = toc;
 
 tic
 wells_btc = zeros(length(well_sim_id), size(LFNC,2));
-wgh = [tempurf.v_cds]';
+wgh = [tempurf.Vcds]';
 for ii = 1:length(well_sim_id)
     % find the streamlines of well ii
     id = find(Spnts_Eid == well_sim_id(ii));
