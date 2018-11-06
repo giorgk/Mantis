@@ -72,12 +72,13 @@ function varargout = Mantis_OutputFcn(hObject, eventdata, handles)
 % Get default command line output from handles structure
 varargout{1} = handles.output;
 ha = axes('units','normalized', 'Tag','logo',...
-            'position',[0.94 0.91 0.09*0.7 0.09]);
+            'position',[0.95 0.91 0.09*0.7 0.09]);
 uistack(ha,'bottom');
 I=imread('mantis1.jpeg');
 hi = imagesc(I);
 set(ha,'handlevisibility','off', ...
             'visible','off')
+axis(ha,'equal')
 
 
 % --- Executes on slider movement.
@@ -307,10 +308,16 @@ hstat = findobj('Tag','Stats');
 set(hstat,'String', 'Loading Data...');
 drawnow
 yrs = 1945:15:2050;
-URFS = load('Local/Tule/ALLURFS'); % Unit Response Function data
-Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land side
+
+% Unit Response Function data
+%URFS = load('Local/Tule/ALLURFS'); 
+%Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land side
+URFS = load('Local/CVHM/CVHM_ALLURFS_TA');
+
 assignin('base', 'URFS', URFS);
-assignin('base', 'Spnts', Spnts);
+%assignin('base', 'Spnts', Spnts);
+
+
 % Load Ngw
 for jj = 1:length(yrs)
     Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
@@ -324,7 +331,9 @@ end
 
 assignin('base', 'LUmaps', LUmaps);
 
-load('Local/Tule/TuleWells');
+% Load wells
+%load('Local/Tule/TuleWells');
+load('Local/CVHM/CVHMWells');
 assignin('base', 'Wells', Wells);
 
 

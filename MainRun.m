@@ -19,14 +19,18 @@ hcppmode = findobj('Tag', 'cpp_mode');
 set(hstat,'String', 'Boiling data...');
 drawnow
 URFS = evalin('base','URFS');
-Spnts = evalin('base','Spnts');
+%Spnts = evalin('base','Spnts');
 Ngw = evalin('base','Ngw');
 LUmaps = evalin('base','LUmaps');
 
-Spnts_Eid = [Spnts.Eid]';
-Spnts_X = [Spnts.X]';
-Spnts_Y = [Spnts.Y]';
-Spnts_V = [Spnts.Vland]';
+%Spnts_Eid = [Spnts.Eid]';
+%Spnts_X = [Spnts.X]';
+%Spnts_Y = [Spnts.Y]';
+%Spnts_V = [Spnts.Vland]';
+Spnts_Eid = [URFS.URFS.Eid]';
+Spnts_X = [URFS.URFS.X]';
+Spnts_Y = [URFS.URFS.Y]';
+Spnts_V = [URFS.URFS.Vland]';
 
 Wellids = unique(Spnts_Eid);
 
@@ -102,7 +106,8 @@ for ii = 1:length(Spnt_sim_id)
     
     LFNC(ii,:) = LF;
     %LFNC_base(ii,:) = LF_base;
-    ALLURFS(ii,:) = tempurf(ii).URF;
+    %ALLURFS(ii,:) = tempurf(ii).URF;
+    ALLURFS(ii,:) = reBuildURF(tempurf(ii).URF.urf.x, tempurf(ii).URF.urf.y);
 end
 time_lf = toc;
 set(hstat,'String', 'Calculating BTC...');
@@ -192,10 +197,14 @@ function IJ = findIJ(x, y)
 end
 
 function id = findElemAinB(A,B)
-id = [];
-for ii = 1:length(A)
-    id = [id; find(B == A(ii))];
+    id = [];
+    for ii = 1:length(A)
+        id = [id; find(B == A(ii))];
+    end
 end
+
+function urf = reBuildURF(x,y)
+    urf = interp1(x,y,1:200);
 end
 
 
