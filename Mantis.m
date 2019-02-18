@@ -555,7 +555,7 @@ for ii = 1:size(RUNS,1)
         set(get(hPlot,'XLabel'), 'String', 'Time[years]');
         set(get(hPlot,'YLabel'), 'String', 'Concentration [mg/l]');
         set(hPlot, 'XTick', [1950:20:2100]);
-        set(hPlot, 'XTickLabel', datestr(datenum(1950:20:2100,1,1),'YY'));
+        set(hPlot, 'XTickLabel', datestr(datenum(1950:20:2100,1,1),'YYYY'));
         set(hPlot, 'XLim', [sim_yrs(1) sim_yrs(end)]);
         legend(hPlot,'Location', 'northwest');
         grid(hPlot, 'on');

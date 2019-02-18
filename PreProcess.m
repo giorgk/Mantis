@@ -138,5 +138,84 @@ end
 class.classes(3,1).CAMLcodes{1,1} = [1:length(DWRCAMLCode)]';
 %%
 save('LU_data_v2','LUType', 'DWRCAMLCode', 'class');
+%% Export land use categories as javascript variable
+% print to javascript map variable the cropMap. 
+% An association between CAMLcode and group name
+fid = fopen('tmp.tmp','w');
+fprintf(fid, 'var cropMap = {};\n');
+for ii = 1:length(LU.DWRCAMLCode)
+    fprintf(fid, 'cropMap[%d] = {percentage: %0.2f, name: ''%s''};\n', LU.DWRCAMLCode(ii,1), 1, LU.LUType{ii,1});  
+end
+fclose(fid);
+%% export as ee.Dictionary
+fid = fopen('tmp.tmp','w');
+fprintf(fid, 'var cropDict = ee.Dictionary.fromLists([\n');
+for ii = 1:length(LU.DWRCAMLCode)
+    fprintf(fid, '''%d'',', LU.DWRCAMLCode(ii,1));
+    if mod(ii,20) == 0
+        fprintf(fid, '\n');
+    end
+end
+fprintf(fid, '],[\n');
+for ii = 1:length(LU.DWRCAMLCode)
+    fprintf(fid, '{percentage: %0.2f, name: ''%s''},\n', 1, LU.LUType{ii,1});
+end
+fprintf(fid, ']);\n');
+
+fclose(fid);
+
+%% Create a list of groups
+fid = fopen('tmp1.tmp','w');
+fprintf(fid, 'var cropGroups = {};\n');
+for ii = [3 2 1]
+   fprintf(fid, 'cropGroups[%d] = {className: ''%s'', groupNames: [\n', ii, LU.class.GroupNames{ii,1});
+   for jj = 1:length(LU.class.classes(ii,1).Names)
+       fprintf(fid, '''%s'', ', LU.class.classes(ii,1).Names{jj,1});
+       if mod(jj, 3) == 0
+           fprintf(fid, '\n');
+       end
+   end
+   fprintf(fid, '], codes : [\n');
+   for jj = 1:length(LU.class.classes(ii,1).Names)
+       fprintf(fid, '[');
+       for kk = 1:length(LU.class.classes(ii, 1).CAMLcodes{jj, 1})
+          fprintf(fid, '%d,', LU.DWRCAMLCode(LU.class.classes(ii, 1).CAMLcodes{jj, 1}(kk)));
+          if mod(kk,20) == 0
+              fprintf(fid, '\n');
+          end
+       end
+       fprintf(fid,'],\n');
+   end
+   fprintf(fid, ']};\n');
+end
+
+fclose(fid);
+%% As dictionary
+fid = fopen('tmp1.tmp','w');
+fprintf(fid, 'var cropGroups = ee.Dictionary.fromLists(\n');
+fprintf(fid, '[''1'', ''2'', ''3''],[\n');
+for ii = [3 2 1]
+    fprintf(fid, '{names:[\n');
+    for jj = 1:length(LU.class.classes(ii,1).Names)
+        fprintf(fid, '''%s'',\n', LU.class.classes(ii,1).Names{jj});
+    end
+    fprintf(fid, '],\n');
+    fprintf(fid, 'groups:[\n');
+    for jj = 1:length(LU.class.classes(ii,1).CAMLcodes)
+        fprintf(fid, '[');
+        for kk = 1:length(LU.class.classes(ii,1).CAMLcodes{jj,1})
+            fprintf(fid, '%d,', LU.DWRCAMLCode(LU.class.classes(ii,1).CAMLcodes{jj,1}(kk)));
+            if mod(kk, 20) == 0
+                fprintf(fid, '\n');
+            end
+        end
+        fprintf(fid, '],\n');
+    end
+    fprintf(fid, ']},\n');
+end
+fprintf(fid, ']\n');
+fprintf(fid, ');\n');
+fclose(fid);
+
 
 
