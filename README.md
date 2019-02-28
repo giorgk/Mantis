@@ -41,7 +41,7 @@ The matlab server version runs with the following command
 ```
 MantisTestServer
 ```
-####Setup
+#### Setup
 First is going to load the require data and this can take up to a minute or more depending the system.
 
 The following is a list of data needed and their location relative to the folder this script is running
@@ -50,7 +50,7 @@ The following is a list of data needed and their location relative to the folder
 2. **N loading maps**. These are 8 images under *Local/Ngw_XXXX.tif*
 3. **Land use maps** These are 5 images under *Local/model_input_LUXXXX.tif*
 4. **Well locations** under *Local/CVHM/CVHMWells*
-5. ** Central Valley Maps** under *MAPS*
+5. **Central Valley Maps** under *MAPS*
 
 Note that the last name in the path is the actually file. 
 
