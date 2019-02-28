@@ -1,0 +1,26 @@
+% This is the Mantis server configuration file
+% The format of the file is always KEYWORD:value
+% All the following KEYWORDS have to be defined and they must be capital letters
+
+% This is the FOLDER where the Ngw_####.tif files are
+NGWS:/home/giorgk/Documents/UCDAVIS/Mantis/Local/
+    
+% This is the FOLDER where the model_input_LU####.tif files are
+LUS:/home/giorgk/Documents/UCDAVIS/Mantis/Local/
+%
+% This is the FILE with the URFS
+URFS:/home/giorgk/Documents/UCDAVIS/Mantis/Local/CVHM/CVHM_ALLURFS_TA.mat
+%
+%This file with the wells
+WELLS:/home/giorgk/Documents/UCDAVIS/Mantis/Local/CVHM/CVHMWells.mat
+%
+% The file with the Maps
+MAPS:/home/giorgk/Documents/UCDAVIS/Mantis/MAPS.mat
+%
+% This is the waiting time in seconds before checking for input files
+WAIT:2
+
+
+		
+		
+

@@ -7,6 +7,9 @@ inputfile = [folder prefix 'inp'];
 lockfile = [folder prefix 'lock'];
 outfile = [folder prefix 'out'];
 quitfile = [folder prefix 'quit'];
+pathsfile = [folder prefix 'opt'];
+
+Opts = readfilepaths(pathsfile);
 
 icounter = 0;
 yrs = 1945:15:2050;
@@ -15,23 +18,24 @@ Nsim_yrs = length(sim_yrs);
 
 % ====== Load data ==================
 disp('loading data...')
-URFS = load('Local/CVHM/CVHM_ALLURFS_TA');
+URFS = load(Opts.URFS);
 for jj = 1:length(yrs)
-    Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
+    Ngw{jj,1} = imread([Opts.NGWS 'Ngw_' num2str(yrs(jj)) '.tif']);
     Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
 end
 
 for jj = 1:5
-    LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
+    LUmaps{jj,1} = imread([Opts.LUS 'model_input_LU' num2str(yrs(jj)) '.tif']);
 end
-load('Local/CVHM/CVHMWells');
-load('MAPS');
+load(Opts.WELLS);
+load(Opts.MAPS);
+waittime = str2double(Opts.WAIT);
 %====================================
 
 
 
 while true
-    pause(1);
+    pause(waittime);
     icounter = icounter+1
     if exist(inputfile, 'file') == 2
         % create lock server file
@@ -210,7 +214,7 @@ end
 
 function writeoutfile(outfile, BTC)
     fid = fopen(outfile,'w');
-    fprintf(fid,'%d\n', size(BTC,1));
+    fprintf(fid,'%d %d\n', size(BTC));
     frmt = '%f';
     for ii = 2:size(BTC,2)
         frmt = [frmt ' %f'];
@@ -221,4 +225,20 @@ end
 
 function urf = reBuildURF(x,y)
     urf = interp1(x,y,1:200);
+end
+
+function filePaths = readfilepaths(pathsfile)
+    fid = fopen(pathsfile);
+    while ~feof(fid)
+        temp = strip(fgetl(fid));
+        if isempty(temp)
+            continue
+        end
+        if strcmp(temp(1), '%')
+            continue
+        end
+        C = textscan(temp,'%s', 'Delimiter',':');
+        filePaths.(C{1,1}{1,1}) = C{1,1}{2,1};
+    end
+    fclose(fid);
 end
