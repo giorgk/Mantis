@@ -42,7 +42,7 @@ The matlab server version runs with the following command
 MantisTestServer
 ```
 #### Setup
-First is going to load the require data and this can take up to a minute or more depending the system.
+The program requires alot of data and loading can take up to a minute or more depending the system.
 
 The following is a list of data needed and their location relative to the folder this script is running
 
@@ -52,13 +52,18 @@ The following is a list of data needed and their location relative to the folder
 4. **Well locations** under *Local/CVHM/CVHMWells*
 5. **Central Valley Maps** under *MAPS*
 
-Note that the last name in the path is the actually file. 
+Note that the last name in the path is actually the file itself. 
 
 #### Trigger computation
 To trigger any computation the program expects to find an input file with the name **MantisServer.inp**.
+
 The format of the file is as follows
-In one line provide 
+
+First line: 
+
 MapID {regionIDs}
+
+where:
 
 | Map ID | Region | Valid Region IDS |
 | --- | ----------- | ----------- |
@@ -68,22 +73,30 @@ MapID {regionIDs}
 | 4 | B118 | 1 - 45 |
  
 The matlab file **MAPS** contains the definition for the region IDs.
-To trigger the computation for the Sacramento Valley the first line should be 
-1 2, while for running the 19th CVHM far the first line becomes 
+
+To trigger the computation for the Sacramento Valley the first line should be 1 2, 
+
+while for running the 19th CVHM farm the first line becomes 
 2 21 because the 19th farm is in the 21 record in the CVHM farm gis layer.
 
 The second line is the *number of crops* to change the percentage.
+
 Next repeat *number of crops* times the following pattern:
+
 CropID percentage
 
-When the program fins the input files creates an empty **MantisServer.lock** file.
+When the program finds the input files creates an empty **MantisServer.lock** file.
 This file will be deleted by program once the computations are finished.
 It is not safe to attempt to read the output of the program **MantisServer.out** while the **MantisServer.lock** is present.
 
 The format of the **MantisServer.out** is the following:
+
 The first line is the *number of wells* and the *number of time steps*.
+
 Next repeat *number of wells* times the well breakthrough curve which is consist of *number of time steps* numbers separated by space.
 
-For both files input and outpus the separation character is the space.
+For both files input and outputs the separation character is just a space.
 
-To terminate the program one way is to copy a file with name **MantisServer.quit**. The file can be empty
+To terminate the program one way is to copy a file with name **MantisServer.quit** 
+
+The file can be empty and it will be deleted before the program terminates.
