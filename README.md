@@ -85,3 +85,5 @@ The first line is the *number of wells* and the *number of time steps*.
 Next repeat *number of wells* times the well breakthrough curve which is consist of *number of time steps* numbers separated by space.
 
 For both files input and outpus the separation character is the space.
+
+To terminate the program one way is to copy a file with name **MantisServer.quit**. The file can be empty
