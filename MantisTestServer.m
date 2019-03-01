@@ -18,7 +18,9 @@ Nsim_yrs = length(sim_yrs);
 
 % ====== Load data ==================
 disp('loading data...')
+force_output();
 URFS = load(Opts.URFS);
+
 for jj = 1:length(yrs)
     Ngw{jj,1} = imread([Opts.NGWS 'Ngw_' num2str(yrs(jj)) '.tif']);
     Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
@@ -31,13 +33,19 @@ load(Opts.WELLS);
 load(Opts.MAPS);
 waittime = str2double(Opts.WAIT);
 %====================================
-
+disp('Mantis Server Ready!')
+force_output();
 
 
 while true
     pause(waittime);
     icounter = icounter+1
+    if icounter > 100; icounter = 0; end
+    force_output();
     if exist(inputfile, 'file') == 2
+        disp('Mantis Server enters prediction mode')
+        force_output();
+        tic;
         % create lock server file
         fid = fopen(lockfile,'w');
         fclose(fid);
@@ -49,9 +57,22 @@ while true
         wy = [Wells.Y]';
         well_ids = [];
         for ii = 1:length(RegIDs)
-            in = inpolygon(wx, wy, CVmap(MapID,1).data(RegIDs(ii),1).X,...
-                                   CVmap(MapID,1).data(RegIDs(ii),1).Y);
-            well_ids = [well_ids; [Wells(in,1).Eid]'];
+            if exist('OCTAVE_VERSION')
+                Ps = splitPolygons([CVmap(MapID,1).data(RegIDs(ii),1).X' ...
+                                    CVmap(MapID,1).data(RegIDs(ii),1).Y']);
+                % the code does not make distinction between the polygons
+                % that are actually holes. However the wells shouldnt be
+                % in holes.
+                for jj = 1:length(Ps)
+                    in = isPointInPolygon([wx wy], Ps{jj,1});
+                    well_ids = [well_ids; [Wells(in,1).Eid]'];
+                end
+            else
+                in = inpolygon(wx, wy, CVmap(MapID,1).data(RegIDs(ii),1).X,...
+                                       CVmap(MapID,1).data(RegIDs(ii),1).Y);
+                well_ids = [well_ids; [Wells(in,1).Eid]'];
+            end
+            
         end
 
         Spnts_Eid = [URFS.URFS.Eid]';
@@ -142,12 +163,14 @@ while true
         end
         
         writeoutfile(outfile, wells_btc);
-        
+        disp(['Mantis Server exits prediction mode in ' num2str(toc) ' sec'])
+        force_output();
         delete(inputfile);
         delete(lockfile);
     end
     
     if exist(quitfile, 'file') == 2
+        disp('Mantis Server terminates');
         delete(quitfile);
         break;
     end
@@ -230,7 +253,12 @@ end
 function filePaths = readfilepaths(pathsfile)
     fid = fopen(pathsfile);
     while ~feof(fid)
-        temp = strip(fgetl(fid));
+        temp = fgetl(fid);
+        if exist('OCTAVE_VERSION')
+            temp = strtrim(temp);
+        else
+            temp = strip(temp);
+        end
         if isempty(temp)
             continue
         end
@@ -242,3 +270,13 @@ function filePaths = readfilepaths(pathsfile)
     end
     fclose(fid);
 end
+
+function force_output()
+    if exist('OCTAVE_VERSION')
+        fflush(stdout);
+    else
+        drawnow('update');
+    end
+
+end
+
