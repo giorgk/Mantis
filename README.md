@@ -80,7 +80,7 @@ The matlab file **MAPS** contains the definition for the region IDs.
 
 To trigger the computation for the Sacramento Valley the first line should be 
 ```
-1 2
+2 2
 ``` 
 
 while for running the 19th and 21st CVHM farm the first line becomes 
