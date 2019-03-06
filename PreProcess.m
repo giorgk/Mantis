@@ -1,3 +1,10 @@
+%% Create MAPS.mat file
+Names = {'Outline', 'Basins', 'Counties', 'B118', 'CVHM Farms'};
+shps = {'CV_outline_simple', 'Basins_simple', 'counties_simple', 'B118_simple', 'CVHM_FarmsTA'};
+for ii = 1:length(shps)
+    CVmap(ii,1).name = Names{ii};
+    CVmap(ii,1).data = shaperead(['gis_data/' shps{ii}]);
+end
 %% Make a unique list of land uses
 %
 LU = imread('Local/model_input_LU2005.tif');
