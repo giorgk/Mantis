@@ -45,7 +45,7 @@ MantisTestServer
 #### Setup
 The program requires alot of data and loading can take up to a minute or more depending the system.
 
-When the program starts, reads the option file **MantisServer.opt** which includes the following list of options in the form of KEYWORD:value
+When the program starts, reads the option file **MantisServer.opt** which includes the following list of options in the form of KEYWORD;value
 
 |KEYWORD| Description|
 | --- | ----------- | 
