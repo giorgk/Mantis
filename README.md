@@ -72,11 +72,15 @@ where:
 | Map ID | Region | Valid Region IDS |
 | --- | ----------- | ----------- |
 | 1 | Central Valley | not needed |
-| 2 | SubBasins | 1 - 3 |
-| 3 | CVHM farms | 1 - 21 |
+| 2 | Basins | 1 - 3 |
+| 3 | Counties| 1 - 58 *|
 | 4 | B118 | 1 - 45 |
+| 5 | CVHM farms | 1 - 21 |
+
+*Only the counties within the central valley would return BTCs
  
 The matlab file **MAPS** contains the definition for the region IDs.
+
 
 To trigger the computation for the Sacramento Valley the first line should be 
 ```
@@ -85,7 +89,7 @@ To trigger the computation for the Sacramento Valley the first line should be
 
 while for running the 19th and 21st CVHM farm the first line becomes 
 ```
-3 21 1 
+5 21 1 
 ```
 because the 19th farm is in the 21 record in the CVHM farm gis layer and the 21st farm is the 1st record in the same file.
 
@@ -97,7 +101,7 @@ Next repeat **number of crops** times the following pattern:
 
 An example of the input file which defines loading reductions for 12 crops for two of the farms is:
 ```
-3 19 21
+5 19 21
 12
 301 0.5
 302 0.5
