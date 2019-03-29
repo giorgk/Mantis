@@ -22,7 +22,7 @@ function varargout = Mantis(varargin)
 
 % Edit the above text to modify the response to help Mantis
 
-% Last Modified by GUIDE v2.5 24-Sep-2018 00:50:33
+% Last Modified by GUIDE v2.5 29-Mar-2019 15:57:33
 
 % Begin initialization code - DO NOT EDIT
 gui_Singleton = 1;
@@ -306,8 +306,15 @@ function LoadDataButton_Callback(hObject, eventdata, handles)
 % eventdata  reserved - to be defined in a future version of MATLAB
 % handles    structure with handles and user data (see GUIDATA)
 
+% Find the textbox for the configuration file
+hcnfg = findobj('Tag', 'configfileTag');
+
+
+Opts = readfilepaths(hcnfg.String);
 
 hstat = findobj('Tag','Stats');
+
+
 set(hstat,'String', 'Loading URFS...');
 drawnow
 yrs = 1945:15:2050;
@@ -315,7 +322,7 @@ yrs = 1945:15:2050;
 % Unit Response Function data
 %URFS = load('Local/Tule/ALLURFS'); 
 %Spnts = shaperead('gis_data/TuleStrmlnPointsHome'); % URF end Points at the land side
-URFS = load('Local/CVHM/CVHM_ALLURFS_TA');
+URFS = load(Opts.URFS);
 
 assignin('base', 'URFS', URFS);
 %assignin('base', 'Spnts', Spnts);
@@ -325,7 +332,7 @@ assignin('base', 'URFS', URFS);
 set(hstat,'String', 'Loading NGW maps...');
 drawnow
 for jj = 1:length(yrs)
-    Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
+    Ngw{jj,1} = imread([Opts.NGWS 'Ngw_' num2str(yrs(jj)) '.tif']);
     Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
 end
 assignin('base', 'Ngw', Ngw);
@@ -333,7 +340,7 @@ assignin('base', 'Ngw', Ngw);
 set(hstat,'String', 'Loading LU maps...');
 drawnow
 for jj = 1:5
-    LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
+    LUmaps{jj,1} = imread([Opts.LUS 'model_input_LU' num2str(yrs(jj)) '.tif']);
 end
 
 assignin('base', 'LUmaps', LUmaps);
@@ -341,7 +348,7 @@ assignin('base', 'LUmaps', LUmaps);
 
 % Load wells
 %load('Local/Tule/TuleWells');
-load('Local/CVHM/CVHMWells');
+load(Opts.WELLS);
 
 % load wells
 set(hstat,'String', 'Loading Wells...');
@@ -748,10 +755,20 @@ while 1
                if ~MAPS.SelPoly(jj)
                     plot(hPlotMap, MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y, 'color', [0 0.4470 0.7410], 'linewidth', 1.5);
                else
-                   [Xs, Ys] = polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
+                   if license('test','map_toolbox')
+                       [Xs, Ys] = polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
+                   else
+                       [Xs, Ys] = msim_polysplit(MAPS.CVmap(imap).data(jj,1).X, MAPS.CVmap(imap).data(jj,1).Y);
+                   end
                    for kk = 1:length(Xs)
-                       if ispolycw(Xs{kk,1}, Ys{kk,1})
-                            patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5'); %, 'FaceColor',[0.8500 0.3250 0.0980]
+                       if license('test','map_toolbox')
+                           if ispolycw(Xs{kk,1}, Ys{kk,1})
+                                patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5'); %, 'FaceColor',[0.8500 0.3250 0.0980]
+                           end
+                       else
+                           % if we dont have the mapping toolbox we will
+                           % paint even the islands
+                           patch(Xs{kk,1}, Ys{kk,1},[0.8500 0.3250 0.0980], 'FaceAlpha',0.5');
                        end
                    end
                end
@@ -762,3 +779,42 @@ while 1
     end
 end
 assignin('base', 'MAPS', MAPS);
+
+
+function filePaths = readfilepaths(pathsfile)
+fid = fopen(pathsfile);
+while ~feof(fid)
+    temp = strip(fgetl(fid));
+    if isempty(temp)
+        continue
+    end
+    if strcmp(temp(1), '%')
+        continue
+    end
+    C = textscan(temp,'%s', 'Delimiter',';');
+    filePaths.(C{1,1}{1,1}) = C{1,1}{2,1};
+end
+fclose(fid);
+
+
+
+function configfileTag_Callback(hObject, eventdata, handles)
+% hObject    handle to configfileTag (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    structure with handles and user data (see GUIDATA)
+
+% Hints: get(hObject,'String') returns contents of configfileTag as text
+%        str2double(get(hObject,'String')) returns contents of configfileTag as a double
+
+
+% --- Executes during object creation, after setting all properties.
+function configfileTag_CreateFcn(hObject, eventdata, handles)
+% hObject    handle to configfileTag (see GCBO)
+% eventdata  reserved - to be defined in a future version of MATLAB
+% handles    empty - handles not created until after all CreateFcns called
+
+% Hint: edit controls usually have a white background on Windows.
+%       See ISPC and COMPUTER.
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
