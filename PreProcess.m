@@ -223,6 +223,51 @@ end
 fprintf(fid, ']\n');
 fprintf(fid, ');\n');
 fclose(fid);
+%% load the image maps and save them as ascii files
+yrs = 1945:15:2050;
+for jj = 1:length(yrs)
+    Ngw{jj,1} = imread(['Local/Ngw_' num2str(yrs(jj)) '.tif']);
+    Ngw{jj,1}(Ngw{jj,1} == Ngw{jj,1}(1,1)) = 0;
+end
+%% find pixels with non zero values for at least one year
+IJ = [];
+for jj = 1:length(yrs)
+    jj
+    [I, J] = find(Ngw{jj,1} ~=0 );
+    IJ = unique([IJ;[ I J]], 'rows');
+end
+%% Write them as one matrix
+NGWs = [];
+ind = sub2ind(size(Ngw{1,1}), IJ(:,1), IJ(:,2));
+for jj = 1:length(yrs)
+    NGWs = [NGWs Ngw{jj,1}(ind)];
+end
+%% Write NGws as ascii file
+fid = fopen('Local/NGWs.dat','w');
+fprintf(fid,'%.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f\n', NGWs');
+fclose(fid);
+%% load Land uses
+for jj = 1:5
+    LUmaps{jj,1} = imread(['Local/model_input_LU' num2str(yrs(jj)) '.tif']);
+end
+%% Isolate only the non zero NGWs pixel for the landuses
+LUs = [];
+for jj = 1:5
+    LUs = [LUs LUmaps{jj,1}(ind)];
+end
+%% Write LUs as ascii file
+fid = fopen('Local/LUs.dat','w');
+fprintf(fid,'%d %d %d %d %d %d %d\n', [IJ LUs]');
+fclose(fid);
+%% write them as binary
+fileID = fopen('Local/LUs.bin','w');
+fwrite(fileID,[IJ LUs],'uint');
+fclose(fileID);
+
+fileID = fopen('Local/NGWs.bin','w');
+fwrite(fileID, NGWs,'double');
+fclose(fileID);
+
 
 
 
