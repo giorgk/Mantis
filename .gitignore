@@ -27,3 +27,20 @@
 /pyCode/*
 #Un-ignore the source code
 !/pyCode/*.py
+
+!/CPP
+/CPP/*
+!/CPP/MantisServer
+/CPP/MantisServer/*
+!/CPP/MantisServer/config.dat
+!/CPP/MantisServer/MantisServer
+/CPP/MantisServer/MantisServer/*
+!/CPP/MantisServer/MantisServer/*.cpp
+!/CPP/MantisServer/MantisServer/*.h
+
+!/CPP/TestClient
+/CPP/TestClient/*
+!/CPP/TestClient/TestClient
+/CPP/TestClient/TestClient/*
+!/CPP/TestClient/TestClient/*.cpp
+!/CPP/TestClient/TestClient/*.h
