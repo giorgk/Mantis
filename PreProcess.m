@@ -267,7 +267,35 @@ fclose(fileID);
 fileID = fopen('Local/NGWs.bin','w');
 fwrite(fileID, NGWs,'double');
 fclose(fileID);
+%% Write MAPS for C++ server input
+load('MAPS.mat')
+fid = fopen('Local/MantisMaps.dat','w');
+fprintf(fid, '%d\n', length(CVmap));
+for ii = 1:length(CVmap)
+    fprintf(fid, '%d\n', length(CVmap(ii,1).data));
+    for jj = 1:length(CVmap(ii,1).data)
+        [Xs, Ys] = msim_polysplit(CVmap(ii,1).data(jj,1).X, CVmap(ii,1).data(jj,1).Y);
+        fprintf(fid, '%d\n', length(Xs) );
+        for kk = 1:length(Xs)
+            xx = Xs{kk}(1); yy = Ys{kk,1}(1);
+            % remove duplicates
+            for nn = 2:length(Xs{kk,1})
+                dst = min(sqrt((xx - Xs{kk,1}(nn)).^2 + (yy - Ys{kk,1}(nn)).^2));
+                if dst > 0.1
+                    xx = [xx; Xs{kk,1}(nn)];
+                    yy = [yy; Ys{kk,1}(nn)];
+                end
+            end
+            
+            fprintf(fid, '%d\n', length(xx) );
+            for nn = 1:length(xx)
+                fprintf(fid,'%f %f\n', [xx(nn) yy(nn)]);
+            end
+        end
+    end
+end
 
+fclose(fid);
 
 
 
