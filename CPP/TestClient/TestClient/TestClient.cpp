@@ -5,16 +5,18 @@
 #include <iostream>
 #include <string>
 #include <boost/asio.hpp>
+#include <math.h>
 
 int main()
 {
+
 	boost::asio::io_service io_service;
 
 	boost::asio::ip::tcp::socket socket(io_service);
 	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
 
-	std::string msg = "Default 5 2 21 1";
-	msg += " 12";
+	std::string msg = "CVHM_95_99 2 1 3"; // Scenario Name, MapID, Nregions, Region ids,
+	msg += " 12 2020"; // Number of categories for reduction year to start reduction
 	msg += " 301 0.5";
 	msg += " 302 0.5";
 	msg += " 303 0.4";
@@ -33,7 +35,7 @@ int main()
 	boost::asio::write(socket, boost::asio::buffer(msg), error);
 
 	if (!error) {
-		std::cout << "Client sent hellow message" << std::endl;
+		std::cout << "Client sent hello message" << std::endl;
 	}
 	else {
 		std::cout << "sent failed" << std::endl;

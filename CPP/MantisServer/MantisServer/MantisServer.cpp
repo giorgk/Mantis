@@ -39,9 +39,10 @@ int main(int argc, char *argv[])
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);
 			acceptor.accept(socket);
-			int bytes = ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, _1, _2));
+			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, _1, _2)));
 			std::string msg(buff, bytes);
-			M.parse_input(msg);
+			std::string outmsg;
+			M.simulate(msg, outmsg);
 			socket.close();
 		}
 	}

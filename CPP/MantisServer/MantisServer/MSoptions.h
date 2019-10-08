@@ -70,6 +70,13 @@ namespace mantisServer {
 
 		//! the number of available scenarios
 		int Nscenarios;
+
+		std::string WELLfile;
+		std::string URFfile;
+
+		int yearInterval;
+		int startYear;
+		int nSimulationYears;
 	};
 
 	bool readInputParameters(int argc, char *argv[], options& opt) {
@@ -114,6 +121,11 @@ namespace mantisServer {
 			("PORT", po::value<int>()->default_value(1234), "Port number")
 			("Nrow", po::value<int>()->default_value(12863), "Number of rows")
 			("Ncol", po::value<int>()->default_value(7046), "Number of columns")
+			("YRINTERVAL", po::value<int>()->default_value(15), "Number of years between LU and NGW")
+			// These two should be defined on the clinet side not the server side.
+			("StartYR", po::value<int>()->default_value(1945), "The starting year of the simulation")
+			//  Especially this one
+			("NYRS", po::value<int>()->default_value(150), "Number of years to simulate")
 			;
 
 		if (vm_cmd.count("help")) {
@@ -138,20 +150,18 @@ namespace mantisServer {
 			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
 			tf = get_option<std::string>("LU", vm_cfg, opt.LUfile);
 			tf = get_option<std::string>("NGW", vm_cfg, opt.NGWfile);
-			//opt.Npixels = temp;
-
-			//if (!tf)
-			//	return false;
+			tf = get_option<std::string>("WELLS", vm_cfg, opt.WELLfile);
+			tf = get_option<std::string>("URFS", vm_cfg, opt.URFfile);
 
 			// read optional options
 			opt.Nscenarios = vm_cfg["NSCEN"].as<int>();
 			opt.port = vm_cfg["PORT"].as<int>();
 			opt.Nrow = vm_cfg["Nrow"].as<int>();
 			opt.Ncol= vm_cfg["Ncol"].as<int>();
+			opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
+			opt.startYear = vm_cfg["StartYR"].as<int>();
+			opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
 		}
-
-
-		
 		return true;
 	}
 
