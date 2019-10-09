@@ -77,6 +77,8 @@ namespace mantisServer {
 		int yearInterval;
 		int startYear;
 		int nSimulationYears;
+
+		int nThreads;
 	};
 
 	bool readInputParameters(int argc, char *argv[], options& opt) {
@@ -126,6 +128,7 @@ namespace mantisServer {
 			("StartYR", po::value<int>()->default_value(1945), "The starting year of the simulation")
 			//  Especially this one
 			("NYRS", po::value<int>()->default_value(150), "Number of years to simulate")
+			("NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
 			;
 
 		if (vm_cmd.count("help")) {
@@ -161,6 +164,7 @@ namespace mantisServer {
 			opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
 			opt.startYear = vm_cfg["StartYR"].as<int>();
 			opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
+			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
 		}
 		return true;
 	}

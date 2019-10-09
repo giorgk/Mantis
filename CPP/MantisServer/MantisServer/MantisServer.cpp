@@ -6,6 +6,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
+#include <thread>
 
 #include "MSoptions.h"
 #include "MantisMain.h"
@@ -26,10 +27,11 @@ int main(int argc, char *argv[])
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
 
 	
-	mantisServer::Mantis M(msOptions);
+	static mantisServer::Mantis M(msOptions);
 
 	std::cout << "Reading input data ..." << std::endl;
 	tf = M.readInputs();
+
 
 	std::cout << "Mantis Server Ready..." << std::endl;
 	if (tf) {
@@ -42,7 +44,28 @@ int main(int argc, char *argv[])
 			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, _1, _2)));
 			std::string msg(buff, bytes);
 			std::string outmsg;
-			M.simulate(msg, outmsg);
+
+			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
+			if (bvalidMsg) {
+				M.resetReply();
+				auto start = std::chrono::high_resolution_clock::now();
+				std::vector<std::thread> T;
+				for (int i = 0; i < msOptions.nThreads; ++i)
+					T.push_back(std::thread(&mantisServer::Mantis::simulate_with_threads, std::ref(M), i));
+				for (int i = 0; i < msOptions.nThreads; ++i)
+					T[i].join();
+
+				auto finish = std::chrono::high_resolution_clock::now();
+				std::chrono::duration<double> elapsed = finish - start;
+				std::cout << "Simulation executed in " << elapsed.count() << std::endl;
+
+				M.makeReply(outmsg);
+				std::cout << "out message length: " << outmsg.size() << std::endl;
+				std::cout << "Stop here " << std::endl;
+
+			}
+			//M.simulate(msg, outmsg);
+			socket.write_some(ba::buffer(outmsg));
 			socket.close();
 		}
 	}

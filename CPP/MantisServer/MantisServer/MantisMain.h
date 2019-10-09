@@ -4,6 +4,7 @@
 #include <fstream>
 #include <math.h>
 #include <chrono>
+#include <thread>
 
 #define CGAL_HEADER_ONLY 1
 
@@ -13,6 +14,7 @@
 
 
 #include "MSoptions.h"
+//#include "MShelper.h"
 
 typedef CGAL::Exact_predicates_inexact_constructions_kernel ine_Kernel;
 typedef ine_Kernel::Point_2 ine_Point2;
@@ -139,6 +141,12 @@ namespace mantisServer {
 		//! LoadReduction is a mpa the sets the nitrate loading reduction for selected land use categories
 		std::map<int, double> LoadReductionMap;
 		int ReductionYear;
+		void clear() {
+			mapID = -9;
+			name = "";
+			regionIDs.clear();
+			LoadReductionMap.clear();
+		}
 	};
 
 	class streamlineClass {
@@ -185,8 +193,15 @@ namespace mantisServer {
 		Mantis(mantisServer::options options_in);
 
 		void simulate(std::string &msg, std::string &outmsg);
+
+		void simulate_with_threads(int id);//int id, std::string &msg, std::string &outmsg
 		
 		bool readInputs();
+
+		bool parse_incoming_msg(std::string &msg, std::string &outmsg);
+		
+		void resetReply();
+		void makeReply(std::string &outmsg);
 
 
 	private:
@@ -204,6 +219,11 @@ namespace mantisServer {
 		std::vector<double> yearDistributor;
 		YearIndex yearIndex;
 
+		Scenario scenario;
+
+		std::vector<std::string> replymsg;
+		std::vector<int> replyLength;
+
 
 		bool readBackgroundMaps();
 		bool readWellSet(std::string filename);
@@ -211,7 +231,7 @@ namespace mantisServer {
 		bool readLU_NGW();
 
 		void assign_point_in_sets(double x, double y, int wellid, std::string setname);
-		void parse_incoming_msg(std::string &msg, Scenario &scenario);
+		
 		void buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col);
 		void distributeYears();
 	};
@@ -228,22 +248,50 @@ namespace mantisServer {
 		yearIndex.reset(options.startYear, options.nSimulationYears);
 	}
 
-	void Mantis::parse_incoming_msg(std::string& msg, Scenario &scenario) {
+	bool Mantis::parse_incoming_msg(std::string &msg, std::string &outmsg) {
+		scenario.clear();
 		// convert the string to a stringstream
 		std::stringstream ss;
 		ss << msg;
-
 		// Get the name of the scenario
 		ss >> scenario.name;
+		std::map<std::string, std::vector<int> >::iterator wellscenit;
+
 		// Get the selected background map id
 		ss >> scenario.mapID;
+
+		std::map<int, std::map<int, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
+		if (mapit == MAPList.end()) {
+			outmsg += "ERROR: The Background map with id [";
+			outmsg += scenario.mapID;
+			outmsg += "] could not be found";
+			return false;
+		}
+
 		// Get the number of selected regions
 		int n, id;
 		ss >> n;
+		std::map<int, Polyregion>::iterator regit;
 		// Get the region IDs
 		for (int i = 0; i < n; ++i) {
 			ss >> id;
+			regit = mapit->second.find(id);
+			if (regit == mapit->second.end()) {
+				outmsg += "ERROR: The Region with id [";
+				outmsg += id;
+				outmsg += "] could not be found in the map with id [";
+				outmsg += scenario.mapID;
+				outmsg += "]";
+				return false;
+			}
 			scenario.regionIDs.push_back(id);
+
+			wellscenit = regit->second.wellids.find(scenario.name);
+			if (wellscenit == regit->second.wellids.end()) {
+				outmsg += "ERROR: There is no scenario with name: ";
+				outmsg += scenario.name;
+				return false;
+			}
 		}
 		// Get the number of crop categories for reduction
 		int Ncat;
@@ -256,6 +304,7 @@ namespace mantisServer {
 			ss >> perc;
 			scenario.LoadReductionMap.insert(std::pair<int, double>(id, perc));
 		}
+		return true;
 	}
 
 	bool Mantis::readBackgroundMaps() {
@@ -416,8 +465,8 @@ namespace mantisServer {
 	void Mantis::simulate(std::string &msg, std::string &outmsg) {
 		auto start = std::chrono::high_resolution_clock::now();
 		outmsg.clear();
-		Scenario scenario;
-		parse_incoming_msg(msg, scenario);
+		//Scenario scenario;
+		//parse_incoming_msg(msg, scenario);
 		
 		// Find the selected background map
 		std::map<int, std::map<int, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
@@ -631,5 +680,111 @@ namespace mantisServer {
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read LU and NGW in " << elapsed.count() << std::endl;
 		return true;
+	}
+
+	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
+
+		// Get an iterator to the selected map
+		std::map<int, std::map<int, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
+		// Get an iterator to the list of wells for the selected scenario
+		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.name);
+
+		std::map<int, Polyregion>::iterator regit;
+		std::map<std::string, std::vector<int> >::iterator wellscenit;
+
+		
+
+		//for (int i = startWell; i < endWell; ++i) {
+		//	std::cout << id << ":" << i << std::endl;
+		//}
+
+		std::map<int, streamlineClass>::iterator strmlnit;
+		std::map<int, wellClass>::iterator wellit;
+		int cntBTC = 0;
+		for (int irg = 0; irg < scenario.regionIDs.size(); ++irg) {
+			regit = mapit->second.find(scenario.regionIDs[irg]);
+			wellscenit = regit->second.wellids.find(scenario.name);
+
+			// Number of wells in the selected region
+			int Nwells = static_cast<int>(wellscenit->second.size());
+			int startWell, endWell;
+
+			if (Nwells < options.nThreads) {
+				if (id > 0)
+					return;
+				else {
+					startWell = 0;
+					endWell = Nwells;
+				}
+			}
+			else {
+				int nwells2calc = Nwells / options.nThreads;
+				startWell = id * nwells2calc;
+				endWell = (id + 1)*nwells2calc;
+				if (id == options.nThreads - 1)
+					endWell = Nwells;
+			}
+			
+			
+			
+
+			std::cout << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
+			int wellid;
+			std::vector<double> LF;
+			
+			for (int iw = startWell; iw < endWell; ++iw) {
+				wellid = wellscenit->second[iw];
+				wellit = wellscenNameit->second.find(wellid);
+				if (wellit != wellscenNameit->second.end()) {
+					std::vector<double> weightBTC(options.nSimulationYears, 0);
+					double sumW = 0;
+					if (wellit->second.streamlines.size() > 0) {
+						for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
+							std::vector<double> BTC(options.nSimulationYears, 0);
+							URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
+							buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+							urf.convolute(LF, BTC);
+							// sum BTC
+							for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
+								weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+							}
+							sumW += strmlnit->second.w;
+						}
+						for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
+							weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
+							//std::cout << weightBTC[i] << std::endl;
+							replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
+							replymsg[id] += " ";
+						}
+						cntBTC++;
+					}
+				}
+			}
+		}// loop through regions
+		replyLength[id] = cntBTC;
+	}
+
+	void Mantis::resetReply() {
+		replyLength.clear();
+		replyLength.resize(options.nThreads, 0);
+
+		replymsg.clear();
+		replymsg.resize(options.nThreads, "");
+	}
+
+	void Mantis::makeReply(std::string &outmsg) {
+		outmsg.clear();
+		int nBTC = 0;
+		for (int i = 0; i < replyLength.size(); ++i) {
+			nBTC += replyLength[i];
+		}
+
+		outmsg += std::to_string(nBTC);
+		for (int i = 0; i < replymsg.size(); ++i) {
+			outmsg += " ";
+			outmsg += replymsg[i];
+		}
+
+		std::cout << nBTC << "BTCs will be sent" << std::endl;
 	}
 }
