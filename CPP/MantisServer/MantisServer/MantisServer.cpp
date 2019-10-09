@@ -25,12 +25,16 @@ int main(int argc, char *argv[])
 {
 	mantisServer::options msOptions;
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
+	if (!tf)
+		return 0;
 
 	
 	static mantisServer::Mantis M(msOptions);
 
 	std::cout << "Reading input data ..." << std::endl;
 	tf = M.readInputs();
+	if (!tf)
+		return 0;
 
 
 	std::cout << "Mantis Server Ready..." << std::endl;
