@@ -15,7 +15,7 @@ int main()
 	boost::asio::ip::tcp::socket socket(io_service);
 	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
 
-	std::string msg = "CVHM_95_99 5 1 10"; // Scenario Name, MapID, Nregions, Region ids,
+	std::string msg = "CVHM_95_99 1 1 1"; // Scenario Name, MapID, Nregions, Region ids,
 	msg += " 12 2020"; // Number of categories for reduction year to start reduction
 	msg += " 301 0.5";
 	msg += " 302 0.5";

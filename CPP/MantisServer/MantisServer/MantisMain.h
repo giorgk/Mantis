@@ -124,6 +124,8 @@ namespace mantisServer {
 		//std::cout << "BTC size: " << BTC.size() << std::endl;
 		int shift = 0;
 		for (int i = 0; i < LF.size(); ++i) {
+			if (std::abs(LF[i] - 0) < 0.00000000001)
+				continue;
 			for (int k = shift; k < LF.size(); ++k) {
 				BTC[k] = BTC[k] + urf[k - shift] * LF[i];
 			}
@@ -740,16 +742,20 @@ namespace mantisServer {
 					double sumW = 0;
 					if (wellit->second.streamlines.size() > 0) {
 						for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-							std::vector<double> BTC(options.nSimulationYears, 0);
-							URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
-							buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-							urf.convolute(LF, BTC);
-							// sum BTC
-							for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
-								weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+							// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
+							if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+								std::vector<double> BTC(options.nSimulationYears, 0);
+								URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
+								buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+								urf.convolute(LF, BTC);
+								// sum BTC
+								for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
+									weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+								}
 							}
 							sumW += strmlnit->second.w;
 						}
+						//average streamlines
 						for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
 							weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
 							//std::cout << weightBTC[i] << std::endl;
