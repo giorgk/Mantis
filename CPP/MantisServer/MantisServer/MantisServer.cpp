@@ -7,6 +7,8 @@
 #include <boost/asio.hpp>
 #include <boost/bind.hpp>
 #include <thread>
+#include <chrono>
+#include <ctime>
 
 #include "MSoptions.h"
 #include "MantisMain.h"
@@ -23,7 +25,6 @@ size_t read_complete(char * buff, const boost::system::error_code & err, size_t 
 
 int main(int argc, char *argv[])
 {
-
 	mantisServer::options msOptions;
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
 	if (!tf)
@@ -33,9 +34,9 @@ int main(int argc, char *argv[])
 	static mantisServer::Mantis M(msOptions);
 
 	std::cout << "Reading input data ..." << std::endl;
-	tf = M.readInputs();
-	if (!tf)
-		return 0;
+	//tf = M.readInputs();
+	//if (!tf)
+	//	return 0;
 
 
 	std::cout << "Mantis Server Ready..." << std::endl;
@@ -49,6 +50,14 @@ int main(int argc, char *argv[])
 			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, _1, _2)));
 			std::string msg(buff, bytes);
 			std::string outmsg;
+			if (msg.compare("quit\n") == 0) {
+				std::cout << "Received request to quit" << std::endl;
+				outmsg = "Mantis Server is quiting...";
+				socket.write_some(ba::buffer(outmsg));
+				socket.close();
+				break;
+			}
+				
 
 			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
 			if (bvalidMsg) {

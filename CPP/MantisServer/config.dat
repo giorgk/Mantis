@@ -4,3 +4,4 @@ NGW=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\NGWs.dat
 MAPS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\MantisMaps.dat
 WELLS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\cvhm_1995m7_1999m12_Wells.dat
 URFS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\Sim_1995m7_1999m12_URFS.dat
+NTHREADS = 12

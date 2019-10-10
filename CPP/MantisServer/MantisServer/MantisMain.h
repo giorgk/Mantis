@@ -88,12 +88,13 @@ namespace mantisServer {
 	/*! \class URF
 		\brief The URF class contains functionality releated to the Unit Respons Functions.
 
-		At the moment of writing a URF is a function of the following form:
+		At the moment of writing a URF is a function of the following form: \n
 
 		\htmlonly
 		<a href="https://www.codecogs.com/eqnedit.php?latex=\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" title="\huge URF(t) = \frac{1}{t \cdot s \sqrt{2\pi}}\cdot e^{-\frac{(\ln{(t)}-m)^2}{2\cdot s^2}}" /></a>
 		\endhtmlonly
 
+		\n
 		where \a m is the mean and \a s is the standard deviation. These parameters calculated by fitting the numericaly generated URF from the 
 		<a href="https://gwt.ucdavis.edu/research-tools-and-applications/npsat-engine">NPSAT engine</a>. Here we store only the two values.
 		This has two advantages. First for each urf we store just 2 double values instead ~200. 
@@ -167,7 +168,7 @@ namespace mantisServer {
 	}
 
 	void URF::calc_urf() {
-		for (int i = 0; i < urf.size(); ++i)
+		for (unsigned int i = 0; i < urf.size(); ++i)
 			urf[i] = calc_conc(static_cast<double>(i + 1));
 	}
 
@@ -304,14 +305,14 @@ namespace mantisServer {
 			The initialization corresopns to calling the \ref readInputs method. 
 			This reads the input files and does all the prepocessing steps needed for the simulation.
 		- <b>Reading client input</b> \n
-			Before doing any simulation Mantis nees to read the client message using the \ref parse_incoming_msg method
+			Before doing any simulation Mantis nees to read the client message using the Mantis::parse_incoming_msg method
 		- \b Simulate \n
 			If the previous step was succesfull Mantis can start the simulation. 
-			However prior to that we should get rid of previous replies by calling \ref resetReply. \n
-			Then Mantis can safely proceed wit hthe simulation by calling \ref simulate_with_threads. 
+			However prior to that we should get rid of previous replies by calling Mantis::resetReply. \n
+			Then Mantis can safely proceed wit hthe simulation by calling Mantis::simulate_with_threads. 
 			Note that there is a non threaded method simulate which may not work at the moment.
 		- <b>Prepare output</b> \n
-			Last we convert the output to a stream of text using \ref makeReply method.
+			Last we convert the output to a stream of text using Mantis::makeReply method.
 		.
 
 	*/

@@ -14,22 +14,28 @@ int main()
 
 	boost::asio::ip::tcp::socket socket(io_service);
 	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
-
-	std::string msg = "CVHM_95_99 1 1 1"; // Scenario Name, MapID, Nregions, Region ids,
-	msg += " 12 2020"; // Number of categories for reduction year to start reduction
-	msg += " 301 0.5";
-	msg += " 302 0.5";
-	msg += " 303 0.4";
-	msg += " 400 0.7";
-	msg += " 401 0.7";
-	msg += " 402 0.6";
-	msg += " 605 0.3";
-	msg += " 1451 0.75";
-	msg += " 1452 0.253";
-	msg += " 1460 0.5501";
-	msg += " 212910 0.102";
-	msg += " 10003 0.458";
-	msg += "\n";
+	
+	std::string msg;
+	if (true) {
+		msg = "quit\n";
+	}
+	else {
+		msg = "CVHM_95_99 1 1 1"; // Scenario Name, MapID, Nregions, Region ids,
+		msg += " 12 2020"; // Number of categories for reduction year to start reduction
+		msg += " 301 0.5";
+		msg += " 302 0.5";
+		msg += " 303 0.4";
+		msg += " 400 0.7";
+		msg += " 401 0.7";
+		msg += " 402 0.6";
+		msg += " 605 0.3";
+		msg += " 1451 0.75";
+		msg += " 1452 0.253";
+		msg += " 1460 0.5501";
+		msg += " 212910 0.102";
+		msg += " 10003 0.458";
+		msg += "\n";
+	}
 		
 	boost::system::error_code error;
 	boost::asio::write(socket, boost::asio::buffer(msg), error);
