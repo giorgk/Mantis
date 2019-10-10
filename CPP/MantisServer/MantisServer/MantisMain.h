@@ -107,7 +107,7 @@ namespace mantisServer {
 		/*! 
 		\brief The constructor expects three inputs.
 
-		The constructor expands the Unit respons Function using the input parameters for \ref Nyrs.
+		The constructor expands the Unit respons Function using the input parameters for Nyrs.
 
 		\param Nyrs is the number of years to expand the URF
 		\param m_in is the mean value of the fitted equation
@@ -296,21 +296,23 @@ namespace mantisServer {
 	/*! \class Mantis
 		\brief This is the main class of the server.
 
-		The workflow for the Mantis class is the following
-		-# \b Construction \n
+		The workflow for the Mantis class is the following:
+
+		- \b Construction \n
 			To declare a Mantis object a mantisServer::options object is needed.
-		-# \b initialization \n
+		- \b initialization \n
 			The initialization corresopns to calling the \ref readInputs method. 
 			This reads the input files and does all the prepocessing steps needed for the simulation.
-		-# <b>Reading client input</b> \n
+		- <b>Reading client input</b> \n
 			Before doing any simulation Mantis nees to read the client message using the \ref parse_incoming_msg method
-		-# \b Simulate \n
+		- \b Simulate \n
 			If the previous step was succesfull Mantis can start the simulation. 
 			However prior to that we should get rid of previous replies by calling \ref resetReply. \n
 			Then Mantis can safely proceed wit hthe simulation by calling \ref simulate_with_threads. 
 			Note that there is a non threaded method simulate which may not work at the moment.
-		-# <b> Prepare output </b> \n
+		- <b>Prepare output</b> \n
 			Last we convert the output to a stream of text using \ref makeReply method.
+		.
 
 	*/
 	class Mantis {
