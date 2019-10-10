@@ -5,6 +5,7 @@
 #include <math.h>
 #include <chrono>
 #include <thread>
+#include <boost/bimap.hpp>
 
 #define CGAL_HEADER_ONLY 1
 
@@ -23,28 +24,41 @@ typedef CGAL::Polygon_2< ine_Kernel> ine_Poly_2;
 const double sqrt2pi = std::sqrt(2*std::acos(-1));
 
 namespace mantisServer {
-
+	/*! \class YearIndex
+		\brief A map between the years and the indices in the arrays.
+	
+		This is a wrap for a bidirectional map between the years in 
+		XXXX format and a zero based indexing
+	*/
 	class YearIndex {
 	public:
+		/// The constructor does nothing other than making sure the map is empty.
 		YearIndex();
+		/// Returns the index for a given year. If the year is not in the map it returns a negative -9.
 		int get_index(int year);
+		/// Returns the year for a given index. If the index is not in the map it returns a negative -9.
 		int get_year(int index);
+		//! This function constructs or reconstructs the bidirectional map.
+		/*!
+		\param startYear is the starting year in the map. The format is YYYY. 
+		the startYear will be associated with index 0.
+		\param nYears The number of years to insert in the map.
+		*/
 		void reset(int startYear, int nYears);
 	private:
+		/// This is the method that actually creates the map. It is called from the \ref reset.
 		void build_index(int startYear, int endYear);
-		std::map<int, int> yrind;
-		std::map<int, int> indyr;
+		/// This is the actual bidirectional container.
+		boost::bimap<int, int> yearIndexMap;
 	};
 	YearIndex::YearIndex() {
-		yrind.clear();
-		indyr.clear();
+		yearIndexMap.clear();
 	}
 	void YearIndex::build_index(int startYear, int nYears) {
 		int index = 0;
 		int yr = startYear;
 		while (true) {
-			yrind.insert(std::pair<int, int>(yr, index));
-			indyr.insert(std::pair<int, int>(index, yr));
+			yearIndexMap.insert(boost::bimap<int, int>::value_type(yr, index));
 			index++;
 			yr++;
 			if (index > nYears)
@@ -52,28 +66,33 @@ namespace mantisServer {
 		}
 	}
 	void YearIndex::reset(int startYear, int nYears) {
-		yrind.clear();
-		indyr.clear();
+		yearIndexMap.clear();
 		build_index(startYear, nYears);
 	}
 
 	int YearIndex::get_index(int year) {
-		std::map<int, int>::iterator it;
-		it = yrind.find(year);
-		if (it == yrind.end())
+		boost::bimap<int, int>::left_map::const_iterator it = yearIndexMap.left.find(year);
+		if (it == yearIndexMap.left.end())
 			return -9;
 		else
-			return it->second;
+			return it->get_right();
 	}
 	int YearIndex::get_year(int index) {
-		std::map<int, int>::iterator it;
-		it = indyr.find(index);
-		if (it == indyr.end())
+		boost::bimap<int, int>::right_map::const_iterator it = yearIndexMap.right.find(index);
+		if (it == yearIndexMap.right.end())
 			return -9;
 		else
-			return it->second;
+			return it->get_left();
 	}
 
+	/*! \class URF
+		\brief The URF class contains functionality releated to the Unit Respons Functions.
+
+		At the moment of writing a URF is a function of the following form:
+		\htmlonly
+		<a href="https://www.codecogs.com/eqnedit.php?latex=\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" title="\huge URF(t) = \frac{1}{t \cdot s \sqrt{2\pi}}\cdot e^{-\frac{(\ln{(t)}-m)^2}{2\cdot s^2}}" /></a>
+		\endhtmlonly
+	*/
 	class URF {
 	public:
 		URF(int Nyrs, double m_in, double s_in);
@@ -85,7 +104,6 @@ namespace mantisServer {
 		double s;
 		std::vector<double> urf;
 		void calc_urf();
-		
 	};
 
 	URF::URF(int Nyrs, double m_in, double s_in)

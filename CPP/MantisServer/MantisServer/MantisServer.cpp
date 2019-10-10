@@ -23,6 +23,7 @@ size_t read_complete(char * buff, const boost::system::error_code & err, size_t 
 
 int main(int argc, char *argv[])
 {
+
 	mantisServer::options msOptions;
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
 	if (!tf)
