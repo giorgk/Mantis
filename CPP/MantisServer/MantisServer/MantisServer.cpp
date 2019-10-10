@@ -34,9 +34,9 @@ int main(int argc, char *argv[])
 	static mantisServer::Mantis M(msOptions);
 
 	std::cout << "Reading input data ..." << std::endl;
-	//tf = M.readInputs();
-	//if (!tf)
-	//	return 0;
+	tf = M.readInputs();
+	if (!tf)
+		return 0;
 
 
 	std::cout << "Mantis Server Ready..." << std::endl;
