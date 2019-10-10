@@ -89,21 +89,56 @@ namespace mantisServer {
 		\brief The URF class contains functionality releated to the Unit Respons Functions.
 
 		At the moment of writing a URF is a function of the following form:
+
 		\htmlonly
 		<a href="https://www.codecogs.com/eqnedit.php?latex=\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" target="_blank"><img src="https://latex.codecogs.com/gif.latex?\huge&space;URF(t)&space;=&space;\frac{1}{t&space;\cdot&space;s&space;\sqrt{2\pi}}\cdot&space;e^{-\frac{(\ln{(t)}-m)^2}{2\cdot&space;s^2}}" title="\huge URF(t) = \frac{1}{t \cdot s \sqrt{2\pi}}\cdot e^{-\frac{(\ln{(t)}-m)^2}{2\cdot s^2}}" /></a>
 		\endhtmlonly
+
+		where \a m is the mean and \a s is the standard deviation. These parameters calculated by fitting the numericaly generated URF from the 
+		<a href="https://gwt.ucdavis.edu/research-tools-and-applications/npsat-engine">NPSAT engine</a>. Here we store only the two values.
+		This has two advantages. First for each urf we store just 2 double values instead ~200. 
+		Secondly we can adjust the simulation time at runtime as we can generate urfs for as longer periods. 
+		Nevertheless the fitted parameters correspond to the first 200 years and extending the simulation to let's say 1000 years may not be appropriate.
+
+		The units of the time parameter \a are in years. URF(20) is the value after 20 years of simulation.  
 	*/
 	class URF {
 	public:
+		/*! 
+		\brief The constructor expects three inputs.
+
+		The constructor expands the Unit respons Function using the input parameters for \ref Nyrs.
+
+		\param Nyrs is the number of years to expand the URF
+		\param m_in is the mean value of the fitted equation
+		\param s_in is the standard deviation
+		*/
 		URF(int Nyrs, double m_in, double s_in);
+
+		/// calc_conc returns the concentration for a given year. This is actuall used internaly by \ref calc_urf method.
 		double calc_conc(double t);
+		/*
+		\brief convolute executes the convulotion of the urf with the loading function.
+		\param LF is the loading function. The size of the loading function must be equal to \ref urf.
+		\param BTC is the output of the convolution. The size of BTC must be equal to \LF. 
+		Since this function will be called million times the function doesn't perform and check or allocation for the BTC.
+
+		To improve performance the function does not even loop for loading values less than \ref zeroLoading.
+		*/
 		void convolute(std::vector<double> &LF, std::vector<double> &BTC);
 		
 	private:
+		/// The mean fitted value.
 		double m;
+		///The standard deviation fitted value
 		double s;
+		/// This is a vector where the expanded values of the urfs will be stored.
 		std::vector<double> urf;
+		/// calc_urf expands the urf. This takes place during contruction.
 		void calc_urf();
+		/// A hard coded threshold. Loading values lower than this threshold are treated as zero 
+		/// therefore the convolution can skip an entire loop associated with the particular loading value.
+		double zeroLoading = 0.00000000001;
 	};
 
 	URF::URF(int Nyrs, double m_in, double s_in)
@@ -142,7 +177,7 @@ namespace mantisServer {
 		//std::cout << "BTC size: " << BTC.size() << std::endl;
 		int shift = 0;
 		for (int i = 0; i < LF.size(); ++i) {
-			if (std::abs(LF[i] - 0) < 0.00000000001)
+			if (std::abs(LF[i] - 0) < zeroLoading)
 				continue;
 			for (int k = shift; k < LF.size(); ++k) {
 				BTC[k] = BTC[k] + urf[k - shift] * LF[i];
@@ -150,17 +185,26 @@ namespace mantisServer {
 		}
 	}
 	
+	/*! \struct Scenario
+		\brief Each a struct variable that contains all the information needed for each simulation scenario.
 
+		This struct is a convinent way to transfer around all inputs at once.
+	*/
 	struct Scenario {
-		//! mapID is the selected background map
+		/// mapID is the id of selected background map.
 		int mapID;
-		//! scenarioName is the name of the selected scenario
+		/// scenarioName is the name of the selected scenario.
 		std::string name;
-		//! is a list of region to compute the breakthrough curves
+		/// regionIDs is a list of regions to compute the breakthrough curves
 		std::vector<int> regionIDs;
-		//! LoadReduction is a mpa the sets the nitrate loading reduction for selected land use categories
+		/// LoadReduction is a map the sets the nitrate loading reduction for selected land use categories.
+		/// The key value of the map is the land use category and the value is the percentage of loading reduction.
 		std::map<int, double> LoadReductionMap;
+		/// ReductionYear is the year to start the reduction. 
+		/// The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
+		/// any of the default 15 year time incements.
 		int ReductionYear;
+		/// clear is making sure that the scenario has no data from a previous run.
 		void clear() {
 			mapID = -9;
 			name = "";
@@ -169,13 +213,31 @@ namespace mantisServer {
 		}
 	};
 
+	/*! \class streamlineClass
+		\brief Stores data for each streamline. 
+
+		Although this is a class, it is used more like struct container. 
+		I guess when I first writing this I was expecting more functionality here.
+	*/
 	class streamlineClass {
 	public:
+		/*! \brief streamlineClass constructor expects the parameters that define a streamline
+		\param r is the row number of the pixel where this streamline starts from near the land surface.
+		\param c is the column number of the pixel where this streamline starts from near the land surface.
+		\param mu is the mean value of the fitted unit response function.
+		\param mu_in is the standard deviation of the fitted unit response function.
+		\param w_in is the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
+		*/
 		streamlineClass(int r, int c, double mu_in, double std_in, double w_in);
+		/// the row number of the pixel where this streamline starts from near the land surface.
 		int row;
+		/// the column number of the pixel where this streamline starts from near the land surface.
 		int col;
+		///the mean value of the fitted unit response function.
 		double mu;
+		///the standard deviation of the fitted unit response function.
 		double std;
+		///the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
 		double w;
 	};
 	streamlineClass::streamlineClass(int r, int c, double mu_in, double std_in, double w_in) {
@@ -186,9 +248,21 @@ namespace mantisServer {
 		w = w_in;
 	}
 
+	/*! \class wellClass
+		\brief Contains the streamline information for a well.
+
+		Each well is associated with multiple streamlines.
+	*/
 	class wellClass {
 	public:
+		/*! \breaf addStreamline inserts information about a streamline that reaches the well.
+		\param Sid is the streamline id.
+
+		The other parameters are the same as in the \ref streamlineClass::streamlineClass.
+		*/
 		void addStreamline(int Sid, int r, int c, double mu, double std, double w);
+
+		/// streamlines is a map where the key is the streamline id and the value is an obect of type \ref streamlineClass.
 		std::map<int, streamlineClass> streamlines;
 	};
 
@@ -196,7 +270,19 @@ namespace mantisServer {
 		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(r, c, mu, std, w)));
 	}
 
+	/*! \class Polyregion
+		\brief Contains spatial information of a unit area.
 
+		A unit area is the smallest division of a given background map. 
+		For example if the background map is the Basins map then the Sacramento vallye is a unit area.
+		If the background map contains the CVHM farms then one farm is represented as a Polyregion.
+
+		A Polyregion may consist of one or more polygons. At the moment the holes in the geometry are not taken into acount.
+
+		In addition to the geometry info this class contains the ids of the wells that each Polyregion contains.
+		The spatial queries take place during server initialization therefore 
+		during simulation time all that is needed is searching through std::map objects.
+	*/
 	class Polyregion {
 	public:
 		// This is a list of cgal polygons that define a unit analysis such as a Basin, a farm, a county etc.
@@ -207,7 +293,26 @@ namespace mantisServer {
 		std::map<std::string, std::vector<int> > wellids;
 	};
 
+	/*! \class Mantis
+		\brief This is the main class of the server.
 
+		The workflow for the Mantis class is the following
+		-# \b Construction \n
+			To declare a Mantis object a mantisServer::options object is needed.
+		-# \b initialization \n
+			The initialization corresopns to calling the \ref readInputs method. 
+			This reads the input files and does all the prepocessing steps needed for the simulation.
+		-# <b>Reading client input</b> \n
+			Before doing any simulation Mantis nees to read the client message using the \ref parse_incoming_msg method
+		-# \b Simulate \n
+			If the previous step was succesfull Mantis can start the simulation. 
+			However prior to that we should get rid of previous replies by calling \ref resetReply. \n
+			Then Mantis can safely proceed wit hthe simulation by calling \ref simulate_with_threads. 
+			Note that there is a non threaded method simulate which may not work at the moment.
+		-# <b> Prepare output </b> \n
+			Last we convert the output to a stream of text using \ref makeReply method.
+
+	*/
 	class Mantis {
 	public:
 		Mantis(mantisServer::options options_in);
