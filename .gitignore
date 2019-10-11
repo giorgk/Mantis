@@ -2,6 +2,8 @@
 /*
 # "un-ignore in the root folder
 !.gitignore
+!.codedocs
+!doxygen.config
 !*.md
 !*.m
 !*.fig
