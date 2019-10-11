@@ -3,7 +3,6 @@
 # "un-ignore in the root folder
 !.gitignore
 !.codedocs
-!doxygen.config
 !*.md
 !*.m
 !*.fig
@@ -39,6 +38,7 @@
 /CPP/MantisServer/MantisServer/*
 !/CPP/MantisServer/MantisServer/*.cpp
 !/CPP/MantisServer/MantisServer/*.h
+!/CPP/MantisServer/MantisServer/doxygen.config
 
 !/CPP/TestClient
 /CPP/TestClient/*
