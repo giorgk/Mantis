@@ -2,11 +2,12 @@
 This is a playground for the development of the forward implementation 
 phase of the NPSAT. At the moment there are two implementations.
 
-1. Matlab 
-2. Python
+1. Matlab Desktop
+2. Matlab server
+3. C++ Server
 
-## Matlab implementation
-Matlab requires just one line code that loads the GUI
+## Matlab Desktop
+Matlab Desktop is essentially a prototype for the web application.  The following line loads the GUI
 ```
 Mantis
 ```
@@ -28,15 +29,8 @@ few simple steps to install it.
 The `msim_compile` command is quite important as it improves the performance almost 8 times, but the code works even without.
 
 
-## Python implementation
-Not alot to say here as this is in primitive stage.
-For the time being one need to 
-[download](https://drive.google.com/drive/u/2/folders/1OH0R6OH5piws8l9tvqBvuX3fu_K-IawE) 
-the _URFdata.mat_ and _data4python.mat_ files and add them inside the *Local* 
-folder.
-
-## Matlab Server Implementation
-This is going to be a temporary implementation (maybe). This is a script that runs only once and does nothing until it receives a trigger file.
+## Matlab Server
+This is going to be a temporary implementation. This is a script that runs only once and does nothing until it receives a trigger file.
 
 The matlab server version runs with the following command
 ```
@@ -127,7 +121,7 @@ The format of the **MantisServer.out** is the following:
 
 The first line is the **number of wells** and the **number of time steps**.
 
-Next repeat **number of wells** times the well breakthrough curve which is consist of **number of time steps** numbers separated by space.
+Next repeat **number of wells** times the well breakthrough curve which consist of **number of time steps** numbers separated by space.
 
 For example
 ```
@@ -149,3 +143,7 @@ For both files input and output the separation character is just a space.
 To terminate the program one way is to copy a file with name **MantisServer.quit** 
 
 The file can be empty and it will be deleted before the program terminates.
+
+## C++ Server
+This is a c++ server implementation of the Mantis code.
+Detailed documentation should be available [here](https://codedocs.xyz/giorgk/Mantis/) once I have figure out how to properly set up my doxygen documentation via the codedocs.
