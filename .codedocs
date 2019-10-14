@@ -14,7 +14,7 @@
 # paths will be considered relative to the root of the repository, not the
 # location of the DOXYFILE.
 
-DOXYFILE = CPP/MantisServer/MantisServer/doxygen.config
+DOXYFILE =
 
 # Specify external repository to link documentation with.
 # This is similar to Doxygen's TAGFILES option, but will automatically link to
@@ -80,10 +80,10 @@ TAGLINKS =
 # EXTERNAL_PAGES =
 # EXTRACT_ALL =
 # EXTRACT_ANON_NSPACES =
-# EXTRACT_LOCAL_CLASSES =
-# EXTRACT_LOCAL_METHODS =
+# EXTRACT_LOCAL_CLASSES = YES
+# EXTRACT_LOCAL_METHODS = YES
 # EXTRACT_PACKAGE =
-# EXTRACT_PRIVATE =
+# EXTRACT_PRIVATE = YES
 # EXTRACT_STATIC =
 # EXT_LINKS_IN_WINDOW =
 # FILE_PATTERNS =
