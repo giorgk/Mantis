@@ -2,9 +2,9 @@
 This is a playground for the development of the forward implementation 
 phase of the NPSAT. At the moment there are two implementations.
 
-1. Matlab Desktop
-2. Matlab server
-3. C++ Server
+1. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop)
+2. [Matlab server](https://github.com/giorgk/Mantis#matlab-server)
+3. [C++ Server](https://github.com/giorgk/Mantis#c-server)
 
 ## Matlab Desktop
 Matlab Desktop is essentially a prototype for the web application.  The following line loads the GUI
