@@ -79,6 +79,8 @@ namespace mantisServer {
 		int nSimulationYears;
 
 		int nThreads;
+
+		bool testMode;
 	};
 
 	bool readInputParameters(int argc, char *argv[], options& opt) {
@@ -88,6 +90,7 @@ namespace mantisServer {
 			("version,v", "print version information")
 			("help,h", "Get a list of options in the configuration file")
 			("config,c", po::value<std::string >(), "Set configuration file")
+			("test,t", "Run Server in test mode [a config file is required]")
 			;
 
 		po::variables_map vm_cmd;
@@ -144,6 +147,12 @@ namespace mantisServer {
 		po::variables_map vm_cfg;
 
 		if (vm_cmd.count("config")) {
+			if (vm_cmd.count("test")) {
+				opt.testMode = true;
+			}
+			else {
+				opt.testMode = false;
+			}
 			bool tf;
 			std::cout << vm_cmd["config"].as<std::string>().c_str() << std::endl;
 			po::store(po::parse_config_file<char>(vm_cmd["config"].as<std::string>().c_str(), config_options), vm_cfg);

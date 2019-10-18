@@ -6,6 +6,7 @@
 #include <chrono>
 #include <thread>
 #include <boost/bimap.hpp>
+#include <cstdlib>
 
 #define CGAL_HEADER_ONLY 1
 
@@ -486,8 +487,10 @@ namespace mantisServer {
 		if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
 		tf = readURFs(options.URFfile);
 		if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
-		tf = readLU_NGW();
-		if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+		if (!options.testMode) {
+			tf = readLU_NGW();
+			if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+		}
 		return tf;
 	}
 
@@ -867,26 +870,34 @@ namespace mantisServer {
 					std::vector<double> weightBTC(options.nSimulationYears, 0);
 					double sumW = 0;
 					if (wellit->second.streamlines.size() > 0) {
-						for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-							// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
-							if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
-								std::vector<double> BTC(options.nSimulationYears, 0);
-								URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
-								buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-								urf.convolute(LF, BTC);
-								// sum BTC
-								for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
-									weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+						if (!options.testMode) {
+							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
+								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
+								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+									std::vector<double> BTC(options.nSimulationYears, 0);
+									URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
+									buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+									urf.convolute(LF, BTC);
+									// sum BTC
+									for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
+										weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+									}
 								}
+								sumW += strmlnit->second.w;
 							}
-							sumW += strmlnit->second.w;
+							//average streamlines
+							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
+								weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
+								//std::cout << weightBTC[i] << std::endl;
+								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
+								replymsg[id] += " ";
+							}
 						}
-						//average streamlines
-						for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
-							weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
-							//std::cout << weightBTC[i] << std::endl;
-							replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
-							replymsg[id] += " ";
+						else {
+							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
+								replymsg[id] += std::to_string(static_cast<float>(std::rand() % 100) / 10);
+								replymsg[id] += " ";
+							}
 						}
 						cntBTC++;
 					}

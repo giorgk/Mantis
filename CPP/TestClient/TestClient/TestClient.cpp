@@ -6,9 +6,15 @@
 #include <string>
 #include <boost/asio.hpp>
 #include <math.h>
+#include <cstdlib>
 
 int main()
 {
+	// Test random numbers
+	//for (int i = 0; i < 10; ++i)
+	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
+	//return 0;
+
 
 	boost::asio::io_service io_service;
 
