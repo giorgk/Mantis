@@ -34,16 +34,22 @@
 /CPP/*
 !/CPP/MantisServer
 /CPP/MantisServer/*
+!/CPP/MantisServer/*.sln
 !/CPP/MantisServer/config.dat
 !/CPP/MantisServer/MantisServer
 /CPP/MantisServer/MantisServer/*
 !/CPP/MantisServer/MantisServer/*.cpp
 !/CPP/MantisServer/MantisServer/*.h
+!/CPP/MantisServer/MantisServer/*.vcxproj
+!/CPP/MantisServer/MantisServer/*.vcxproj.filters
 !/CPP/MantisServer/MantisServer/doxygen.config
 
 !/CPP/TestClient
 /CPP/TestClient/*
+!/CPP/TestClient/*.sln
 !/CPP/TestClient/TestClient
 /CPP/TestClient/TestClient/*
 !/CPP/TestClient/TestClient/*.cpp
 !/CPP/TestClient/TestClient/*.h
+!/CPP/TestClient/TestClient/*.vcxproj
+!/CPP/TestClient/TestClient/*.vcxproj.filters
