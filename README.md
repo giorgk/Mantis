@@ -1,6 +1,6 @@
 # Mantis
 This is a playground for the development of the forward implementation 
-phase of the NPSAT. At the moment there are two implementations.
+phase of the NPSAT. At the moment there are three implementations.
 
 1. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop)
 2. [Matlab server](https://github.com/giorgk/Mantis#matlab-server)
@@ -159,12 +159,33 @@ To run the server in test mode use the following
 ```
 MantisServer.exe -c config_file -t
 ```
-In test mode it doesnt load the NGW and LU maps and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return the a message similar to the one in actuall mode with random numbers.
+In test mode it doesnt load the NGW and LU maps and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return a message similar to the one in the actuall mode populated with random numbers.
 
-Last ommit the t flag to run the actual server
+An example of configuration file can be found [here](https://github.com/giorgk/Mantis/tree/master/CPP/MantisServer)
+
+Last, ommit the *t* flag to run the actual server
 ```
 MantisServer.exe -c config_file
 ```
 The loading of the NGW and LU can take several minutes
 
- Under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) there is a test client program with the format of the incoming message
+ Under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) there is a test client program that sends an input message and receives the result
+
+ ### Format of input message
+* __Scenario Name__ [string]: This is a name that would correspond to the user selected steady state model/period. For example it can be CVHM_70_03 or C2VSIM_99_09
+* __MapID__ [int]: This is the id of the user selected background map (see table above for the background map ids) 
+* __Nregions__ [int]: The number of selected regions of the MapID, 
+* __Region ids__ [int]: _Nregions_ numbers that correspond to the ids of the selected regions
+* __Number of categories for reduction__ [int]: The total number of crops that the loading will be changed 
+* __year to start reduction__ [int]: The year that the reduction will start taking place e.g. 2020. I assume that the default value should be the current year, however the input message requires that.
+* __Crop id__ [int]: This is the id of the crop (_We should add a file with the list of the crops ids_)
+* __Reduction__ [float]: This is the percentage of how much nitrate we want to keep. 1-> no reduction, 0-> 100% reduction
+
+Repeat the last  two lines _Number of categories for reduction_ times.
+
+* __\n__ append at the end the endline character. 
+Use space to separate the different values. Therefore the _Scenario Name_ should not have spaces.
+
+ ### Format of output message
+ * __Number of wells in the selected regions__ [int]
+ * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The _Nyears_ is set in the configuration and the default value is 150. However this should be a user input. Yet even in that case this will not change the output message but the input message which should include how many years to simulate. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.
