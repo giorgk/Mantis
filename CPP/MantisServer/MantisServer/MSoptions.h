@@ -135,6 +135,9 @@ namespace mantisServer {
 			;
 
 		if (vm_cmd.count("help")) {
+			std::cout << "------------------------------" << std::endl;
+			std::cout << commandLineOptions << std::endl;
+			std::cout << "------------------------------" << std::endl;
 			std::cout << "Copy paste the following list of options" << std::endl;
 			std::cout << "into a configuration file." << std::endl;
 			std::cout << "The options without default values are mandatory" << std::endl;

@@ -26,7 +26,11 @@ int main()
 		msg = "quit\n";
 	}
 	else {
-		msg = "CVHM_95_99 1 1 1"; // Scenario Name, MapID, Nregions, Region ids,
+		// Examples of the first line
+		//CVHM_95_99 1 1 1 -> CVHM_95_99 scenario 1st Base, 1 region, with id 1 (The 1st base map has only one polygon
+		//CVHM_95_99 2 1 3 -> CVHM_95_99 scenario 2st Base, 1 region, with id 3 (The second base map has 3 polygons (Subbasins) TLB has id 3)
+		//CVHM_95_99 5 2 1 19 -> CVHM_95_99 scenario 5st Base, 2 regions, with id 1 amd 19 (The 5th base map has 21 polygons (farms) )
+		msg = "CVHM_95_99 5 1 3"; // Scenario Name, MapID, Nregions, Region ids,
 		msg += " 12 2020"; // Number of categories for reduction year to start reduction
 		msg += " 301 0.5";
 		msg += " 302 0.5";

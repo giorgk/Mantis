@@ -147,3 +147,24 @@ The file can be empty and it will be deleted before the program terminates.
 ## C++ Server
 This is a c++ server implementation of the Mantis code.
 Detailed documentation should be available [here](https://codedocs.xyz/giorgk/Mantis/) once I have figure out how to properly set up my doxygen documentation via the codedocs.
+
+In the mean time here are some usefull info about it.
+
+To obtain a list of options execute the following
+```
+MantisServer.exe -h
+```
+
+To run the server in test mode use the following
+```
+MantisServer.exe -c config_file -t
+```
+In test mode it doesnt load the NGW and LU maps and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return the a message similar to the one in actuall mode with random numbers.
+
+Last ommit the t flag to run the actual server
+```
+MantisServer.exe -c config_file
+```
+The loading of the NGW and LU can take several minutes
+
+ Under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) there is a test client program with the format of the incoming message

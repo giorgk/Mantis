@@ -1,7 +1,7 @@
 Npixels=18504470
-LU=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\LUs.dat
-NGW=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\NGWs.dat
-MAPS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\MantisMaps.dat
-WELLS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\cvhm_1995m7_1999m12_Wells.dat
-URFS=h:\UBU_BACKUP\Documents\UCDAVIS\Mantis\Local\Sim_1995m7_1999m12_URFS.dat
-NTHREADS = 12
+LU=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\LUs.dat
+NGW=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\NGWs.dat
+MAPS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\MantisMaps.dat
+WELLS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\cvhm_1995m7_1999m12_Wells.dat
+URFS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\Sim_1995m7_1999m12_URFS.dat
+NTHREADS = 1

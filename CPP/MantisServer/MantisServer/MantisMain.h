@@ -178,10 +178,10 @@ namespace mantisServer {
 		//BTC.resize(LF.size(), 0.0);
 		//std::cout << "BTC size: " << BTC.size() << std::endl;
 		int shift = 0;
-		for (int i = 0; i < LF.size(); ++i) {
+		for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
 			if (std::abs(LF[i] - 0) < zeroLoading)
 				continue;
-			for (int k = shift; k < LF.size(); ++k) {
+			for (int k = shift; k < static_cast<int>(LF.size()); ++k) {
 				BTC[k] = BTC[k] + urf[k - shift] * LF[i];
 			}
 		}
@@ -611,7 +611,7 @@ namespace mantisServer {
 		std::map<int, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
 		// precheck that the selected regions exist in the selected map
-		for (int i = 0; i < scenario.regionIDs.size(); ++i) {
+		for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i) {
 			regit = mapit->second.find(scenario.regionIDs[i]);
 			if (regit == mapit->second.end()) {
 				outmsg += "ERROR: The Region with id [";
@@ -642,7 +642,7 @@ namespace mantisServer {
 		
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
-		for (int irg = 0; irg < scenario.regionIDs.size(); ++irg) {
+		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
 			regit = mapit->second.find(scenario.regionIDs[irg]);
 			wellscenit = regit->second.wellids.find(scenario.name);
 
@@ -711,22 +711,22 @@ namespace mantisServer {
 		int count_yearly_intervals = 0;
 		std::map<int, double>::iterator redit;
 
-		for (int i = 0; i < LF.size(); ++i) {
+		for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
 			if (count_yearly_intervals >= options.yearInterval) {
 				NGWsi++;
 				NGWei++;
-				if (NGWsi >= NGW[0][0].size()) {
+				if (NGWsi >= static_cast<int>(NGW[0][0].size())) {
 					NGWsi = static_cast<int>(NGW[0][0].size()) - 1;
 				}
-				if (NGWei >= NGW[0][0].size()) {
+				if (NGWei >= static_cast<int>(NGW[0][0].size())) {
 					NGWei = static_cast<int>(NGW[0][0].size()) - 1;
 				}
 				LUsi++;
 				LUei++;
-				if (LUsi >= LU[0][0].size()) {
+				if (LUsi >= static_cast<int>(LU[0][0].size())) {
 					LUsi = static_cast<int>(LU[0][0].size()) - 1;
 				}
-				if (LUei >= LU[0][0].size()) {
+				if (LUei >= static_cast<int>(LU[0][0].size())) {
 					LUei = static_cast<int>(LU[0][0].size()) - 1;
 				}
 
@@ -832,7 +832,7 @@ namespace mantisServer {
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
 		int cntBTC = 0;
-		for (int irg = 0; irg < scenario.regionIDs.size(); ++irg) {
+		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
 			regit = mapit->second.find(scenario.regionIDs[irg]);
 			wellscenit = regit->second.wellids.find(scenario.name);
 
@@ -918,15 +918,17 @@ namespace mantisServer {
 	void Mantis::makeReply(std::string &outmsg) {
 		outmsg.clear();
 		int nBTC = 0;
-		for (int i = 0; i < replyLength.size(); ++i) {
+		for (int i = 0; i < static_cast<int>(replyLength.size()); ++i) {
 			nBTC += replyLength[i];
 		}
 
 		outmsg += std::to_string(nBTC);
-		for (int i = 0; i < replymsg.size(); ++i) {
+		for (int i = 0; i < static_cast<int>(replymsg.size()); ++i) {
 			outmsg += " ";
 			outmsg += replymsg[i];
 		}
+		// This is the character that indicates the end of the message
+		outmsg += "\n";
 
 		std::cout << nBTC << "BTCs will be sent" << std::endl;
 	}
