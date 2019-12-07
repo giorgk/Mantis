@@ -66,6 +66,8 @@ int main()
 	else {
 		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
 		std::cout << data << std::endl;
+
+
 	}
 
 	return 0;
