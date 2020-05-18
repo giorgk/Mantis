@@ -44,6 +44,7 @@
 !/CPP/MantisServer/MantisServer/*.vcxproj
 !/CPP/MantisServer/MantisServer/*.vcxproj.filters
 !/CPP/MantisServer/MantisServer/mantisserver.dox
+!/CPP/MantisServer/MantisServer/*.md
 
 !/CPP/TestClient
 /CPP/TestClient/*
