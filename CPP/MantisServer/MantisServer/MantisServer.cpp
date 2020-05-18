@@ -1,7 +1,10 @@
 // MantisServer.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
-
+#ifdef _WIN64
 #include "pch.h"
+#endif
+
+
 #include <iostream>
 
 #include <boost/asio.hpp>

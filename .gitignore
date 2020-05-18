@@ -40,9 +40,10 @@
 /CPP/MantisServer/MantisServer/*
 !/CPP/MantisServer/MantisServer/*.cpp
 !/CPP/MantisServer/MantisServer/*.h
+!/CPP/MantisServer/MantisServer/CMakeLists.txt
 !/CPP/MantisServer/MantisServer/*.vcxproj
 !/CPP/MantisServer/MantisServer/*.vcxproj.filters
-!/CPP/MantisServer/MantisServer/doxygen.config
+!/CPP/MantisServer/MantisServer/mantisserver.dox
 
 !/CPP/TestClient
 /CPP/TestClient/*

@@ -23,8 +23,43 @@ typedef ine_Kernel::Point_2 ine_Point2;
 typedef CGAL::Polygon_2< ine_Kernel> ine_Poly_2;
 
 const double sqrt2pi = std::sqrt(2*std::acos(-1));
-
+const double pi = std::atan(1)*4;
+/**
+ * @brief All the classes and structures of Mantis are defined under the mantisServer namespace
+ * 
+ */
 namespace mantisServer {
+	/**
+	 * @brief Enumeration for the type of the Unit Response function.
+	 * 
+	 * Since it is very inefficient to hold all 200~300 double valueswe will keep only 
+	 * a number of parameters.
+	 * 
+	 * If the URF is represented as lognormal distribution the parameteres are the mean and 
+	 * standard deviation.
+	 * 
+	 * We can also store the length and velocity and compute at runtime the analytical 
+	 * ADE. However this contains evaluations of the error function and exponential function
+	 * multiple times and may be not very efficient
+	 * 
+	 * Both is used as test where the parameteres for both representations are stored and
+	 * we can compare the efficiency and results 
+	 * 
+	 */
+	enum class URFTYPE{
+		LGNRM, /**< The URF is represented as lognormal distribution with mean and standard deviation parameters*/
+		ADE, /**< The URF is represented as analitical ADE with Length and velocity parameters*/
+		BOTH /**< The URF has parameteres for both of the above definitions. It is used for testing */
+	};
+
+	struct ADEoptions{
+		double alpha = 0.32;
+		double beta = 0.83;
+		double R = 1;
+		double lambda = 0.0;
+	};
+
+
 	/*! \class YearIndex
 		\brief A map between the years and the indices in the arrays.
 	
@@ -115,10 +150,22 @@ namespace mantisServer {
 		\param m_in is the mean value of the fitted equation
 		\param s_in is the standard deviation
 		*/
-		URF(int Nyrs, double m_in, double s_in);
+
+		/**
+		 * @brief Construct a new URF object
+		 * 
+		 * The constructor expands the Unit respons Function using the input parameters for Nyrs.
+		 * 
+		 * @param Nyrs is the number of years to expand the URF
+		 * @param paramA This is the first parameter. 
+		 * @param paramB  This is the second parameter.
+		 * @param type If the type is URFTYPE::LGNRM paramA is the mean and paramB is the standard deviation
+		 * If the type is URFTYPE::ADE, paramA is the screen length and paramB is the velocity.
+		 */
+		URF(int Nyrs, double paramA, double paramB, URFTYPE type, ADEoptions ade_opt = ADEoptions());
 
 		/// calc_conc returns the concentration for a given year. This is actuall used internaly by \ref calc_urf method.
-		double calc_conc(double t);
+		double calc_conc(double t, ADEoptions ade_opt = ADEoptions());
 		/*
 		\brief convolute executes the convulotion of the urf with the loading function.
 		\param LF is the loading function. The size of the loading function must be equal to \ref urf.
@@ -131,46 +178,77 @@ namespace mantisServer {
 		
 	private:
 		/// The mean fitted value.
-		double m;
+		double paramA;
 		///The standard deviation fitted value
-		double s;
+		double paramB;
 		/// This is a vector where the expanded values of the urfs will be stored.
 		std::vector<double> urf;
 		/// calc_urf expands the urf. This takes place during contruction.
-		void calc_urf();
+		void calc_urf(ADEoptions ade_opt = ADEoptions());
 		/// A hard coded threshold. Loading values lower than this threshold are treated as zero 
 		/// therefore the convolution can skip an entire loop associated with the particular loading value.
 		double zeroLoading = 0.00000000001;
+		URFTYPE type;
 	};
 
-	URF::URF(int Nyrs, double m_in, double s_in)
+	URF::URF(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
 		:
-		m(m_in),
-		s(s_in)
+		paramA(paramA_in),
+		paramB(paramB_in),
+		type(type_in)
 	{
 		urf.resize(Nyrs, 0);
-		calc_urf();
+		calc_urf(ade_opt);
 	}
 
-	double URF::calc_conc(double t) {
-		//(1 / (x*b*sqrt(2 * pi)))*exp((-(log(x) - a) ^ 2) / (2 * b ^ 2))
-		//std::cout << "t: (m,s)" << t << " (" << m << "," << s << ")" << std::endl;
-		double p1 = (1 / (t*s*sqrt2pi));
-		//std::cout << "p1: " << p1 << std::endl;
-		//std::cout << "log(t): " << log(t) << std::endl;
-		double p2 = (log(t) - m);
-		//std::cout << "p2: " << p2 << std::endl;
-		p2 = -p2 * p2;
-		//std::cout << "p2: " << p2 << std::endl;
-		p2 = p2 / (2 * s*s);
-		//std::cout << "p2: " << p2 << std::endl;
-		//std::cout << "return: " << p1 * exp(p2) << std::endl;
-		return p1*exp(p2);
+	double URF::calc_conc(double t, ADEoptions ade_opt) {
+		double out;
+		switch (type)
+		{
+		case URFTYPE::LGNRM: 
+		{
+			//(1 / (x*b*sqrt(2 * pi)))*exp((-(log(x) - a) ^ 2) / (2 * b ^ 2))
+			//std::cout << "t: (m,s)" << t << " (" << m << "," << s << ")" << std::endl;
+			double p1 = (1 / (t*paramB*sqrt2pi));
+			//std::cout << "p1: " << p1 << std::endl;
+			//std::cout << "log(t): " << log(t) << std::endl;
+			double p2 = (log(t) - paramA);
+			//std::cout << "p2: " << p2 << std::endl;
+			p2 = -p2 * p2;
+			//std::cout << "p2: " << p2 << std::endl;
+			p2 = p2 / (2 * paramB*paramB);
+			//std::cout << "p2: " << p2 << std::endl;
+			//std::cout << "return: " << p1 * exp(p2) << std::endl;
+			out = p1*exp(p2);
+		}
+			break;
+		case URFTYPE::ADE:
+		{
+			double D = std::pow(ade_opt.alpha*paramA, ade_opt.beta);
+			double DRt = 2*std::sqrt(D*ade_opt.R*t);
+			if (ade_opt.lambda < 0.000001){
+				out = 0.5*std::erfc(( ade_opt.R * paramA - paramB * t )/DRt) + 
+						std::sqrt(t*paramB*paramB/pi*D*ade_opt.R) * 
+						exp(-1*(ade_opt.R*paramA - paramB*t)*(ade_opt.R*paramA - paramB*t)/(4*D*ade_opt.R*t)) - 
+					0.5 * (1+ paramB*paramA/D + t*paramB*paramB/D*ade_opt.R ) * 
+						exp(paramB*paramA/D)*
+						std::erfc((ade_opt.R*paramA + paramB*t )/DRt);
+			}
+			else{
+				std::cout << "Not implemented for lambda > 0" << std::endl;
+			}
+		}
+			break;
+		default:
+			out = std::numeric_limits<double>::quiet_NaN();
+			break;
+		}
+		return out;
 	}
 
-	void URF::calc_urf() {
+	void URF::calc_urf(ADEoptions ade_opt) {
 		for (unsigned int i = 0; i < urf.size(); ++i)
-			urf[i] = calc_conc(static_cast<double>(i + 1));
+			urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
 	}
 
 	void URF::convolute(std::vector<double> &LF, std::vector<double> &BTC) {
@@ -186,27 +264,32 @@ namespace mantisServer {
 			}
 		}
 	}
-	
-	/*! \struct Scenario
-		\brief Each a struct variable that contains all the information needed for each simulation scenario.
 
-		This struct is a convinent way to transfer around all inputs at once.
-	*/
+
+	/**
+	 * @brief is a struct variable that contains all the information needed for each simulation scenario.
+	 * 
+	 * This struct is a convinent way to transfer around all inputs at once.
+	 */
 	struct Scenario {
-		/// mapID is the id of selected background map.
+		//! mapID is the id of selected background map.
 		int mapID;
-		/// scenarioName is the name of the selected scenario.
+		//! scenarioName is the code name of the selected scenario.
 		std::string name;
-		/// regionIDs is a list of regions to compute the breakthrough curves
+		//! regionIDs is a list of regions to compute the breakthrough curves
 		std::vector<int> regionIDs;
-		/// LoadReduction is a map the sets the nitrate loading reduction for selected land use categories.
-		/// The key value of the map is the land use category and the value is the percentage of loading reduction.
+		//! LoadReductionMap is a map the sets the nitrate loading reduction for selected land use categories.
+		//! The key value of the map is the land use category and the value is the percentage of loading reduction.
 		std::map<int, double> LoadReductionMap;
-		/// ReductionYear is the year to start the reduction. 
-		/// The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
-		/// any of the default 15 year time incements.
+		//! ReductionYear is the year to start the reduction. 
+		//! The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
+		//! any of the default 15 year time incements.
 		int ReductionYear;
-		/// clear is making sure that the scenario has no data from a previous run.
+
+		/**
+		 * @brief clear is making sure that the scenario has no data from a previous run.
+		 * 
+		 */
 		void clear() {
 			mapID = -9;
 			name = "";
@@ -221,33 +304,81 @@ namespace mantisServer {
 		Although this is a class, it is used more like struct container. 
 		I guess when I first writing this I was expecting more functionality here.
 	*/
+
+	/**
+	 * @brief Stores data for each streamline. 
+	 * 
+	 * Although this is a class, it is used more like struct container.
+	 * 
+	 */
 	class streamlineClass {
 	public:
 		/*! \brief streamlineClass constructor expects the parameters that define a streamline
 		\param r is the row number of the pixel where this streamline starts from near the land surface.
 		\param c is the column number of the pixel where this streamline starts from near the land surface.
-		\param mu is the mean value of the fitted unit response function.
-		\param mu_in is the standard deviation of the fitted unit response function.
 		\param w_in is the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
+		\param type_in is the type of the unit respons function
+		\param paramA this is either the mean value or the streamline length.
+		\param paramB this is either the standard deviation or the velocity.
+		\param paramC if the type is both this is mean, while A and B are length and velocity
+		\param paramD if the type is both this is standard deviation
 		*/
-		streamlineClass(int r, int c, double mu_in, double std_in, double w_in);
-		/// the row number of the pixel where this streamline starts from near the land surface.
+		streamlineClass(int r, int c, double w_in, URFTYPE type_in, double paramA, double paramB, double paramC = 0, double paramD = 0);
+		
+		//! the row number of the pixel where this streamline starts from near the land surface.
 		int row;
-		/// the column number of the pixel where this streamline starts from near the land surface.
+		
+		//! the column number of the pixel where this streamline starts from near the land surface.
 		int col;
-		///the mean value of the fitted unit response function.
+		
+		//! the mean value of the fitted unit response function.
 		double mu;
-		///the standard deviation of the fitted unit response function.
+		
+		//! the standard deviation of the fitted unit response function.
 		double std;
-		///the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
+		
+		//!the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
 		double w;
+
+		//! The streamline length
+		double sl;
+
+		//! the mean velocity along the streamline
+		double vel;
+
+		//! The type of streamline
+		URFTYPE type;
+
+
 	};
-	streamlineClass::streamlineClass(int r, int c, double mu_in, double std_in, double w_in) {
+	streamlineClass::streamlineClass(int r, int c, double w_in, URFTYPE type_in, double paramA, double paramB, double paramC, double paramD) {
 		row = r;
 		col = c;
-		mu = mu_in;
-		std = std_in;
 		w = w_in;
+		type = type_in;
+		switch (type)
+		{
+		case URFTYPE::LGNRM:
+			mu = paramA;
+			std = paramB;
+			sl = paramC;
+			vel = paramD;
+			break;
+		case URFTYPE::ADE:
+			sl = paramA;
+			vel = paramB;
+			mu = paramC;
+			std = paramD;
+			break;
+		case URFTYPE::BOTH:
+			sl = paramA;
+			vel = paramB;
+			mu = paramC;
+			std = paramD;
+			break;
+		default:
+			break;
+		}
 	}
 
 	/*! \class wellClass
@@ -257,41 +388,59 @@ namespace mantisServer {
 	*/
 	class wellClass {
 	public:
-		/*! \breaf addStreamline inserts information about a streamline that reaches the well.
-		\param Sid is the streamline id.
+		/**
+		 * @brief inserts information about a streamline that reaches the well.
+		 * 
+		 * @param Sid is the streamline id.
+		 * @param r see streamlineClass::streamlineClass for the rest of the parameters
+		 * @param c 
+		 * @param w 
+		 * @param type
+		 * @param paramA 
+		 * @param paramB 
+		 * @param paramC 
+		 * @param paramD 
+		 */
+		void addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
-		The other parameters are the same as in the \ref streamlineClass::streamlineClass.
-		*/
-		void addStreamline(int Sid, int r, int c, double mu, double std, double w);
-
-		/// streamlines is a map where the key is the streamline id and the value is an obect of type \ref streamlineClass.
+		//! streamlines is a map where the key is the streamline id and the value is an obect of type streamlineClass::streamlineClass.
 		std::map<int, streamlineClass> streamlines;
 	};
 
-	void wellClass::addStreamline(int Sid, int r, int c, double mu, double std, double w) {
-		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(r, c, mu, std, w)));
+	void wellClass::addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+		double paramA, double paramB, double paramC, double paramD) {
+		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(r, c, w, type, paramA, paramB, paramC, paramD)));
 	}
 
 	/*! \class Polyregion
-		\brief Contains spatial information of a unit area.
+		\brief 
 
-		A unit area is the smallest division of a given background map. 
-		For example if the background map is the Basins map then the Sacramento vallye is a unit area.
-		If the background map contains the CVHM farms then one farm is represented as a Polyregion.
-
-		A Polyregion may consist of one or more polygons. At the moment the holes in the geometry are not taken into acount.
-
-		In addition to the geometry info this class contains the ids of the wells that each Polyregion contains.
-		The spatial queries take place during server initialization therefore 
-		during simulation time all that is needed is searching through std::map objects.
+		
 	*/
+
+	/**
+	 * @brief Contains spatial information of a unit area.
+	 * 
+	 * A unit area is the smallest division of a given background map. 
+	 * For example if the background map is the Basins map then the Sacramento valley is a unit area. \n 
+	 * If the background map contains the CVHM farms then each farm is a Polyregion.
+	 * 
+	 * A Polyregion may consist of one or more polygons. The holes in the geometry are not taken into acount. \n
+	 * If there is a hole there should not be any wells in the hole from the first place 
+	 * 
+	 * In addition to the geometry info this class contains the ids of the wells that each Polyregion contains.
+	 * The spatial queries take place during server initialization therefore  during simulation time all that 
+	 * is needed is searching through std::map objects.
+	 */
 	class Polyregion {
 	public:
-		// This is a list of cgal polygons that define a unit analysis such as a Basin, a farm, a county etc.
-		// The unit may consists of more polygons that's why we use a vector here
+		//! This is a list of cgal polygons that define the unit analysis such as a Basin, a farm, a county etc.
+		//! The unit may consists of more polygons that's why we use a vector here
 		std::vector<ine_Poly_2> polys;
+
 		//! The well ids that are contained by the polygon. 
-		// This is actually a map so that it can contain mutliple well sets where the name of the set is the key
+		//! This is actually a map so that it can contain mutliple well sets where the name of the set is the key
 		std::map<std::string, std::vector<int> > wellids;
 	};
 
@@ -355,7 +504,55 @@ namespace mantisServer {
 
 
 		bool readBackgroundMaps();
+
+		/**
+		 * @brief Reads a file with information about a well set
+		 * 
+		 * The format of the file is the following: \n
+		 * NWELLS SETNAME \n
+		 * where NWELLS is the number of wells in the file and SETNAME is 
+		 * a code name. The code name must be identical to the one used in the URFS
+		 * 
+		 * Next repeate NWELLS times the following line \n 
+		 * EID XW YW \n
+		 * 
+		 * where EID is the entity id (well id), XW and YW are the coordinates of the wells.
+		 * 
+		 * @param filename This is the name of the file
+		 * @return true if the reading was succesfull
+		 * @return false if reading failed for any reason
+		 */
 		bool readWellSet(std::string filename);
+
+		/**
+		 * @brief Reads the parameteres of the Unit Respons 
+		 * Functions of a given well set
+		 * 
+		 * The first line containts the following labels: \n
+		 * NURFS SETNAME URFTYPE \n
+		 * where: \n
+		 * NURFS is the number of urfs that follow, \n
+		 * SETNAME is the name of the set. This is a string which must be 
+		 * identical to the one in the wellfile Mantis::readWellSet(std::string filename) and \n 
+		 * URFTYPE is a string from the mantisServer::URFTYPE that specifies the types of parameters to read
+		 * 
+		 * Next repeate NURFS times the following line: \n
+		 * EID, SID, ROW, COL, WEIGHT, {parameteres} \n
+		 * where \n
+		 * EID is the entity id (the well id of the well file) \n
+		 * SID is the streamline id. \n
+		 * ROW and COL is the pixel row and column where this streamline exits \n
+		 * WEIGHT is the weight of this urf. This is usually proportional to velocity at the well side \n
+		 * {parameters} the parameters depend on the URFTYPE.  \n
+		 * For mantisServer::URFTYPE::LGNRM the paramters are MEAN STD (mean and standard deviation). \n
+		 * For mantisServer::URFTYPE::ADE the parameters are SL VEL (streamline length and velocity). \n
+		 * While for mantisServer::URFTYPE::BOTH the parameteres are SL VEL MEAN STD
+		 * 
+		 * @param filename The name of the file
+		 * @return true if there were no errors during the reading
+		 * @return false if the reading failed
+		 */
+
 		bool readURFs(std::string filename);
 		bool readLU_NGW();
 
@@ -558,30 +755,49 @@ namespace mantisServer {
 		else {
 			std::map<std::string, std::map<int, wellClass> >::iterator scenit;
 			std::map<int, wellClass>::iterator wellmapit;
-			std::string setName;
+			std::string setName, urftypestring;
+			URFTYPE urftype;
 			int Nurfs;
 			URFdatafile >> Nurfs;
 			URFdatafile >> setName;
 			scenit = Wellmap.find(setName);
+			{// Identify urf type
+				URFdatafile >> urftypestring;
+				if (urftypestring.compare("LGNRM") == 0)
+					urftype = URFTYPE::LGNRM;
+				else if (urftypestring.compare("ADE") == 0)
+					urftype = URFTYPE::ADE;
+				else if (urftypestring.compare("BOTH") == 0)
+					urftype = URFTYPE::BOTH;
+				else{
+					std::cout << "The URF type " << urftypestring << " is not valid" << std::endl;
+					return false;
+				}
+			}
+
 			if (scenit == Wellmap.end()) {
 				std::cout << "The URF Scenario " << setName << " is not defined for the wells" << std::endl;
 				return false;
 			}
 			else {
 				int Eid, Sid, ROW, COL;
-				double mu, std, w;
+				double paramA, paramB, w, paramC, paramD;
 				for (int i = 0; i < Nurfs; ++i) {
 					URFdatafile >> Eid;
 					URFdatafile >> Sid;
 					URFdatafile >> ROW;
 					URFdatafile >> COL;
-					URFdatafile >> mu;
-					URFdatafile >> std;
 					URFdatafile >> w;
+					URFdatafile >> paramA;
+					URFdatafile >> paramB;
+					if (urftype == URFTYPE::BOTH){
+						URFdatafile >> paramC;
+						URFdatafile >> paramD;
+					}
 					//Eid++;// This is used since the particle tracking code writes the entities with zero based numbering
 					wellmapit = scenit->second.find(Eid);
 					if (wellmapit != scenit->second.end()) {
-						wellmapit->second.addStreamline(Sid, ROW, COL, mu, std, w);
+						wellmapit->second.addStreamline(Sid, ROW, COL, w, urftype, paramA, paramB, paramC, paramD);
 					}
 				}
 			}
@@ -640,6 +856,10 @@ namespace mantisServer {
 		
 		// If we have reached here we know that the map and region ids are valid as well as the selected scenario
 		
+		// For the time being I'm going to hard code these variables
+		URFTYPE urftp = URFTYPE::LGNRM;
+		ADEoptions ade_opt;
+
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
 		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
@@ -658,19 +878,26 @@ namespace mantisServer {
 					std::vector<double> weightBTC(options.nSimulationYears, 0);
 					double sumW = 0;
 					if (wellit->second.streamlines.size() > 0) {
-						int temp_count = 1;
+						//int temp_count = 1;
 						for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
 							//std::cout << "streamline " << temp_count << std::endl;
 							std::vector<double> BTC(options.nSimulationYears, 0);
-							URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
-							buildLoadingFunction(scenario, LF, strmlnit->second.row-1, strmlnit->second.col-1);
-							urf.convolute(LF, BTC);
+							if (urftp == URFTYPE::LGNRM){
+								URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std, urftp);
+								buildLoadingFunction(scenario, LF, strmlnit->second.row-1, strmlnit->second.col-1);
+								urf.convolute(LF, BTC);
+							}
+							else if (urftp == URFTYPE::ADE){
+								URF urf(options.nSimulationYears, strmlnit->second.sl, strmlnit->second.vel, urftp,ade_opt);
+								buildLoadingFunction(scenario, LF, strmlnit->second.row-1, strmlnit->second.col-1);
+								urf.convolute(LF, BTC);
+							}
 							// sum BTC
 							for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
 								weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
 							}
 							sumW += strmlnit->second.w;
-							temp_count++;
+							//temp_count++;
 						}
 						for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
 							weightBTC[iwbtc] = weightBTC[iwbtc]/ sumW;
@@ -829,6 +1056,10 @@ namespace mantisServer {
 		//	std::cout << id << ":" << i << std::endl;
 		//}
 
+		// For the time being I'm going to hard code these variables
+		URFTYPE urftp = URFTYPE::LGNRM;
+		ADEoptions ade_opt;
+
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
 		int cntBTC = 0;
@@ -873,16 +1104,23 @@ namespace mantisServer {
 						if (!options.testMode) {
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
-								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
 									std::vector<double> BTC(options.nSimulationYears, 0);
-									URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std);
-									buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-									urf.convolute(LF, BTC);
+								//if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+									if (urftp == URFTYPE::LGNRM){
+										URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std, urftp);
+										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+										urf.convolute(LF, BTC);
+									}
+									else if (urftp == URFTYPE::ADE){
+										URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std, urftp, ade_opt);
+										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+										urf.convolute(LF, BTC);
+									}
 									// sum BTC
 									for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
 										weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
 									}
-								}
+								//}
 								sumW += strmlnit->second.w;
 							}
 							//average streamlines

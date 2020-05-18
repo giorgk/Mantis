@@ -97,8 +97,8 @@ namespace mantisServer {
 		po::store(po::parse_command_line(argc, argv, commandLineOptions), vm_cmd);
 
 		if (vm_cmd.size() == 0) {
-			std::cout << " To run MantisServer specify the configuration file as" << std::endl;
-			std::cout << "-c configfilename" << std::endl << std::endl;;
+			std::cout << " To run MantisServer specify the configuration file and run as" << std::endl;
+			std::cout << "mantisServer -c configfilename" << std::endl << std::endl;;
 			std::cout << "Other command line options are:" << std::endl;
 			std::cout << commandLineOptions << std::endl;
 			return false;
@@ -107,7 +107,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.1.00 |" << std::endl;
+			std::cout << "| Version : 1.2.00 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
