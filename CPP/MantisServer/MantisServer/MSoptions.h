@@ -55,6 +55,8 @@ namespace mantisServer {
 		*/
 		std::string NGWfile;
 
+		std::string UNSATfile;
+
 		//! MAPSfile is the name file for the background maps
 		/*!
 		The format of the file is....
@@ -123,6 +125,7 @@ namespace mantisServer {
 			("NSCEN", po::value<int>()->default_value(1), "Number of scenarios")
 			("WELLS", "A list of files with the well info for each scenario")
 			("URFS", "A list of files with the URF information")
+			("UNSAT", "A file that containts the travel time for each LU pixel")
 			("PORT", po::value<int>()->default_value(1234), "Port number")
 			("Nrow", po::value<int>()->default_value(12863), "Number of rows")
 			("Ncol", po::value<int>()->default_value(7046), "Number of columns")
@@ -165,6 +168,7 @@ namespace mantisServer {
 			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
 			tf = get_option<std::string>("LU", vm_cfg, opt.LUfile);
 			tf = get_option<std::string>("NGW", vm_cfg, opt.NGWfile);
+			tf = get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile);
 			tf = get_option<std::string>("WELLS", vm_cfg, opt.WELLfile);
 			tf = get_option<std::string>("URFS", vm_cfg, opt.URFfile);
 

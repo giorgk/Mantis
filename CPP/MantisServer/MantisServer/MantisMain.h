@@ -32,17 +32,17 @@ namespace mantisServer {
 	/**
 	 * @brief Enumeration for the type of the Unit Response function.
 	 * 
-	 * Since it is very inefficient to hold all 200~300 double valueswe will keep only 
+	 * Since it is very inefficient to hold all 200~300 double values we will keep only 
 	 * a number of parameters.
 	 * 
-	 * If the URF is represented as lognormal distribution the parameteres are the mean and 
+	 * If the URF is represented as lognormal distribution the parameteres are the mean and the
 	 * standard deviation.
 	 * 
 	 * We can also store the length and velocity and compute at runtime the analytical 
 	 * ADE. However this contains evaluations of the error function and exponential function
 	 * multiple times and may be not very efficient
 	 * 
-	 * Both is used as test where the parameteres for both representations are stored and
+	 * Both is used as test where the parameters for both representations are stored and
 	 * we can compare the efficiency and results 
 	 * 
 	 */
@@ -487,8 +487,10 @@ namespace mantisServer {
 
 		//! LU is a 3D array of Nrow x Ncol x Years (5)
 		std::vector< std::vector< std::vector<int> > > LU;
-		//! NGW is a 3D array or Nrow x Ncol x Years (8)
+		//! NGW is a 3D array of Nrow x Ncol x Years (8)
 		std::vector< std::vector< std::vector<float> > > NGW;
+		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
+		std::vector< std::vector<float> > UNSAT;
 		//! a list of background maps
 		std::map<int, std::map<int, Polyregion> > MAPList;
 		//! A map of well ids and wellClass
@@ -524,6 +526,9 @@ namespace mantisServer {
 		 */
 		bool readWellSet(std::string filename);
 
+
+		bool readMultipleSets(std::string filename, bool isWell);
+
 		/**
 		 * @brief Reads the parameteres of the Unit Respons 
 		 * Functions of a given well set
@@ -537,7 +542,7 @@ namespace mantisServer {
 		 * URFTYPE is a string from the mantisServer::URFTYPE that specifies the types of parameters to read
 		 * 
 		 * Next repeate NURFS times the following line: \n
-		 * EID, SID, ROW, COL, WEIGHT, {parameteres} \n
+		 * EID, SID, ROW, COL, WEIGHT, {parameters} \n
 		 * where \n
 		 * EID is the entity id (the well id of the well file) \n
 		 * SID is the streamline id. \n
@@ -554,6 +559,7 @@ namespace mantisServer {
 		 */
 
 		bool readURFs(std::string filename);
+
 		bool readLU_NGW();
 
 		void assign_point_in_sets(double x, double y, int wellid, std::string setname);
@@ -680,9 +686,11 @@ namespace mantisServer {
 	bool Mantis::readInputs() {
 		bool tf = readBackgroundMaps();
 		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
-		tf = readWellSet(options.WELLfile);
+		tf = readMultipleSets(options.WELLfile, true);
+		//tf = readWellSet(options.WELLfile);
 		if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
-		tf = readURFs(options.URFfile);
+		tf = readMultipleSets(options.URFfile, false);
+		//tf = readURFs(options.URFfile);
 		if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
 		if (!options.testMode) {
 			tf = readLU_NGW();
@@ -712,6 +720,30 @@ namespace mantisServer {
 					break;
 			}
 		}
+	}
+
+	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
+		std::ifstream WellMasterfile;
+		WellMasterfile.open(filename);
+		if (!WellMasterfile.is_open()) {
+			std::cout << "Cant open file: " << filename << std::endl;
+			return false;
+		}
+		else {
+			std::string line;
+			while (getline(WellMasterfile, line)) {
+				bool tf;
+				if (isWell)
+					tf = readWellSet(line);
+				else
+					tf = readURFs(line);
+				if (!tf) {
+					std::cout << "An error occured while reading " << line << std::endl;
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	bool Mantis::readWellSet(std::string filename) {
@@ -1000,7 +1032,8 @@ namespace mantisServer {
 		//12863 x 7046 x 5 
 		LU.resize(options.Nrow, std::vector< std::vector<int> >(options.Ncol, std::vector<int>(5, 0)));
 		NGW.resize(options.Nrow, std::vector< std::vector<float> >(options.Ncol, std::vector<float>(8, 0)));
-		std::ifstream LUdatafile, NGWdatafile;
+		UNSAT.resize(options.Nrow, std::vector<float>(options.Ncol, 0));
+		std::ifstream LUdatafile, NGWdatafile, UNSATdatafile;
 		
 		LUdatafile.open(options.LUfile);
 		if (!LUdatafile.is_open()) {
@@ -1011,6 +1044,12 @@ namespace mantisServer {
 		NGWdatafile.open(options.NGWfile);
 		if (!NGWdatafile.is_open()) {
 			std::cout << "Cant open file: " << options.NGWfile << std::endl;
+			return false;
+		}
+
+		UNSATdatafile.open(options.UNSATfile);
+		if (!UNSATdatafile.is_open()) {
+			std::cout << "Cant open file: " << options.UNSATfile << std::endl;
 			return false;
 		}
 
@@ -1031,9 +1070,12 @@ namespace mantisServer {
 				NGWdatafile >> d;
 				NGW[I][J][k] = d;
 			}
+			UNSATdatafile >> d;
+			UNSAT[I][J] = d;
 		}
 		LUdatafile.close();
 		NGWdatafile.close();
+		UNSATdatafile.close();
 		auto finish = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read LU and NGW in " << elapsed.count() << std::endl;
