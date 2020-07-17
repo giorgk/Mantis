@@ -401,14 +401,14 @@ namespace mantisServer {
 		 * @param paramC 
 		 * @param paramD 
 		 */
-		void addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+		void addStreamline(int Sid, int r, int c, double w, URFTYPE type,
 			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
 		//! streamlines is a map where the key is the streamline id and the value is an obect of type streamlineClass::streamlineClass.
 		std::map<int, streamlineClass> streamlines;
 	};
 
-	void wellClass::addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+	void wellClass::addStreamline(int Sid, int r, int c, double w, URFTYPE type,
 		double paramA, double paramB, double paramC, double paramD) {
 		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(r, c, w, type, paramA, paramB, paramC, paramD)));
 	}
@@ -504,7 +504,19 @@ namespace mantisServer {
 		std::vector<std::string> replymsg;
 		std::vector<int> replyLength;
 
-
+		/**
+		First line:
+		Nmaps : The Number of background maps.
+		Background maps can be the outline polygon, the subbasins, Counties, Subregions etc.
+		Repeat Nmaps times the following
+		Nregions : The number of regions this map containts, 1 for entire CV, 3 for subbasins etc.
+		For each subregion repeat:
+		Npoly: The number of polygons that the subregion consist from.
+		For each Npoly repeat:
+		Nverts : The number of polygon corners of the subregion polygon
+		Repeat Nverts the following
+		xcoord ycoord : the coordinates of the polygon order
+		*/
 		bool readBackgroundMaps();
 
 		/**
@@ -548,7 +560,8 @@ namespace mantisServer {
 		 * SID is the streamline id. \n
 		 * ROW and COL is the pixel row and column where this streamline exits \n
 		 * WEIGHT is the weight of this urf. This is usually proportional to velocity at the well side \n
-		 * {parameters} the parameters depend on the URFTYPE.  \n
+		 * Velocity at the land side. This is used for the travel time calculation 
+		 * {parameters} the parameters depend on the URFTYPE. \n
 		 * For mantisServer::URFTYPE::LGNRM the paramters are MEAN STD (mean and standard deviation). \n
 		 * For mantisServer::URFTYPE::ADE the parameters are SL VEL (streamline length and velocity). \n
 		 * While for mantisServer::URFTYPE::BOTH the parameteres are SL VEL MEAN STD
@@ -814,6 +827,8 @@ namespace mantisServer {
 			else {
 				int Eid, Sid, ROW, COL;
 				double paramA, paramB, w, paramC, paramD;
+				paramC = 0.0;
+				paramD = 0.0;
 				for (int i = 0; i < Nurfs; ++i) {
 					URFdatafile >> Eid;
 					URFdatafile >> Sid;
