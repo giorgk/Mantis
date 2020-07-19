@@ -32,6 +32,7 @@ namespace mantisServer {
 
 	template<typename T>
 	void printVector(std::vector<T>& v, std::string varname) {
+		std::cout << std::endl;
 		std::cout << varname << " = [";
 		for (unsigned int i = 0; i < v.size(); ++i) {
 			std::cout << v[i] << " ";
@@ -210,7 +211,7 @@ namespace mantisServer {
 	{
 		urf.resize(Nyrs, 0);
 		calc_urf(ade_opt);
-		printVector<double>(urf, "URF");
+		//printVector<double>(urf, "URF");
 	}
 
 	double URF::calc_conc(double t, ADEoptions ade_opt) {
@@ -264,9 +265,9 @@ namespace mantisServer {
 	}
 
 	void URF::convolute(std::vector<double> &LF, std::vector<double> &BTC) {
-		std::cout << "LF size: " << LF.size() << std::endl;
+		//std::cout << "LF size: " << LF.size() << std::endl;
 		//BTC.resize(LF.size(), 0.0);
-		std::cout << "BTC size: " << BTC.size() << std::endl;
+		//std::cout << "BTC size: " << BTC.size() << std::endl;
 		int shift = 0;
 		for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
 			if (std::abs(LF[i] - 0) < zeroLoading)
@@ -1121,6 +1122,8 @@ namespace mantisServer {
 						Re = 1;
 					else
 						Re = redit->second;
+					//if (Rs < 1 || Re < 1)
+					//	std::cout << Rs << " - " << Re << std::endl;
 				}
 
 				LF[i] = (Rs * NGWsv) * (1 - yearDistributor[count_yearly_intervals]) + (Re * NGWev) * yearDistributor[count_yearly_intervals];
@@ -1326,6 +1329,7 @@ namespace mantisServer {
 			
 			for (int iw = startWell; iw < endWell; ++iw) {
 				wellid = wellscenit->second[iw];
+				std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
 				if (wellit != wellscenNameit->second.end()) {
 					std::vector<double> weightBTC(NsimulationYears, 0);
@@ -1334,16 +1338,16 @@ namespace mantisServer {
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-								std::cout << cnt_strmlines++ << std::endl;
+								//std::cout << cnt_strmlines++ << std::endl;
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 									std::vector<double> BTC(NsimulationYears, 0);
 								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
 									if (strmlnit->second.type == URFTYPE::LGNRM){
 										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
 										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-										printVector<double>(LF, "LF");
+										//printVector<double>(LF, "LF");
 										urf.convolute(LF, BTC);
-										printVector<double>(BTC, "BTC");
+										//printVector<double>(BTC, "BTC");
 									}
 									else if (strmlnit->second.type == URFTYPE::ADE){
 										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
@@ -1353,7 +1357,7 @@ namespace mantisServer {
 
 									// Find the travel time in the unsaturated zone
 									float tau = unsatTravelTime(strmlnit->second.row-1, strmlnit->second.col-1);
-									std::cout << tau << std::endl;
+									//std::cout << tau << std::endl;
 									tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
 									if (tau < 0)
 										tau = 0.0;
@@ -1362,7 +1366,7 @@ namespace mantisServer {
 									if (intTau < NsimulationYears) {
 										int ibtc = 0;
 										for (int ii = intTau; ii < NsimulationYears; ++ii) {
-											std::cout << ii << std::endl;
+											//std::cout << ii << std::endl;
 											weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
 											ibtc++;
 										}
@@ -1381,6 +1385,7 @@ namespace mantisServer {
 								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
 								replymsg[id] += " ";
 							}
+							//printVector<double>(weightBTC, "wBTC");
 						}
 						else {
 							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
@@ -1406,7 +1411,7 @@ namespace mantisServer {
 
 	void Mantis::makeReply(std::string &outmsg) {
 		outmsg.clear();
-		outmsg += "1";
+		outmsg += "1 ";
 		int nBTC = 0;
 		for (int i = 0; i < static_cast<int>(replyLength.size()); ++i) {
 			nBTC += replyLength[i];

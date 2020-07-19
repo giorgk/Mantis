@@ -4,6 +4,7 @@
 #include "pch.h"
 #include <iostream>
 #include <string>
+#include <fstream>
 #include <boost/asio.hpp>
 #include <math.h>
 #include <cstdlib>
@@ -31,7 +32,7 @@ int main(int argc, char* argv[])
 	}
 	else {
 		// Number of years to simulate, The year to start the reductions, the unsaturated zone mobile water content 
-		msg = "200 2025 0.001";
+		msg = "300 2025 0.002";
 		// Examples of the Second line line
 		//CVHM_95_99 1 1 1 -> CVHM_95_99 scenario 1st Base, 1 region, with id 1 (The 1st base map has only one polygon
 		//CVHM_95_99 2 1 3 -> CVHM_95_99 scenario 2st Base, 1 region, with id 3 (The second base map has 3 polygons (Subbasins) TLB has id 3)
@@ -72,8 +73,29 @@ int main(int argc, char* argv[])
 	else {
 		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
 		std::cout << data << std::endl;
-
-
+		std::stringstream ss;
+		ss << data;
+		int tf;
+		ss >> tf;
+		if (tf == 1) {
+			int Nbtc;
+			ss >> Nbtc;
+			std::string filename = "testClientResults.dat";
+			std::ofstream outstream;
+			outstream.open(filename.c_str());
+			float dd;
+			for (int i = 0; i < Nbtc; ++i) {
+				for (int j = 0; j < 300; ++j) {
+					ss >> dd;
+					outstream << dd << " ";
+				}
+				outstream << std::endl;
+			}
+			outstream.close();
+		}
+		else {
+			std::cout << data << std::endl;
+		}
 	}
 
 	return 0;
