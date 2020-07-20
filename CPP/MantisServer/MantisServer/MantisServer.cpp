@@ -55,7 +55,7 @@ int main(int argc, char *argv[])
 			std::string outmsg;
 			if (msg.compare("quit\n") == 0) {
 				std::cout << "Received request to quit" << std::endl;
-				outmsg = "Mantis Server is quiting...";
+				outmsg = "0 Mantis Server is quiting...";
 				socket.write_some(ba::buffer(outmsg));
 				socket.close();
 				break;

@@ -1329,7 +1329,7 @@ namespace mantisServer {
 			
 			for (int iw = startWell; iw < endWell; ++iw) {
 				wellid = wellscenit->second[iw];
-				std::cout << wellid << std::endl;
+				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
 				if (wellit != wellscenNameit->second.end()) {
 					std::vector<double> weightBTC(NsimulationYears, 0);

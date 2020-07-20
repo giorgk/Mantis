@@ -17,8 +17,11 @@ int main(int argc, char* argv[])
 	//return 0;
 
 	bool quit = false;
+	std::string infile;
 	if (argc > 1) {
-		quit = true;
+		infile = argv[1];
+		if (infile.compare("quit") == 0)
+			quit = true;
 	}
 
 	boost::asio::io_service io_service;
@@ -27,31 +30,57 @@ int main(int argc, char* argv[])
 	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
 	
 	std::string msg;
+	int NsimYears = 300;
 	if (quit) {
 		msg = "quit\n";
 	}
 	else {
-		// Number of years to simulate, The year to start the reductions, the unsaturated zone mobile water content 
-		msg = "300 2025 0.002";
-		// Examples of the Second line line
-		//CVHM_95_99 1 1 1 -> CVHM_95_99 scenario 1st Base, 1 region, with id 1 (The 1st base map has only one polygon
-		//CVHM_95_99 2 1 3 -> CVHM_95_99 scenario 2st Base, 1 region, with id 3 (The second base map has 3 polygons (Subbasins) TLB has id 3)
-		//CVHM_95_99 5 2 1 19 -> CVHM_95_99 scenario 5st Base, 2 regions, with id 1 amd 19 (The 5th base map has 21 polygons (farms) )
-		msg += "CVHM_92_03_bud0 5 1 3"; // Scenario Name, MapID, Nregions, Region ids,
-		msg += " 12"; // Number of categories for reduction
-		msg += " 301 0.5";
-		msg += " 302 0.5";
-		msg += " 303 0.4";
-		msg += " 400 0.7";
-		msg += " 401 0.7";
-		msg += " 402 0.6";
-		msg += " 605 0.3";
-		msg += " 1451 0.75";
-		msg += " 1452 0.253";
-		msg += " 1460 0.5501";
-		msg += " 212910 0.102";
-		msg += " 10003 0.458";
-		msg += " ENDofMSG\n";
+		if (argc > 1) {
+			std::ifstream indata(infile.c_str());
+			if (!indata.good()) {
+				std::cout << "Can't open the file " << infile << std::endl;
+			}
+			else {
+				std::string line;
+				bool getNumberofYears = true;
+				while (getline(indata, line)) {
+					if (getNumberofYears) {
+						std::istringstream inp(line.c_str());
+						inp >> NsimYears;
+						getNumberofYears = false;
+						msg = line;
+					}
+					else {
+						msg += " " + line;
+					}
+				}
+				msg += " ENDofMSG\n";
+			}
+		}
+		else {
+			// Number of years to simulate, The year to start the reductions, the unsaturated zone mobile water content 
+			msg = std::to_string(NsimYears);
+			msg += " 2025 0.002";
+			// Examples of the Second line line
+			//CVHM_95_99 1 1 1 -> CVHM_95_99 scenario 1st Base, 1 region, with id 1 (The 1st base map has only one polygon
+			//CVHM_95_99 2 1 3 -> CVHM_95_99 scenario 2st Base, 1 region, with id 3 (The second base map has 3 polygons (Subbasins) TLB has id 3)
+			//CVHM_95_99 5 2 1 19 -> CVHM_95_99 scenario 5st Base, 2 regions, with id 1 amd 19 (The 5th base map has 21 polygons (farms) )
+			msg += " CVHM_92_03_bud0 5 1 3"; // Scenario Name, MapID, Nregions, Region ids,
+			msg += " 12"; // Number of categories for reduction
+			msg += " 301 0.5";
+			msg += " 302 0.5";
+			msg += " 303 0.4";
+			msg += " 400 0.7";
+			msg += " 401 0.7";
+			msg += " 402 0.6";
+			msg += " 605 0.3";
+			msg += " 1451 0.75";
+			msg += " 1452 0.253";
+			msg += " 1460 0.5501";
+			msg += " 212910 0.102";
+			msg += " 10003 0.458";
+			msg += " ENDofMSG\n";
+		}
 	}
 		
 	boost::system::error_code error;
