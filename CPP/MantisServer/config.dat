@@ -1,7 +1,8 @@
-Npixels=18504470
-LU=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\LUs.dat
-NGW=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\NGWs.dat
-MAPS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\MantisMaps.dat
-WELLS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\cvhm_1995m7_1999m12_Wells.dat
-URFS=d:\giorgk\Documents\GitHub\Mantis\Local\ServerData\Sim_1995m7_1999m12_URFS.dat
+Npixels = 18504470
+LU = f:\UCDAVIS\Mantis\Local\LUs.dat
+NGW = f:\UCDAVIS\Mantis\Local\NGWs.dat
+UNSAT = f:\UCDAVIS\Mantis\Local\C2VsimSpring_2015.dat
+MAPS = f:\UCDAVIS\Mantis\Local\MantisMaps.dat
+WELLS = f:\UCDAVIS\Mantis\Local\wellSets.mnts
+URFS = f:\UCDAVIS\Mantis\Local\urfSets.mnts
 NTHREADS = 1

@@ -29,20 +29,32 @@ const double pi = std::atan(1)*4;
  * 
  */
 namespace mantisServer {
+
+	template<typename T>
+	void printVector(std::vector<T>& v, std::string varname) {
+		std::cout << std::endl;
+		std::cout << varname << " = [";
+		for (unsigned int i = 0; i < v.size(); ++i) {
+			std::cout << v[i] << " ";
+		}
+		std::cout << "];" << std::endl;
+		std::cout << std::endl;
+	}
+
 	/**
 	 * @brief Enumeration for the type of the Unit Response function.
 	 * 
-	 * Since it is very inefficient to hold all 200~300 double valueswe will keep only 
+	 * Since it is very inefficient to hold all 200~300 double values we will keep only 
 	 * a number of parameters.
 	 * 
-	 * If the URF is represented as lognormal distribution the parameteres are the mean and 
+	 * If the URF is represented as lognormal distribution the parameteres are the mean and the
 	 * standard deviation.
 	 * 
 	 * We can also store the length and velocity and compute at runtime the analytical 
 	 * ADE. However this contains evaluations of the error function and exponential function
 	 * multiple times and may be not very efficient
 	 * 
-	 * Both is used as test where the parameteres for both representations are stored and
+	 * Both is used as test where the parameters for both representations are stored and
 	 * we can compare the efficiency and results 
 	 * 
 	 */
@@ -83,7 +95,7 @@ namespace mantisServer {
 		void reset(int startYear, int nYears);
 	private:
 		/// This is the method that actually creates the map. It is called from the \ref reset.
-		void build_index(int startYear, int endYear);
+		void build_index(int startYear, int nYears);
 		/// This is the actual bidirectional container.
 		boost::bimap<int, int> yearIndexMap;
 	};
@@ -199,10 +211,11 @@ namespace mantisServer {
 	{
 		urf.resize(Nyrs, 0);
 		calc_urf(ade_opt);
+		//printVector<double>(urf, "URF");
 	}
 
 	double URF::calc_conc(double t, ADEoptions ade_opt) {
-		double out;
+		double out = 0.0;
 		switch (type)
 		{
 		case URFTYPE::LGNRM: 
@@ -247,7 +260,7 @@ namespace mantisServer {
 	}
 
 	void URF::calc_urf(ADEoptions ade_opt) {
-		for (unsigned int i = 0; i < urf.size(); ++i)
+		for (int i = 0; i < static_cast<int>(urf.size()); ++i)
 			urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
 	}
 
@@ -260,8 +273,10 @@ namespace mantisServer {
 			if (std::abs(LF[i] - 0) < zeroLoading)
 				continue;
 			for (int k = shift; k < static_cast<int>(LF.size()); ++k) {
+				//std::cout << k - shift << " : " << urf[k - shift] << " " << LF[i] << std::endl;
 				BTC[k] = BTC[k] + urf[k - shift] * LF[i];
 			}
+			shift++;
 		}
 	}
 
@@ -285,7 +300,14 @@ namespace mantisServer {
 		//! The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
 		//! any of the default 15 year time incements.
 		int ReductionYear;
-
+		//! This is the number of years to simulate starting from 1945
+		int NsimulationYears;
+		// This is the unsaturated zone mobile water content (m3/m3)
+		// Typical values are 0.05,0.1 ,0.15 and 0.20 
+		double unsatZoneMobileWaterContent;
+		// Once the Nsimulation year has set this is populated with the actual 4digit years.
+		// This is used in the loading function building method 
+		//std::vector<int> SimulationYears;
 		/**
 		 * @brief clear is making sure that the scenario has no data from a previous run.
 		 * 
@@ -295,6 +317,7 @@ namespace mantisServer {
 			name = "";
 			regionIDs.clear();
 			LoadReductionMap.clear();
+			//SimulationYears.clear();
 		}
 	};
 
@@ -401,14 +424,14 @@ namespace mantisServer {
 		 * @param paramC 
 		 * @param paramD 
 		 */
-		void addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+		void addStreamline(int Sid, int r, int c, double w, URFTYPE type,
 			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
 		//! streamlines is a map where the key is the streamline id and the value is an obect of type streamlineClass::streamlineClass.
 		std::map<int, streamlineClass> streamlines;
 	};
 
-	void wellClass::addStreamline(int Sid, int r, int c, double w, URFTYPE type, 
+	void wellClass::addStreamline(int Sid, int r, int c, double w, URFTYPE type,
 		double paramA, double paramB, double paramC, double paramD) {
 		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(r, c, w, type, paramA, paramB, paramC, paramD)));
 	}
@@ -459,7 +482,7 @@ namespace mantisServer {
 		- \b Simulate \n
 			If the previous step was succesfull Mantis can start the simulation. 
 			However prior to that we should get rid of previous replies by calling Mantis::resetReply. \n
-			Then Mantis can safely proceed wit hthe simulation by calling Mantis::simulate_with_threads. 
+			Then Mantis can safely proceed with the simulation by calling Mantis::simulate_with_threads. 
 			Note that there is a non threaded method simulate which may not work at the moment.
 		- <b>Prepare output</b> \n
 			Last we convert the output to a stream of text using Mantis::makeReply method.
@@ -475,10 +498,37 @@ namespace mantisServer {
 		void simulate_with_threads(int id);//int id, std::string &msg, std::string &outmsg
 		
 		bool readInputs();
-
+		/**
+		The incoming message is a string where the defferent pieces of information are separated by a single space.
+		The end of the message is denoted by the end line character "\n"
+		The format of the message is the following. (Note that the entire message is a single line)
+		Nyears: Number of years to simulate e.g 150 200 500 etc. (This must be integer)
+		Year to start reduction: 4 digit Integer XXXX e.g 2020, 2025, 2034
+		Unsaturated zone mobile water content: This is a double in m^3/m^3. According to Stathi, candidate values are 0.05,0.1 ,0.15 and 0.20 
+		Scenario Name: This is a code name that is printed in the files that are read by readWellSet and readURFs
+		MapID: The id of the background map
+		Nregions: The number of regions to include in the simulation
+		Region ids: These are the region ids. The message should containt exactly Nregions ids.
+		Ncategories: The number of crops to reduce the loading. 
+		Then Repeat Ncategories times the following line
+		CropID LoadPercentage (Integer, double)
+		CropID is the crop id as listed in the LU file.
+		LoadPercentage is number between 0 and 1 which correspond to how much we should reduce the loading
+		Next Print the following as it appears
+		ENDofMSG
+		Finish the message always with an \n 
+		*/
 		bool parse_incoming_msg(std::string &msg, std::string &outmsg);
 		
 		void resetReply();
+
+		/**
+		Prepares the following message to send.
+		1 or 0. If the computation was successfull the message will start with 1.
+		If the message starts with 0 then an error message follows.
+		In case of 1:
+		nBTC The number of breakthrough curves
+		*/
 		void makeReply(std::string &outmsg);
 
 
@@ -487,8 +537,10 @@ namespace mantisServer {
 
 		//! LU is a 3D array of Nrow x Ncol x Years (5)
 		std::vector< std::vector< std::vector<int> > > LU;
-		//! NGW is a 3D array or Nrow x Ncol x Years (8)
+		//! NGW is a 3D array of Nrow x Ncol x Years (8)
 		std::vector< std::vector< std::vector<float> > > NGW;
+		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
+		std::vector< std::vector<float> > UNSAT;
 		//! a list of background maps
 		std::map<int, std::map<int, Polyregion> > MAPList;
 		//! A map of well ids and wellClass
@@ -502,7 +554,19 @@ namespace mantisServer {
 		std::vector<std::string> replymsg;
 		std::vector<int> replyLength;
 
-
+		/**
+		First line:
+		Nmaps : The Number of background maps.
+		Background maps can be the outline polygon, the subbasins, Counties, Subregions etc.
+		Repeat Nmaps times the following
+		Nregions : The number of regions this map containts, 1 for entire CV, 3 for subbasins etc.
+		For each subregion repeat:
+		Npoly: The number of polygons that the subregion consist from.
+		For each Npoly repeat:
+		Nverts : The number of polygon corners of the subregion polygon
+		Repeat Nverts the following
+		xcoord ycoord : the coordinates of the polygon order
+		*/
 		bool readBackgroundMaps();
 
 		/**
@@ -524,6 +588,9 @@ namespace mantisServer {
 		 */
 		bool readWellSet(std::string filename);
 
+
+		bool readMultipleSets(std::string filename, bool isWell);
+
 		/**
 		 * @brief Reads the parameteres of the Unit Respons 
 		 * Functions of a given well set
@@ -537,13 +604,14 @@ namespace mantisServer {
 		 * URFTYPE is a string from the mantisServer::URFTYPE that specifies the types of parameters to read
 		 * 
 		 * Next repeate NURFS times the following line: \n
-		 * EID, SID, ROW, COL, WEIGHT, {parameteres} \n
+		 * EID, SID, ROW, COL, WEIGHT, {parameters} \n
 		 * where \n
 		 * EID is the entity id (the well id of the well file) \n
 		 * SID is the streamline id. \n
 		 * ROW and COL is the pixel row and column where this streamline exits \n
 		 * WEIGHT is the weight of this urf. This is usually proportional to velocity at the well side \n
-		 * {parameters} the parameters depend on the URFTYPE.  \n
+		 * Velocity at the land side. This is used for the travel time calculation 
+		 * {parameters} the parameters depend on the URFTYPE. \n
 		 * For mantisServer::URFTYPE::LGNRM the paramters are MEAN STD (mean and standard deviation). \n
 		 * For mantisServer::URFTYPE::ADE the parameters are SL VEL (streamline length and velocity). \n
 		 * While for mantisServer::URFTYPE::BOTH the parameteres are SL VEL MEAN STD
@@ -554,12 +622,14 @@ namespace mantisServer {
 		 */
 
 		bool readURFs(std::string filename);
+
 		bool readLU_NGW();
 
 		void assign_point_in_sets(double x, double y, int wellid, std::string setname);
 		
 		void buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col);
 		void distributeYears();
+		float unsatTravelTime(int row, int col);
 	};
 
 
@@ -579,6 +649,28 @@ namespace mantisServer {
 		// convert the string to a stringstream
 		std::stringstream ss;
 		ss << msg;
+
+		// ------Start reading the incoming message -------
+		// Nyears
+		ss >> scenario.NsimulationYears;
+		if (scenario.NsimulationYears > 500) {
+			outmsg += "0 ERROR: The total number of simulation years must be less than 500\n";
+			return false;
+		}
+
+		// Populate the Simulation years
+		//for (int i = 0; i < scenario.NsimulationYears; i++){
+		//	scenario.SimulationYears.push_back(options.startYear + i);
+		//}
+		yearIndex.reset(options.startYear, scenario.NsimulationYears);
+
+		
+		// Year to start reduction
+		ss >> scenario.ReductionYear;
+		
+		// Unsaturated zone mobile water content
+		ss >> scenario.unsatZoneMobileWaterContent;
+		
 		// Get the name of the scenario
 		ss >> scenario.name;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
@@ -588,49 +680,58 @@ namespace mantisServer {
 
 		std::map<int, std::map<int, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		if (mapit == MAPList.end()) {
-			outmsg += "ERROR: The Background map with id [";
+			outmsg += "0 ERROR: The Background map with id [";
 			outmsg += scenario.mapID;
-			outmsg += "] could not be found";
+			outmsg += "] could not be found\n";
 			return false;
 		}
 
 		// Get the number of selected regions
-		int n, id;
-		ss >> n;
+		int Nregions, RegionID;
+		ss >> Nregions;
 		std::map<int, Polyregion>::iterator regit;
 		// Get the region IDs
-		for (int i = 0; i < n; ++i) {
-			ss >> id;
-			regit = mapit->second.find(id);
+		for (int i = 0; i < Nregions; ++i) {
+			ss >> RegionID;
+			regit = mapit->second.find(RegionID);
 			if (regit == mapit->second.end()) {
-				outmsg += "ERROR: The Region with id [";
-				outmsg += id;
+				outmsg += "0 ERROR: The Region with id [";
+				outmsg += RegionID;
 				outmsg += "] could not be found in the map with id [";
 				outmsg += scenario.mapID;
-				outmsg += "]";
+				outmsg += "]\n";
 				return false;
 			}
-			scenario.regionIDs.push_back(id);
+			scenario.regionIDs.push_back(RegionID);
 
 			wellscenit = regit->second.wellids.find(scenario.name);
 			if (wellscenit == regit->second.wellids.end()) {
-				outmsg += "ERROR: There is no scenario with name: ";
+				outmsg += "0 ERROR: There is no scenario with name: ";
 				outmsg += scenario.name;
+				outmsg += "\n";
 				return false;
 			}
 		}
 		// Get the number of crop categories for reduction
 		int Ncat;
 		ss >> Ncat;
-		// Get the index of year to start reduction of loading  
-		ss >> scenario.ReductionYear;
 		double perc;
 		for (int i = 0; i < Ncat; ++i) {
-			ss >> id;
+			ss >> RegionID;
 			ss >> perc;
-			scenario.LoadReductionMap.insert(std::pair<int, double>(id, perc));
+			scenario.LoadReductionMap.insert(std::pair<int, double>(RegionID, perc));
 		}
-		return true;
+
+		std::string endofmgs;
+		ss >> endofmgs;
+		if (endofmgs.compare("ENDofMSG") == 0)
+			return true;
+		else {
+			outmsg += "0 ERROR: The keyword ENDofMSG was not identified. Instead I got";
+			outmsg += endofmgs;
+			outmsg += "\n";
+			return false;
+		}
 	}
 
 	bool Mantis::readBackgroundMaps() {
@@ -680,10 +781,14 @@ namespace mantisServer {
 	bool Mantis::readInputs() {
 		bool tf = readBackgroundMaps();
 		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
-		tf = readWellSet(options.WELLfile);
+		
+
+		tf = readMultipleSets(options.WELLfile, true);
 		if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
-		tf = readURFs(options.URFfile);
+
+		tf = readMultipleSets(options.URFfile, false);
 		if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
+
 		if (!options.testMode) {
 			tf = readLU_NGW();
 			if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
@@ -714,6 +819,30 @@ namespace mantisServer {
 		}
 	}
 
+	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
+		std::ifstream WellMasterfile;
+		WellMasterfile.open(filename);
+		if (!WellMasterfile.is_open()) {
+			std::cout << "Cant open file: " << filename << std::endl;
+			return false;
+		}
+		else {
+			std::string line;
+			while (getline(WellMasterfile, line)) {
+				bool tf;
+				if (isWell)
+					tf = readWellSet(line);
+				else
+					tf = readURFs(line);
+				if (!tf) {
+					std::cout << "An error occured while reading " << line << std::endl;
+					return false;
+				}
+			}
+		}
+		return true;
+	}
+
 	bool Mantis::readWellSet(std::string filename) {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream Welldatafile;
@@ -731,6 +860,7 @@ namespace mantisServer {
 			double xw, yw;
 			for (int i = 0; i < Nwells; ++i) {
 				Welldatafile >> Eid;
+				//std::cout << Eid << std::endl;
 				Welldatafile >> xw;
 				Welldatafile >> yw;
 				assign_point_in_sets(xw, yw, Eid, setName);
@@ -782,6 +912,8 @@ namespace mantisServer {
 			else {
 				int Eid, Sid, ROW, COL;
 				double paramA, paramB, w, paramC, paramD;
+				paramC = 0.0;
+				paramD = 0.0;
 				for (int i = 0; i < Nurfs; ++i) {
 					URFdatafile >> Eid;
 					URFdatafile >> Sid;
@@ -794,10 +926,18 @@ namespace mantisServer {
 						URFdatafile >> paramC;
 						URFdatafile >> paramD;
 					}
+
+					//std::cout << Eid << ", " << Sid << ", " << ROW << ", " << COL << ", " << w << ", " << paramA << ", " << paramB << std::endl;
+					//if (Eid > 699) {
+					//	bool breakHere = true;
+					//}
 					//Eid++;// This is used since the particle tracking code writes the entities with zero based numbering
 					wellmapit = scenit->second.find(Eid);
 					if (wellmapit != scenit->second.end()) {
 						wellmapit->second.addStreamline(Sid, ROW, COL, w, urftype, paramA, paramB, paramC, paramD);
+					}
+					else {
+						std::cout << "I cant find well with ID " << Eid << " in the set with name: " << setName << std::endl;
 					}
 				}
 			}
@@ -915,73 +1055,159 @@ namespace mantisServer {
 	}
 
 	void Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col) {
-		LF.resize(options.nSimulationYears, 0);
-		// get the id of the year when the reduction starts
-		int idRed = yearIndex.get_index(scenario.ReductionYear);
-		if (idRed < 0)
-			idRed = options.nSimulationYears + 100;
+		// NEW ATTEMPT
+		{
+			LF.resize(scenario.NsimulationYears, 0);
+			// starting and ending values of the year interval
+			int YearStart = options.startYear;
+			int YearEnd = options.startYear + options.yearInterval;
+			int LUsi = 0; //LU starting index
+			int LUei = 1; //LU  ending index
+			int NGWsi = 0; //NGW starting index
+			int NGWei = 1; //NGW ending index
+			int LUsc, LUec; // LU starting-ending codes
+			double NGWsv, NGWev, Rs, Re; // NGW starting-ending values, Reduction starting and ending value
+			Rs = 1; Re = 1;
+			// find LU codes and NGW values
+			NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
+			NGWev = static_cast<double>(NGW[row][col][NGWei]);
+			LUsc = LU[row][col][LUsi];
+			LUec = LU[row][col][LUei];
 
-		// starting ending values of the year interval
-		int LUsi = 0; //LU starting index
-		int LUei = 1; //LU  ending index
-		int NGWsi = 0; //NGW starting index
-		int NGWei = 1; //NGW ending index
-		int LUsc, LUec; // LU starting-ending codes
-		double NGWsv, NGWev, Rs, Re; // NGW starting-ending values
-		Rs = 1; Re = 1;
-		// find LU codes and NGW values
-		NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
-		NGWev = static_cast<double>(NGW[row][col][NGWei]);
-		LUsc = LU[row][col][LUsi];
-		LUec = LU[row][col][LUei];
+			int count_yearly_intervals = 0;
+			std::map<int, double>::iterator redit;
+			int currentYear;
 
-		int count_yearly_intervals = 0;
-		std::map<int, double>::iterator redit;
+			for (int i = 0; i < scenario.NsimulationYears; ++i) {
+				currentYear = yearIndex.get_year(i);
+				if (count_yearly_intervals >= options.yearInterval) {
+					YearStart += options.yearInterval;
+					YearEnd += options.yearInterval;
+					NGWsi++;
+					NGWei++;
+					if (NGWsi >= static_cast<int>(NGW[0][0].size())) {
+						NGWsi = static_cast<int>(NGW[0][0].size()) - 1;
+					}
+					if (NGWei >= static_cast<int>(NGW[0][0].size())) {
+						NGWei = static_cast<int>(NGW[0][0].size()) - 1;
+					}
+					LUsi++;
+					LUei++;
+					if (LUsi >= static_cast<int>(LU[0][0].size())) {
+						LUsi = static_cast<int>(LU[0][0].size()) - 1;
+					}
+					if (LUei >= static_cast<int>(LU[0][0].size())) {
+						LUei = static_cast<int>(LU[0][0].size()) - 1;
+					}
 
-		for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
-			if (count_yearly_intervals >= options.yearInterval) {
-				NGWsi++;
-				NGWei++;
-				if (NGWsi >= static_cast<int>(NGW[0][0].size())) {
-					NGWsi = static_cast<int>(NGW[0][0].size()) - 1;
-				}
-				if (NGWei >= static_cast<int>(NGW[0][0].size())) {
-					NGWei = static_cast<int>(NGW[0][0].size()) - 1;
-				}
-				LUsi++;
-				LUei++;
-				if (LUsi >= static_cast<int>(LU[0][0].size())) {
-					LUsi = static_cast<int>(LU[0][0].size()) - 1;
-				}
-				if (LUei >= static_cast<int>(LU[0][0].size())) {
-					LUei = static_cast<int>(LU[0][0].size()) - 1;
+					NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
+					NGWev = static_cast<double>(NGW[row][col][NGWei]);
+					LUsc = LU[row][col][LUsi];
+					LUec = LU[row][col][LUei];
+					count_yearly_intervals = 0;
 				}
 
-				NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
-				NGWev = static_cast<double>(NGW[row][col][NGWei]);
-				LUsc = LU[row][col][LUsi];
-				LUec = LU[row][col][LUei];
-				count_yearly_intervals = 0;
+				if (currentYear >= scenario.ReductionYear) {
+					// look into the land use codes to see if any reduction has been set
+					
+					redit = scenario.LoadReductionMap.find(LUsc);
+					if (redit == scenario.LoadReductionMap.end())
+						Rs = 1;
+					else
+						Rs = redit->second;
+					
+
+					redit = scenario.LoadReductionMap.find(LUec);
+					if (redit == scenario.LoadReductionMap.end())
+						Re = 1;
+					else
+						Re = redit->second;
+					//if (Rs < 1 || Re < 1)
+					//	std::cout << Rs << " - " << Re << std::endl;
+				}
+
+				LF[i] = (Rs * NGWsv) * (1 - yearDistributor[count_yearly_intervals]) + (Re * NGWev) * yearDistributor[count_yearly_intervals];
+
+				count_yearly_intervals++;
 			}
-
-			if (i >= idRed) {
-				// Then we should look into the land use codes to see if any reduction has been set
-				redit = scenario.LoadReductionMap.find(LUsc);
-				if (redit == scenario.LoadReductionMap.end())
-					Rs = 1;
-				else
-					Rs = redit->second;
-
-				redit = scenario.LoadReductionMap.find(LUec);
-				if (redit == scenario.LoadReductionMap.end())
-					Re = 1;
-				else
-					Re = redit->second;
-			}
-
-			LF[i] = (Rs*NGWsv) * (1 - yearDistributor[count_yearly_intervals]) + (Re*NGWev) * yearDistributor[count_yearly_intervals];
-			count_yearly_intervals++;
 		}
+
+		/*
+		// OLD WAY
+		{
+			LF.resize(scenario.NsimulationYears, 0);
+			// get the id of the year when the reduction starts
+			int idRed = yearIndex.get_index(scenario.ReductionYear);
+			if (idRed < 0)
+				idRed = options.nSimulationYears + 100;
+
+			// starting ending values of the year interval
+			int LUsi = 0; //LU starting index
+			int LUei = 1; //LU  ending index
+			int NGWsi = 0; //NGW starting index
+			int NGWei = 1; //NGW ending index
+			int LUsc, LUec; // LU starting-ending codes
+			double NGWsv, NGWev, Rs, Re; // NGW starting-ending values
+			Rs = 1; Re = 1;
+			// find LU codes and NGW values
+			NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
+			NGWev = static_cast<double>(NGW[row][col][NGWei]);
+			LUsc = LU[row][col][LUsi];
+			LUec = LU[row][col][LUei];
+
+			int count_yearly_intervals = 0;
+			std::map<int, double>::iterator redit;
+
+			for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
+				if (count_yearly_intervals >= options.yearInterval) {
+					NGWsi++;
+					NGWei++;
+					if (NGWsi >= static_cast<int>(NGW[0][0].size())) {
+						NGWsi = static_cast<int>(NGW[0][0].size()) - 1;
+					}
+					if (NGWei >= static_cast<int>(NGW[0][0].size())) {
+						NGWei = static_cast<int>(NGW[0][0].size()) - 1;
+					}
+					LUsi++;
+					LUei++;
+					if (LUsi >= static_cast<int>(LU[0][0].size())) {
+						LUsi = static_cast<int>(LU[0][0].size()) - 1;
+					}
+					if (LUei >= static_cast<int>(LU[0][0].size())) {
+						LUei = static_cast<int>(LU[0][0].size()) - 1;
+					}
+
+					NGWsv = static_cast<double>(NGW[row][col][NGWsi]);
+					NGWev = static_cast<double>(NGW[row][col][NGWei]);
+					LUsc = LU[row][col][LUsi];
+					LUec = LU[row][col][LUei];
+					count_yearly_intervals = 0;
+				}
+
+				if (i >= idRed) {
+					// Then we should look into the land use codes to see if any reduction has been set
+					redit = scenario.LoadReductionMap.find(LUsc);
+					if (redit == scenario.LoadReductionMap.end())
+						Rs = 1;
+					else
+						Rs = redit->second;
+
+					redit = scenario.LoadReductionMap.find(LUec);
+					if (redit == scenario.LoadReductionMap.end())
+						Re = 1;
+					else
+						Re = redit->second;
+				}
+
+				LF[i] = (Rs*NGWsv) * (1 - yearDistributor[count_yearly_intervals]) + (Re*NGWev) * yearDistributor[count_yearly_intervals];
+				count_yearly_intervals++;
+			}
+		}// OLD WAY
+		*/
+	}
+
+	float Mantis::unsatTravelTime(int row, int col) {
+		return UNSAT[row][col];
 	}
 
 	void Mantis::distributeYears() {
@@ -1000,7 +1226,8 @@ namespace mantisServer {
 		//12863 x 7046 x 5 
 		LU.resize(options.Nrow, std::vector< std::vector<int> >(options.Ncol, std::vector<int>(5, 0)));
 		NGW.resize(options.Nrow, std::vector< std::vector<float> >(options.Ncol, std::vector<float>(8, 0)));
-		std::ifstream LUdatafile, NGWdatafile;
+		UNSAT.resize(options.Nrow, std::vector<float>(options.Ncol, 0));
+		std::ifstream LUdatafile, NGWdatafile, UNSATdatafile;
 		
 		LUdatafile.open(options.LUfile);
 		if (!LUdatafile.is_open()) {
@@ -1011,6 +1238,12 @@ namespace mantisServer {
 		NGWdatafile.open(options.NGWfile);
 		if (!NGWdatafile.is_open()) {
 			std::cout << "Cant open file: " << options.NGWfile << std::endl;
+			return false;
+		}
+
+		UNSATdatafile.open(options.UNSATfile);
+		if (!UNSATdatafile.is_open()) {
+			std::cout << "Cant open file: " << options.UNSATfile << std::endl;
 			return false;
 		}
 
@@ -1031,9 +1264,12 @@ namespace mantisServer {
 				NGWdatafile >> d;
 				NGW[I][J][k] = d;
 			}
+			UNSATdatafile >> d;
+			UNSAT[I][J] = d;
 		}
 		LUdatafile.close();
 		NGWdatafile.close();
+		UNSATdatafile.close();
 		auto finish = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read LU and NGW in " << elapsed.count() << std::endl;
@@ -1055,10 +1291,6 @@ namespace mantisServer {
 		//for (int i = startWell; i < endWell; ++i) {
 		//	std::cout << id << ":" << i << std::endl;
 		//}
-
-		// For the time being I'm going to hard code these variables
-		URFTYPE urftp = URFTYPE::LGNRM;
-		ADEoptions ade_opt;
 
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
@@ -1087,6 +1319,7 @@ namespace mantisServer {
 					endWell = Nwells;
 			}
 			
+			int NsimulationYears = scenario.NsimulationYears;
 			
 			
 
@@ -1096,40 +1329,63 @@ namespace mantisServer {
 			
 			for (int iw = startWell; iw < endWell; ++iw) {
 				wellid = wellscenit->second[iw];
+				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
 				if (wellit != wellscenNameit->second.end()) {
-					std::vector<double> weightBTC(options.nSimulationYears, 0);
+					std::vector<double> weightBTC(NsimulationYears, 0);
 					double sumW = 0;
 					if (wellit->second.streamlines.size() > 0) {
 						if (!options.testMode) {
+							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
+								//std::cout << cnt_strmlines++ << std::endl;
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
-									std::vector<double> BTC(options.nSimulationYears, 0);
-								//if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
-									if (urftp == URFTYPE::LGNRM){
-										URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std, urftp);
+									std::vector<double> BTC(NsimulationYears, 0);
+								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+									if (strmlnit->second.type == URFTYPE::LGNRM){
+										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
+										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
+										//printVector<double>(LF, "LF");
+										urf.convolute(LF, BTC);
+										//printVector<double>(BTC, "BTC");
+									}
+									else if (strmlnit->second.type == URFTYPE::ADE){
+										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
 										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
 										urf.convolute(LF, BTC);
 									}
-									else if (urftp == URFTYPE::ADE){
-										URF urf(options.nSimulationYears, strmlnit->second.mu, strmlnit->second.std, urftp, ade_opt);
-										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-										urf.convolute(LF, BTC);
+
+									// Find the travel time in the unsaturated zone
+									float tau = unsatTravelTime(strmlnit->second.row-1, strmlnit->second.col-1);
+									//std::cout << tau << std::endl;
+									tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+									if (tau < 0)
+										tau = 0.0;
+									int intTau = static_cast<int>(tau);
+
+									if (intTau < NsimulationYears) {
+										int ibtc = 0;
+										for (int ii = intTau; ii < NsimulationYears; ++ii) {
+											//std::cout << ii << std::endl;
+											weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
+											ibtc++;
+										}
 									}
-									// sum BTC
-									for (int ibtc = 0; ibtc < options.nSimulationYears; ++ibtc) {
-										weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
-									}
-								//}
+
+									//for (int ibtc = 0; ibtc < NsimulationYears; ++ibtc) {
+									//	weightBTC[ibtc] = weightBTC[ibtc] + BTC[ibtc] * strmlnit->second.w;
+									//}
+								}
 								sumW += strmlnit->second.w;
 							}
 							//average streamlines
-							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
+							for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
 								weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
 								//std::cout << weightBTC[i] << std::endl;
 								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
 								replymsg[id] += " ";
 							}
+							//printVector<double>(weightBTC, "wBTC");
 						}
 						else {
 							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
@@ -1155,6 +1411,7 @@ namespace mantisServer {
 
 	void Mantis::makeReply(std::string &outmsg) {
 		outmsg.clear();
+		outmsg += "1 ";
 		int nBTC = 0;
 		for (int i = 0; i < static_cast<int>(replyLength.size()); ++i) {
 			nBTC += replyLength[i];
@@ -1166,7 +1423,7 @@ namespace mantisServer {
 			outmsg += replymsg[i];
 		}
 		// This is the character that indicates the end of the message
-		outmsg += "\n";
+		outmsg += " ENDofMSG\n";
 
 		std::cout << nBTC << "BTCs will be sent" << std::endl;
 	}
