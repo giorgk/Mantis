@@ -190,8 +190,8 @@ Use space to separate the different values. Therefore the _Scenario Name_ should
 
  ### Format of output message
  * __STATUS__ 1 for success and 0 for failure. </br>
- If the status is 0 then a message with some info follows: </br>
- If the status is 1 then:
+ If the status is 0 then a message will follow. </br>
+ If the status is 1 then the following info is listed:
 
  * __Number of wells in the selected regions__ [int]
  * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.

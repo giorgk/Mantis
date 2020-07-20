@@ -82,6 +82,39 @@ Prior to installing cgal you may have to install yasm if its not already install
 sudo apt-get install yasm
 ```
 
+### Building MantisServer
+If both Boost and Cgal are successfully built make a build directory under ```
+Mantis/CPP/MantisServer/MantisServer ```
+and run cmake
+
+```
+mkdir build
+cd build
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+```
+It's very important to buid the release version.
+
+If there are no errors then compile it as
+```
+make
+```
+
+### Running MantisServer
+```
+./MantisServer -v
+```
+will show the current version
+
+```
+./MantisServer -h
+```
+will return a help message and a list of options that one can configure at runtime
+
+```
+./MantisServer -c configfile.dat
+```
+will start the server using the configuration described in configfile.dat. An example configuration file can be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
+
 
 
 
