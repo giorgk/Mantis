@@ -1,11 +1,15 @@
 // TestClient.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
+//#ifdef _WIN64
 #include "pch.h"
+//#endif
+
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <boost/asio.hpp>
+//#include <boost/thread.hpp>
 #include <math.h>
 #include <cstdlib>
 

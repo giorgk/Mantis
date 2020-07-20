@@ -189,3 +189,42 @@ Use space to separate the different values. Therefore the _Scenario Name_ should
  ### Format of output message
  * __Number of wells in the selected regions__ [int]
  * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The _Nyears_ is set in the configuration and the default value is 150. However this should be a user input. Yet even in that case this will not change the output message but the input message which should include how many years to simulate. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.
+
+ ## TestClient
+ TestClient is a small utility program which sends message to the server and receives the replies.
+ If the messages are valid it prints them into a file so that can be read by other programs for further analysis/validation.
+
+ ### Build client.
+ The TestClient program requires only boost library. Under the directory ```CPP/TestClient/TestClient``` there is the CMakeLIsts.txt file.
+ 
+ #### Spack
+ First, if you use spack load the correct environment. (TEST is the name of the environment where I built all the libraries for Mantis. It would make more sence to name this environment MANTIS for example)
+
+ e.g
+ ```
+spack env activate TEST
+ ```
+Make sure you are under the ```CPP/TestClient/TestClient``` directory. Then do
+ ```
+mkdir build
+cd build
+cmake ..
+ ```
+ If there is a system default installation of boost and cmake pick the default instead of the one that comes under the spack environment then do the following
+ ```
+cmake -DBoost_NO_BOOST_CMAKE=TRUE -DBoost_NO_SYSTEM_PATHS=TRUE ..
+ ```
+#### Vcpkg
+The workflow is the same with vcpkg the difference is the cmake configuration
+```
+mkdir build
+cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+```
+If everything is succesfull then run
+```
+make
+```
+to build the program
+
+

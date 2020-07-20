@@ -49,9 +49,11 @@
 !/CPP/TestClient
 /CPP/TestClient/*
 !/CPP/TestClient/*.sln
+!/CPP/TestClient/incomingMsg.dat
 !/CPP/TestClient/TestClient
 /CPP/TestClient/TestClient/*
 !/CPP/TestClient/TestClient/*.cpp
+!/CPP/TestClient/TestClient/CMakeLists.txt
 !/CPP/TestClient/TestClient/*.h
 !/CPP/TestClient/TestClient/*.vcxproj
 !/CPP/TestClient/TestClient/*.vcxproj.filters

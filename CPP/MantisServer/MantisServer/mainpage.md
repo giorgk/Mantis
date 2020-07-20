@@ -42,6 +42,7 @@ spack env activate mantis
 
 Install the nessecary libraries:
 ```
+spack install cmake@3.9.4 target=x86_64
 spack install boost@1.69.0 target=x86_64
 spack install cgal@4.13 ^boost@1.69.0 target=x86_64
 ```
@@ -62,7 +63,25 @@ cmake .
 ```
 
 ## Using Vcpkg
-Coming soon...
+Using vcpkg seems a bit easier.
+First you build vcpkg as explained [here](https://github.com/microsoft/vcpkg#quick-start-unix)
+
+Next install boost
+```
+./vcpkg install boost
+```
+
+Sometimes boost failed to get built because there was an error with python. IN such cases, since we dont need python add the flag ```./vcpkg install boost --keep-going```
+
+and cgal
+```
+./vcpkg install cgal
+```
+Prior to installing cgal you may have to install yasm if its not already installed.
+```
+sudo apt-get install yasm
+```
+
 
 
 

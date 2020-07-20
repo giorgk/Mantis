@@ -743,6 +743,7 @@ namespace mantisServer {
 			return false;
 		}
 		else {
+			std::cout << "Reading " << options.MAPSfile << std::endl;
 			int Nmaps;
 			MAPSdatafile >> Nmaps; // This is the number of background maps e.g. All area, Basins, counties, farms
 			for (int imap = 0; imap < Nmaps; ++imap) {
@@ -853,6 +854,7 @@ namespace mantisServer {
 			return false;
 		}
 		else {
+			std::cout << "Reading " << filename << std::endl;
 			int Nwells, Eid;
 			std::string setName;
 			Welldatafile >> Nwells;
@@ -883,6 +885,7 @@ namespace mantisServer {
 			return false;
 		}
 		else {
+			std::cout << "Reading " << filename << std::endl;
 			std::map<std::string, std::map<int, wellClass> >::iterator scenit;
 			std::map<int, wellClass>::iterator wellmapit;
 			std::string setName, urftypestring;
@@ -1246,6 +1249,9 @@ namespace mantisServer {
 			std::cout << "Cant open file: " << options.UNSATfile << std::endl;
 			return false;
 		}
+		std::cout << "Reading " << options.LUfile << std::endl;
+		std::cout << "Reading " << options.NGWfile << std::endl;
+		std::cout << "Reading " << options.UNSATfile << std::endl;
 
 		int data, I, J;
 		float d;
