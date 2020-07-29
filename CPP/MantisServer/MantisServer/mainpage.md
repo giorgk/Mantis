@@ -82,6 +82,15 @@ Prior to installing cgal you may have to install yasm if its not already install
 sudo apt-get install yasm
 ```
 
+During the build if an error log appears like this:
+```
+configure: error: No usable m4 in $PATH or /usr/5bin (see config.log for reasons).
+```
+Do install the m4 and re-run install
+```
+sudo apt-get install m4
+```
+
 ### Building MantisServer
 If both Boost and Cgal are successfully built make a build directory under ```
 Mantis/CPP/MantisServer/MantisServer ```
