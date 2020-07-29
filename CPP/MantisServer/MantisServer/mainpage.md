@@ -92,6 +92,11 @@ sudo apt-get install m4
 ```
 
 ### Building MantisServer
+If cmake hasn't been installed
+```
+sudo apt install cmake
+```
+
 If both Boost and Cgal are successfully built make a build directory under ```
 Mantis/CPP/MantisServer/MantisServer ```
 and run cmake
