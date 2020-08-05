@@ -66,6 +66,17 @@ cmake .
 Using vcpkg seems a bit easier.
 First you build vcpkg as explained [here](https://github.com/microsoft/vcpkg#quick-start-unix)
 
+Because of some recent updates of vcpkg, prior to install boost, make sure
+`
+autoconf autopoint libtool libtool-bin
+`
+are installed. If not:
+
+```
+sudo apt-get install autoconf autopoint libtool libtool-bin
+```
+
+
 Next install boost
 ```
 ./vcpkg install boost
