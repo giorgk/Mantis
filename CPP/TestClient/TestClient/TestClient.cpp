@@ -13,6 +13,21 @@
 #include <math.h>
 #include <cstdlib>
 
+std::vector<std::string> split(const std::string& str, const std::string& delim)
+{
+	std::vector<std::string> tokens;
+	size_t prev = 0, pos = 0;
+	do
+	{
+		pos = str.find(delim, prev);
+		if (pos == std::string::npos) pos = str.length();
+		std::string token = str.substr(prev, pos - prev);
+		if (!token.empty()) tokens.push_back(token);
+		prev = pos + delim.length();
+	} while (pos < str.length() && prev < str.length());
+	return tokens;
+}
+
 int main(int argc, char* argv[])
 {
 	// Test random numbers
@@ -106,20 +121,27 @@ int main(int argc, char* argv[])
 	else {
 		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
 		std::cout << data << std::endl;
-		std::stringstream ss;
-		ss << data;
-		int tf;
-		ss >> tf;
+		std::string str(data);
+		std::cout << str << std::endl;
+		//std::stringstream ss(str.c_str());
+
+		std::vector<std::string> str1 = split(str, " ");
+		int ii = 0;
+		//ss << data;
+		int tf = std::atoi(str1[ii].c_str()); ii++;
+		
+		//ss >> tf;
 		if (tf == 1) {
-			int Nbtc;
-			ss >> Nbtc;
+			int Nbtc = std::atoi(str1[ii].c_str()); ii++;
+			//ss >> Nbtc;
 			std::string filename = "testClientResults.dat";
 			std::ofstream outstream;
 			outstream.open(filename.c_str());
 			float dd;
 			for (int i = 0; i < Nbtc; ++i) {
-				for (int j = 0; j < 300; ++j) {
-					ss >> dd;
+				for (int j = 0; j < NsimYears; ++j) {
+					//ss >> dd;
+					dd = std::atof(str1[ii].c_str()); ii++;
 					outstream << dd << " ";
 				}
 				outstream << std::endl;

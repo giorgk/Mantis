@@ -1349,11 +1349,16 @@ namespace mantisServer {
 									std::vector<double> BTC(NsimulationYears, 0);
 								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
 									if (strmlnit->second.type == URFTYPE::LGNRM){
+										if (iw >= 7337 && iw < 7338) {
+											std::cout << iw << ":" << strmlnit->second.mu << " " << strmlnit->second.std << " " << strmlnit->second.w << std::endl;
+										}
 										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
 										buildLoadingFunction(scenario, LF, strmlnit->second.row - 1, strmlnit->second.col - 1);
-										//printVector<double>(LF, "LF");
+										if (iw >= 7337 && iw < 7338)
+											printVector<double>(LF, "LF");
 										urf.convolute(LF, BTC);
-										//printVector<double>(BTC, "BTC");
+										if (iw >= 7337 && iw < 7338)
+											printVector<double>(BTC, "BTC");
 									}
 									else if (strmlnit->second.type == URFTYPE::ADE){
 										URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
@@ -1431,6 +1436,7 @@ namespace mantisServer {
 		// This is the character that indicates the end of the message
 		outmsg += " ENDofMSG\n";
 
+		std::cout << outmsg << std::endl;
 		std::cout << nBTC << "BTCs will be sent" << std::endl;
 	}
 }
