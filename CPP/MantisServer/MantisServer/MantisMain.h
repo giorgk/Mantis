@@ -847,6 +847,9 @@ namespace mantisServer {
 	bool Mantis::readWellSet(std::string filename) {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream Welldatafile;
+		if (filename.length() >= 1 && filename.back() == '\r') {
+		    filename.pop_back();
+		}
 
 		Welldatafile.open(filename);
 		if (!Welldatafile.is_open()) {
@@ -879,6 +882,10 @@ namespace mantisServer {
 	bool Mantis::readURFs(std::string filename) {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream URFdatafile;
+        if (filename.length() >= 1 && filename.back() == '\r') {
+            filename.pop_back();
+        }
+
 		URFdatafile.open(filename);
 		if (!URFdatafile.is_open()) {
 			std::cout << "Cant open file: " << filename << std::endl;
