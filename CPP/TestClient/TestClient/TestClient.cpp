@@ -34,6 +34,11 @@ int main(int argc, char* argv[])
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
 	//return 0;
+	//std::vector<double> reductionCoeff(23, 1);
+	//for (int i = 1945; i < 2100; i++) {
+	//	//std::cout << (i-1940) % 25 << std::endl;
+	//	std::cout << i << " -> " << std::floor((i-1945)/15) << std::endl;
+	//}
 
 	bool quit = false;
 	std::string infile;
@@ -61,13 +66,11 @@ int main(int argc, char* argv[])
 			}
 			else {
 				std::string line;
-				bool getNumberofYears = true;
+				bool firstLine = true;
 				while (getline(indata, line)) {
-					if (getNumberofYears) {
-						std::istringstream inp(line.c_str());
-						inp >> NsimYears;
-						getNumberofYears = false;
-						msg = line;
+					if (firstLine) {
+						msg += line;
+						firstLine = false;
 					}
 					else {
 						msg += " " + line;
@@ -133,6 +136,7 @@ int main(int argc, char* argv[])
 		//ss >> tf;
 		if (tf == 1) {
 			int Nbtc = std::atoi(str1[ii].c_str()); ii++;
+			NsimYears = std::atoi(str1[ii].c_str()); ii++;
 			//ss >> Nbtc;
 			std::string filename = "testClientResults.dat";
 			std::ofstream outstream;

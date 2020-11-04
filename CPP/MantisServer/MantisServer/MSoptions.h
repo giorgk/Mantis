@@ -24,36 +24,38 @@ namespace mantisServer {
 
 	struct options {
 		//! The number of pixels in \p LUfile and \p NGWfile files
-		int Npixels;
+		int gnlmNpixels;
 
 		//! The number of rows of the Land use and Nitrate groundwater loading maps
-		int Nrow;
+		//int Nrow;
 
 		//! The number of columns of the Land use and Nitrate groundwater loading maps
-		int Ncol;
+		//int Ncol;
 
-		//! LUfile holds name file for the Land use file.
+		//! GNLM_LUfile holds name file for the Land use file.
 		/*!
 		This file has the following format:
 
-		I J YR45 YR60 YR75 YR90 YR05
+		ID linear_index YR45 YR60 YR75 YR90 YR05
 
-		where I, J are the row and columns of the pixel and 
-		YRxx are the land use codes. The file should contain the pixels
-		that are non zero either in land used or nitrate groundwater load.
+		where ID, is an id with each pixel linear index is the linear index of the pixel position.  
+		YRxx are the land use codes. The file  contain the pixels
+		that are non zero either in land use.
 		*/
-		std::string LUfile;
+		std::string NO3LoadFile;
 
-		//! NGWfile holds name file for the Nitrate groundwater load.
+		//! GNLM_NGWfile holds the Nitrate groundwater load according to GNLM.
 		/*!
 		This file has the following format:
 
-		NGW45 NGW60 NGW75 NGW90 NGW05 NGW20 NGW35 NGW50
+		ID linear index NGW45 NGW60 NGW75 NGW90 NGW05 NGW20 NGW35 NGW50
 
 		where NGWxx are the nitrate groundwater load. The pixels must be in the same order as in the
 		\p LUfile. 
 		*/
-		std::string NGWfile;
+		//std::string GNLM_NGWfile;
+
+		//std::string SWAT_Mainfile;
 
 		std::string UNSATfile;
 
@@ -109,7 +111,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.3.00 |" << std::endl;
+			std::cout << "| Version : 1.4.00 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -118,17 +120,18 @@ namespace mantisServer {
 		// Configuration file options
 		po::options_description config_options("Configuration file options");
 		config_options.add_options()
-			("Npixels", po::value<int>(), "LU and NGW pixels in files")
+			("GNLM_Npixels", po::value<int>(), "Number of pixel in GNLM load. It is used for allocation")
 			("MAPS", "Geometry of background maps")
-			("LU", "Land Use file")
-			("NGW", "Nitrate groundwater loading file")
+			//("GNLM_LU", "GNLM Land Use file")
+			//("GNLM_NGW", "GNLM Nitrate groundwater loading file")
+			("NO3_LOAD", "A File with a list of files that contain the loading information")
 			("NSCEN", po::value<int>()->default_value(1), "Number of scenarios")
 			("WELLS", "A list of files with the well info for each scenario")
 			("URFS", "A list of files with the URF information")
 			("UNSAT", "A file that containts the travel time for each LU pixel")
 			("PORT", po::value<int>()->default_value(1234), "Port number")
-			("Nrow", po::value<int>()->default_value(12863), "Number of rows")
-			("Ncol", po::value<int>()->default_value(7046), "Number of columns")
+			//("Nrow", po::value<int>()->default_value(12863), "Number of rows")
+			//("Ncol", po::value<int>()->default_value(7046), "Number of columns")
 			("YRINTERVAL", po::value<int>()->default_value(15), "Number of years between LU and NGW")
 			// These two should be defined on the clinet side not the server side.
 			("StartYR", po::value<int>()->default_value(1945), "The starting year of the simulation")
@@ -163,11 +166,12 @@ namespace mantisServer {
 			std::cout << vm_cmd["config"].as<std::string>().c_str() << std::endl;
 			po::store(po::parse_config_file<char>(vm_cmd["config"].as<std::string>().c_str(), config_options), vm_cfg);
 			// read mandatory options
-			//opt.Npixels = vm_cfg["Npixels"].as<int>();
-			tf = get_option<int>("Npixels", vm_cfg, opt.Npixels);
+			opt.gnlmNpixels = vm_cfg["GNLM_Npixels"].as<int>();
+			//tf = get_option<int>("Npixels", vm_cfg, opt.Npixels);
 			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
-			tf = get_option<std::string>("LU", vm_cfg, opt.LUfile);
-			tf = get_option<std::string>("NGW", vm_cfg, opt.NGWfile);
+			tf = get_option<std::string>("NO3_LOAD", vm_cfg, opt.NO3LoadFile);
+			//tf = get_option<std::string>("GNLM_NGW", vm_cfg, opt.GNLM_NGWfile);
+			//tf = get_option<std::string>("SWAT_SCENARIOS", vm_cfg, opt.SWAT_Mainfile);
 			tf = get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile);
 			tf = get_option<std::string>("WELLS", vm_cfg, opt.WELLfile);
 			tf = get_option<std::string>("URFS", vm_cfg, opt.URFfile);
@@ -175,8 +179,8 @@ namespace mantisServer {
 			// read optional options
 			opt.Nscenarios = vm_cfg["NSCEN"].as<int>();
 			opt.port = vm_cfg["PORT"].as<int>();
-			opt.Nrow = vm_cfg["Nrow"].as<int>();
-			opt.Ncol= vm_cfg["Ncol"].as<int>();
+			//opt.Nrow = vm_cfg["Nrow"].as<int>();
+			//opt.Ncol= vm_cfg["Ncol"].as<int>();
 			opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
 			opt.startYear = vm_cfg["StartYR"].as<int>();
 			opt.nSimulationYears = vm_cfg["NYRS"].as<int>();

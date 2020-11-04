@@ -20,6 +20,14 @@
 !/Local/*.md
 !/Local/*.sh
 
+# "un-ignore the URFSprep folder =========URFSprep========
+!/URFSprep
+#Now ignore all the content of the folder Local
+/URFSprep/*
+#Un-ignore the usefull files
+!/URFSprep/*.m
+!/URFSprep/*.mat
+
 # "un-ignore the gis_data folder =========gis_data========
 !/gis_data
 
