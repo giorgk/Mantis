@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
 						msg += " " + line;
 					}
 				}
-				msg += " ENDofMSG\n";
+ 				msg += " ENDofMSG\n";
 			}
 		}
 		else {

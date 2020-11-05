@@ -10,7 +10,6 @@ wells(id_rmv,:) = [];
 % Load the groundwater recharge function
 cvhm_rch = read_Scattered(fullfile(top_level_path, 'CVHM_NPSAT','Simulations',...
     'Sim_1992m10_2003m9','BudCoef_0','cvhm_1992m10_2003m9_bf0_RCH.npsat'),2);
-Fcvhm_rch = scatteredInterpolant(cvhm_rch.p(:,1), cvhm_rch.p(:,2), cvhm_rch.v,'linear','nearest');
 %% Load data for CVHM BUD1
 scen_name = 'CVHM_92_03_BUD1';
 data_path = fullfile(top_level_path,'CVHM_NPSAT', 'Simulations',...
@@ -22,6 +21,18 @@ wells(id_rmv,:) = [];
 % Load the groundwater recharge function
 cvhm_rch = read_Scattered(fullfile(top_level_path, 'CVHM_NPSAT','Simulations',...
     'Sim_1992m10_2003m9','BudCoef_1','cvhm_1992m10_2003m9_bf1_RCH.npsat'),2);
+%% make a modified interpolation recharge with values all positive
+irch_neg = find(cvhm_rch.v*365*1000 < 30);
+irch_pos = cvhm_rch.v*365*1000 >= 30;
+neg_xy = cvhm_rch.p(irch_neg,:);
+pos_xy = cvhm_rch.p(irch_pos,:);
+urf_rch_pos = cvhm_rch.v(irch_pos,:);
+dst = zeros(size(neg_xy,1),1);
+for ii = 1:size(neg_xy,1)
+    [ccc, ddd] = min(sqrt((neg_xy(ii,1) - pos_xy(:,1)).^2 + (neg_xy(ii,2) - pos_xy(:,2)).^2));
+    cvhm_rch.v(irch_neg(ii),1) = urf_rch_pos(ddd,1);
+    dst(ii,1) = ccc;
+end
 Fcvhm_rch = scatteredInterpolant(cvhm_rch.p(:,1), cvhm_rch.p(:,2), cvhm_rch.v,'linear','nearest');
 %% Create a matrix with the streamline URFs
 % Fields of URFS 

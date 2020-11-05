@@ -1496,11 +1496,10 @@ namespace mantisServer {
 		case LoadType::GNLM:
 		{
 			if (loadit->second.isValidIndex(gnlm_index)) {
-				if (std::abs(rch) > 10) {
-					double mult = 100.0 / std::abs(rch);
-					loadit->second.buildLoadingFunction(gnlm_index, scenario.endSimulationYear, LF, scenario, mult);
-					out = true;
-				}
+				double mult = 100.0 / rch;
+				loadit->second.buildLoadingFunction(gnlm_index, scenario.endSimulationYear, LF, scenario, mult);
+				out = true;
+				
 			}
 			break;
 		}
