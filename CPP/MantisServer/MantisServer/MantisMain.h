@@ -772,7 +772,7 @@ namespace mantisServer {
 	public:
 		Mantis(mantisServer::options options_in);
 
-		void simulate(std::string &msg, std::string &outmsg);
+		//void simulate(std::string &msg, std::string &outmsg);
 
 		void simulate_with_threads(int id);//int id, std::string &msg, std::string &outmsg
 		
@@ -798,6 +798,7 @@ namespace mantisServer {
 		Finish the message always with an \n 
 		*/
 		bool parse_incoming_msg(std::string &msg, std::string &outmsg);
+		bool validate_msg(std::string& outmsg);
 		
 		void resetReply();
 
@@ -828,7 +829,7 @@ namespace mantisServer {
 		//! A map of well ids and wellClass
 		std::map<std::string, std::map<int, wellClass> > Wellmap;
 
-		std::vector<double> yearDistributor;
+		
 		YearIndex yearIndex;
 
 		Scenario scenario;
@@ -912,7 +913,7 @@ namespace mantisServer {
 		void assign_point_in_sets(double x, double y, int wellid, std::string setname);
 		
 		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int gnlm_index, int swat_index, double rch);
-		void distributeYears();
+
 		float unsatTravelTime(std::map<std::string, std::vector<float> >::iterator& it, int gnlm_index);
 	};
 
@@ -924,8 +925,51 @@ namespace mantisServer {
 	{
 		//LU.resize(options.Nrow, std::vector< std::vector<int> >(options.Ncol, std::vector<int>(5, 0)));
 		//NGW.resize(options.Nrow, std::vector< std::vector<float> >(options.Ncol, std::vector<float>(8, 0)));
-		distributeYears();
-		yearIndex.reset(options.startYear, options.nSimulationYears);
+
+	}
+
+	bool Mantis::validate_msg(std::string& outmsg) {
+		if ((scenario.endSimulationYear <= 1990) | (scenario.endSimulationYear > 2500))
+			scenario.endSimulationYear = 2100;
+		if ((scenario.startReductionYear < 1945) | (scenario.startReductionYear > scenario.endSimulationYear))
+			scenario.startReductionYear = 2020;
+		if ((scenario.endReductionYear < scenario.startReductionYear) | (scenario.endReductionYear > scenario.endSimulationYear))
+			scenario.endReductionYear = scenario.startReductionYear + 5;
+		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
+		if (mapit == MAPList.end()) {
+			outmsg += "0 ERROR: The Background map with id [";
+			outmsg += scenario.mapID;
+			outmsg += "] could not be found";
+			return false;
+		}
+		std::map<std::string, Polyregion>::iterator regit;
+		std::map<std::string, std::vector<int> >::iterator wellscenit;
+		for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i) {
+			regit = mapit->second.find(scenario.regionIDs[i]);
+			if (regit == mapit->second.end()) {
+				outmsg += "0 ERROR: The Region with id [";
+				outmsg += scenario.regionIDs[i];
+				outmsg += "] could not be found in the map with id [";
+				outmsg += scenario.mapID;
+				outmsg += "]";
+				return false;
+			}
+
+			wellscenit = regit->second.wellids.find(scenario.flowScen);
+			if (wellscenit == regit->second.wellids.end()) {
+				outmsg += "0 ERROR: There is no scenario with name: ";
+				outmsg += scenario.flowScen;
+				return false;
+			}
+		}
+
+		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowScen);
+		if (wellscenNameit == Wellmap.end()) {
+			outmsg += "0 ERROR: There are no wells and urfs for the scenario with name: ";
+			outmsg += scenario.flowScen;
+			return false;
+		}
+		return true;
 	}
 
 	bool Mantis::parse_incoming_msg(std::string &msg, std::string &outmsg) {
@@ -998,10 +1042,14 @@ namespace mantisServer {
 				out = true;
 				break;
 			}
-			if (test.empty())
+			if (test.empty()) {
+				outmsg += "0 ERROR: Empty message was found\n";
+				out = false;
 				break;
+			}
 
-			if (counter > 30) {
+			if (counter > 200) {
+				outmsg += "0 ERROR: After 200 iterations I cant find ENDofMSG flag\n";
 				out = false;
 				break;
 			}
@@ -1383,6 +1431,8 @@ namespace mantisServer {
 		return true;
 	}
 
+	/*
+
 	void Mantis::simulate(std::string &msg, std::string &outmsg) {
 		auto start = std::chrono::high_resolution_clock::now();
 		outmsg.clear();
@@ -1487,6 +1537,8 @@ namespace mantisServer {
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Simulation executed in " << elapsed.count() << std::endl;
 	}
+
+	*/
 
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int gnlm_index, int swat_index, double rch) {
 		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
@@ -1679,15 +1731,7 @@ namespace mantisServer {
 		return it->second[gnlm_index];
 	}
 
-	void Mantis::distributeYears() {
-		yearDistributor.clear();
-		double x = 0;
-		double Nx = static_cast<double>(options.yearInterval);
-		for (int i = 0; i < options.yearInterval; ++i) {
-			yearDistributor.push_back(x / Nx);
-			x += 1.0;
-		}
-	}
+	
 
 	bool Mantis::readUNSAT() {
 		auto start = std::chrono::high_resolution_clock::now();
@@ -1920,7 +1964,7 @@ namespace mantisServer {
 
 								if (isNotZero) {
 									// Find the travel time in the unsaturated zone
-									float tau = unsatTravelTime(unsatit, strmlnit->second.gnlm_index);
+									double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
 									//std::cout << tau << std::endl;
 									tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
 									if (tau < 0)
@@ -1947,7 +1991,7 @@ namespace mantisServer {
 							//printVector<double>(weightBTC, "wBTC");
 						}
 						else {
-							for (int iwbtc = 0; iwbtc < options.nSimulationYears; ++iwbtc) {
+							for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
 								replymsg[id] += std::to_string(static_cast<float>(std::rand() % 100) / 10);
 								replymsg[id] += " ";
 							}

@@ -1,11 +1,191 @@
 # Mantis
-This is a playground for the development of the forward implementation 
-phase of the NPSAT. At the moment there are three implementations.
+Is a server application that executes the forward phase of the NPSAT. 
 
-1. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop)
-2. [Matlab server](https://github.com/giorgk/Mantis#matlab-server)
-3. [C++ Server](https://github.com/giorgk/Mantis#c-server)
+During the development we developed a couple of different versions. However the focus is on the c++ server implementation.
 
+1. [C++ Server](https://github.com/giorgk/Mantis#c-server)
+2. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop)
+3. [Matlab server](https://github.com/giorgk/Mantis#matlab-server)
+
+## C++ Server
+The C++ version is the one that we actually support. 
+
+Eventually a detailed documentation of the code will be available [here](https://codedocs.xyz/giorgk/Mantis/) once I have figure out how to properly set up my doxygen documentation via the codedocs.
+
+In the mean time here are some usefull info about it.
+
+To obtain a list of options execute the following
+```
+MantisServer.exe -h
+```
+
+To run the server in test mode use 
+```
+MantisServer.exe -c config_file -t
+```
+In test mode it doesn't load the N loading data and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return a message similar to the one in the actuall mode populated with random numbers.
+
+Last, ommit the *t* flag to run the actual server
+```
+MantisServer.exe -c config_file
+```
+The list of inputs of the configuration file is shown with the help option `MantisServer.exe -h`. </br> 
+An example of configuration file can also be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
+
+### Configuration options (The important ones)
+* __GNLM_Npixels__ : is the number of rows of the GNLM loading input file. This is used only for allocating memory.
+* __MAPS__ : This is a file which containts all the background maps.
+* __NO3_LOAD__ a filename that contains a list of loading scenarios.</br>
+Each line in the file describes an N loading scenario as follows </br>
+[TYPE] [NAME] [filename] </br>
+where </br>[TYPE] is one of the `GNLM` or `SWAT` flags </br>
+[NAME] is a descriptive name of the loading scenario that should not have any space or weird symbols. This name it is used in the incoming message in the `loadScen` variable. </br>
+[filename] is the path  where the data live. e.g </br>
+GNLM GNLM MantisData/GNLM_LU_NGW.dat </br>
+SWAT SWAT1 MantisData/SWAT_LOADING_SCEN_1.dat </br>
+SWAT SWAT2 MantisData/SWAT_LOADING_SCEN_2.dat </br>
+_Usually it takes a cople of minutes to load the N loading data._
+* __WELLS__ A file that lists the files (one in each row) that containt the wells for each flow scenario.
+* __URFS__ A file that lists the files (one in each row) that containt the URFS for each flow scenario.
+* __UNSAT__ A file that containts the values of `Depth/Recharge`. Each column in the file corresponds to a scenario. The first line contatins the names (`unsatScen`) of the scenarios. </br>
+SCEN1 SCEN2 ... </br>
+v1 v2 ... 
+* __PORT__ The port number
+* __NTHREADS__ The number of threads.
+
+_The most recent input files are in the MantisData folder under the Mantis Google Drive main folder_.
+
+### Input message 
+The server does nothing until it recieves an input message. </br>
+The input message has the KEYWORD VALUE format using spaces to separate. The input message has to be one line. The end line character `\n`  indicates the end of message.
+#### Required keywords values
+The keywords have to use the exact lower Capital case as it appears on the list
+* __endSimYear__ [integer ####] The simulation always starts at 1945 and continues up to this year. The value has to be greater than 1945 of course. Currently there is a limit to 2500 if the end year is less that 1990 or greater than 2500 it gets reset to 2100.
+* __startRed__ [integer ####] The year to start the reduction scenarios. This should be always between 1945 and `endSimYear`. If not it gets reset to 2020
+* __endRed__ [integer ####] The year to fully implement the reduction rates. This should be always between `startRed` and `endSimYear`. If not it gets reset to `startRed` + 5
+* __flowScen__ [string] This is a keyword from the following list: 
+
+|Flow scenarios| Description |
+|--|---|
+|CVHM_92_03_BUD0 | Simulation based on CVHM average flow conditions for the period 10/1992 - 9/2003 where the pumping is reduced to match the recharge|
+|CVHM_92_03_BUD1 | Simulation based on CVHM average flow conditions for the period 10/1992 - 9/2003 where the recharge is increased to match the pumping|
+
+
+* __loadScen__[string] This is a keyword from the following list:
+
+|N Loading scenarios | Description |
+|--|---|
+|GNLM | The N loading is based on [GNLM](https://ucd-cws.github.io/nitrates/maps/) historic and future predictions. It covers a period between 1945 - 2050 with 15 years increments |
+|SWAT1 | Concentrations history (1990 - 2015) based on _Baseline_|
+|SWAT2 | Concentrations history (1990 - 2015) based on _High Fertilization_|
+|SWAT3 | Concentrations history (1990 - 2015) based on _High Irrigation_|
+|SWAT4 | Concentrations history (1990 - 2015) based on _High Fertilization and High Fertilization_|
+
+* __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. However more are going to be added soon.
+
+* __unsatWC__ [float] This is the unsaturated mobile water concent coefficient.
+
+* __bMap__ [string] The name of the background map. This should be one of the following values:
+
+|Background map keys | Description |
+|--|---|
+|CentralValley | This is the entire Central Valley |
+|Basins | The CV is divided into 3 Subbasins that the user can choose from|
+|Counties | The CV s divided into 58 counties that the user can choose from|
+|B118 | The CV s divided into 45 groundwater basins that the user can choose from|
+|Townships | The CV s divided into 702 townships that the user can choose from|
+|CVHMfarms | The CV s divided into 21 subregions named as _farms_ that the user can choose from|
+|C2VsimSubregions | The CV s divided into 21 subregions named as _Subregions_ that the user can choose from|
+
+* __Nregions__ [integer string1 string2,...,stringN] This is the number of subregions to consider during the simulation. This number if followed by `Nregions` names of the regions. Therefore the format would look like that:</br>
+1 CentralValley (If the user has selected _CentralValley_ as background map) </br>
+2 SanJoaquinValley TulareLakeBasin (if the user has selected _Basins_ as background map)</br>
+4 Farm21 Farm17 Farm12 Farm15 (if the user has selected _CVHMfarms_ as background map)
+
+#### Codes for Regions
+1. _CentralValley_ has only one option which is  `CentralValley`
+2. _Basins_ is divided into `SacramentoValley`, `SanJoaquinValley` and `TulareLakeBasin`
+3. _Counties_ The list of counties can be found in the shapefile _counties_simple_ under the field _name_. The names in the field name containts spaces, which have to be stripped.
+4. _B118_ The list of B118 can be found in the shapefile _B118_simple_ under the field _Basin_Subb_. The names have a format similar to 5-22.13, 2-31 etc. The dashes and dots have to be replaced by `_` For example they have to be 5_22_13, 2_31
+5. _Townships_ The list of Townships can be found in the shapefile _CVHM_Townships_3310_simplified_ under the field _CO_MTR_.
+6. _CVHMfarms_ The CVHM farms take their names by appending to the word `FARM` the _dwr_sbrgns_ field of the shapefile _CVHM_FarmsTA_.
+7. _C2VsimSubregions_ The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
+
+* __Ncrops__ [integer, integer1 float1, integer2 float2,...,integerN floatN] The first integer is the number of crops to select for loading reduction. Then `Ncrops` pair of [int float] values which correspond to crop ids reduction percent. </br>
+__VERY IMPORTANT NOTE__ So far the percentage was interpreted as the amount of loading to keep. This was a bit confusing and could not address the option to increase the loading. So in the new version the percentage corresponds to reduction. If the loading of the base case is 30 mg/l and the reduction is 0.6, the final loading will be 30*0.6 e.g keep 40% of the base case.
+
+* __ENDofMSG__ This is a keyword that when found indicates that the message has been read in a correct way.
+
+
+### Output message 
+* __STATUS__ 1 for success and 0 for failure. </br>
+ If the status is 0 then a message will follow. </br>
+ If the status is 1 then the following info is listed:
+
+ * __Number of wells in the selected regions__ [int]
+ * __Number of years__ [int]
+ * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.
+ * __ENDofMSG\n__ is appended at the end of the message along with the endline character. 
+ 
+
+ ## Client Test program
+
+ TestClient that can be found under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) is a small utility program that sends messages to the server and receives the replies.
+ If the messages are valid it prints them into a file so that can be read by other programs for further analysis/validation.
+
+ ### Build client.
+ The TestClient program requires only boost library. Under the directory ```CPP/TestClient/TestClient``` there is the CMakeLIsts.txt file.
+ 
+ #### Spack
+ First, if you use spack load the correct environment. (TEST is the name of the environment where I built all the libraries for Mantis. It would make more sence to name this environment MANTIS for example)
+
+ e.g
+ ```
+spack env activate TEST
+ ```
+Make sure you are under the ```CPP/TestClient/TestClient``` directory. Then do
+ ```
+mkdir build
+cd build
+cmake ..
+ ```
+ If there is a system default installation of boost and cmake pick the default instead of the one that comes under the spack environment then do the following
+ ```
+cmake -DBoost_NO_BOOST_CMAKE=TRUE -DBoost_NO_SYSTEM_PATHS=TRUE ..
+ ```
+#### Vcpkg
+The workflow is the same with vcpkg the difference is the cmake configuration
+```
+mkdir build
+cd build
+cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake ..
+```
+If everything is succesfull then run
+```
+make
+```
+to build the program
+
+### Run Client
+1. Default
+    ```
+    ./TestClient
+    ```
+    Running the client without inputs will send a default scenario to the server and receive the output. The outputs are also printed in the file testClientResults.dat
+
+2. Using incoming message
+    ```
+    ./TestClient incomingMsg_v1.dat
+    ```
+    where the ```incomingMsg_v1.dat``` is a file with the incoming message. The file can be split into multiple lines for readability and the TestClient will read reshape the message and send it to the server as one line. The TestClient will append the ENDofMSG keyword.
+3. Stop server
+    Simply send
+    ```
+    ./TestClient quit
+    ```
+
+----
+Anything below this line is outdated 
 ## Matlab Desktop
 Matlab Desktop is essentially a prototype for the web application.  The following line loads the GUI
 ```
@@ -144,112 +324,7 @@ To terminate the program one way is to copy a file with name **MantisServer.quit
 
 The file can be empty and it will be deleted before the program terminates.
 
-## C++ Server
-This is a c++ server implementation of the Mantis code.
-Detailed documentation should be available [here](https://codedocs.xyz/giorgk/Mantis/) once I have figure out how to properly set up my doxygen documentation via the codedocs.
 
-In the mean time here are some usefull info about it.
-
-To obtain a list of options execute the following
-```
-MantisServer.exe -h
-```
-
-To run the server in test mode use the following
-```
-MantisServer.exe -c config_file -t
-```
-In test mode it doesn't load the NGW and LU maps and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return a message similar to the one in the actuall mode populated with random numbers.
-
-An example of configuration file can be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
-
-Last, ommit the *t* flag to run the actual server
-```
-MantisServer.exe -c config_file
-```
-The loading of the NGW and LU can take several minutes
-
- Under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) there is a test client program that sends an input message and receives the result
-
- ### Format of input message
-* __Nyears__ [int]: The number of years to simulate (For the time being this should not be less than 100 and no more than 500 although we can remove easily those limits if desired).
-* __ReductionYear__ [int as YYYY]: The year to start the reduction.
-* __WaterContent__ [float]: This is the unsaturated zone mobile water content.
-* __Scenario Name__ [string]: This is a name that would correspond to the user selected steady state model/period. For example it can be CVHM_70_03 or C2VSIM_99_09
-* __MapID__ [int]: This is the id of the user selected background map (see table above for the background map ids) 
-* __Nregions__ [int]: The number of selected regions of the MapID, 
-* __Region ids__ [int]: _Nregions_ numbers that correspond to the ids of the selected regions
-* __Number of categories for reduction__ [int]: The total number of crops that the loading will be changed 
-* __Crop id__ [int]: This is the id of the crop (_We should add a file with the list of the crops ids_)
-* __Reduction__ [float]: This is the percentage of how much nitrate we want to keep. 1-> no reduction, 0-> 100% reduction
-
-Repeat the last  two lines _Number of categories for reduction_ times.
-
-* __ENDofMSG\n__ append at the end the keyword ```ENDofMSG``` along with the endline character. 
-Use space to separate the different values. Therefore the _Scenario Name_ should not have spaces.
-
- ### Format of output message
- * __STATUS__ 1 for success and 0 for failure. </br>
- If the status is 0 then a message will follow. </br>
- If the status is 1 then the following info is listed:
-
- * __Number of wells in the selected regions__ [int]
- * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.
-
- ## TestClient
- TestClient is a small utility program which sends message to the server and receives the replies.
- If the messages are valid it prints them into a file so that can be read by other programs for further analysis/validation.
-
- ### Build client.
- The TestClient program requires only boost library. Under the directory ```CPP/TestClient/TestClient``` there is the CMakeLIsts.txt file.
- 
- #### Spack
- First, if you use spack load the correct environment. (TEST is the name of the environment where I built all the libraries for Mantis. It would make more sence to name this environment MANTIS for example)
-
- e.g
- ```
-spack env activate TEST
- ```
-Make sure you are under the ```CPP/TestClient/TestClient``` directory. Then do
- ```
-mkdir build
-cd build
-cmake ..
- ```
- If there is a system default installation of boost and cmake pick the default instead of the one that comes under the spack environment then do the following
- ```
-cmake -DBoost_NO_BOOST_CMAKE=TRUE -DBoost_NO_SYSTEM_PATHS=TRUE ..
- ```
-#### Vcpkg
-The workflow is the same with vcpkg the difference is the cmake configuration
-```
-mkdir build
-cd build
-cmake -DCMAKE_TOOLCHAIN_FILE=/path/to/vcpkg/scripts/buildsystems/vcpkg.cmake ..
-```
-If everything is succesfull then run
-```
-make
-```
-to build the program
-
-### Run Client
-1. Default
-    ```
-    ./TestClient
-    ```
-    Running the client without inputs will send a default scenario to the server and receive the output. The outputs are also printed in the file testClientResults.dat
-
-2. Using incoming message
-    ```
-    ./TestClient incomingMsg.dat
-    ```
-    where the ```incomingMsg.dat``` is a file with the incoming message. The file can be split into multiple lines for readability and the TestClient will read reshape the message and send it to the server as one line. The TestClient will append the ENDofMSG keyword.
-3. Stop server
-    Simply send
-    ```
-    ./TestClient quit
-    ```
 
 
 

@@ -72,15 +72,12 @@ namespace mantisServer {
 		*/
 		int port;
 
-		//! the number of available scenarios
-		int Nscenarios;
-
 		std::string WELLfile;
 		std::string URFfile;
 
-		int yearInterval;
-		int startYear;
-		int nSimulationYears;
+		//int yearInterval;
+		//int startYear;
+		//int nSimulationYears;
 
 		int nThreads;
 
@@ -122,21 +119,11 @@ namespace mantisServer {
 		config_options.add_options()
 			("GNLM_Npixels", po::value<int>(), "Number of pixel in GNLM load. It is used for allocation")
 			("MAPS", "Geometry of background maps")
-			//("GNLM_LU", "GNLM Land Use file")
-			//("GNLM_NGW", "GNLM Nitrate groundwater loading file")
 			("NO3_LOAD", "A File with a list of files that contain the loading information")
-			("NSCEN", po::value<int>()->default_value(1), "Number of scenarios")
 			("WELLS", "A list of files with the well info for each scenario")
 			("URFS", "A list of files with the URF information")
 			("UNSAT", "A file that containts the travel time for each LU pixel")
 			("PORT", po::value<int>()->default_value(1234), "Port number")
-			//("Nrow", po::value<int>()->default_value(12863), "Number of rows")
-			//("Ncol", po::value<int>()->default_value(7046), "Number of columns")
-			("YRINTERVAL", po::value<int>()->default_value(15), "Number of years between LU and NGW")
-			// These two should be defined on the clinet side not the server side.
-			("StartYR", po::value<int>()->default_value(1945), "The starting year of the simulation")
-			//  Especially this one
-			("NYRS", po::value<int>()->default_value(150), "Number of years to simulate")
 			("NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
 			;
 
@@ -167,23 +154,19 @@ namespace mantisServer {
 			po::store(po::parse_config_file<char>(vm_cmd["config"].as<std::string>().c_str(), config_options), vm_cfg);
 			// read mandatory options
 			opt.gnlmNpixels = vm_cfg["GNLM_Npixels"].as<int>();
-			//tf = get_option<int>("Npixels", vm_cfg, opt.Npixels);
 			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
 			tf = get_option<std::string>("NO3_LOAD", vm_cfg, opt.NO3LoadFile);
-			//tf = get_option<std::string>("GNLM_NGW", vm_cfg, opt.GNLM_NGWfile);
-			//tf = get_option<std::string>("SWAT_SCENARIOS", vm_cfg, opt.SWAT_Mainfile);
 			tf = get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile);
 			tf = get_option<std::string>("WELLS", vm_cfg, opt.WELLfile);
 			tf = get_option<std::string>("URFS", vm_cfg, opt.URFfile);
 
 			// read optional options
-			opt.Nscenarios = vm_cfg["NSCEN"].as<int>();
 			opt.port = vm_cfg["PORT"].as<int>();
 			//opt.Nrow = vm_cfg["Nrow"].as<int>();
 			//opt.Ncol= vm_cfg["Ncol"].as<int>();
-			opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
-			opt.startYear = vm_cfg["StartYR"].as<int>();
-			opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
+			//opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
+			//opt.startYear = vm_cfg["StartYR"].as<int>();
+			//opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
 			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
 		}
 		return true;
