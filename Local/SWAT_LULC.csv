@@ -1,0 +1,58 @@
+CODE,NAME,ID
+AGRB,Bush Berries,1
+ALFA,Alfalfa,2
+ALMC,Cherries,3
+ALMD,Almonds,4
+ALMI,Pistachios,5
+ALML,Plums Prunes,6
+ALMP,Peaches Nectarines,7
+ALMY,Young Perennials,8
+APPL,Apple,9
+BARR,Barren,10
+BERM,Bermudagrass,11
+CABG,Cabbage,12
+CANT,Cantaloupe,13
+CORN,Corn,14
+COTP,Upland Cotton-harvested,15
+COTS,Upland Cotton (stripper),16
+CRRT,Carrot,17
+CUCM,Cucumber,18
+CWDC,Wheat Corn Rotation with Dairy,19
+CWDW,Corn Wheat Silage Rotation Receiving Dairy Application,20
+CWRC,Corn Wheat Rotation without Diary,21
+CWRW,Corn Wheat Silage Rotation without dairy,22
+DCWH,Corn Silage Wheat Dairy,23
+DLFA,Alfalfa Dairy,24
+FRSE,Forest-Evergreen,25
+GRAH,Grape High Tonnage,26
+GRAK,Kiwis,27
+GRAL,Low Tonnage Grapes,28
+GRAT,Table Grape,29
+GRAl,Grape Low Tonnage,30
+HAY,Hay,31
+LETT,Head Lettuce,32
+MAPL,Maple,33
+OLIV,Olives,34
+ONIO,Onion,35
+ORAN,Orange,36
+ORCP,Pomegranates,37
+PASI,High Productive Pasture,38
+PASL,Less Productive Forage,39
+PASM,Moderate Pasture,40
+PASN,Non Irrigated Pasture,41
+PAST,Pasture,42
+PEPP,'Peppers',43
+PINE,Pine,44
+POTA,Potato,45
+PTBB,Beans Dry,46
+RICE,Rice,47
+RICW,Wild Rice,48
+RNGB,Range-Brush,49
+RNGE,Range-Grasses,50
+SUNF,Sunflower,51
+SUNS,Safflower,52
+TOMA,Tomato,53
+URML,'Urban',54
+WALN,Walnut,55
+WETL,Wetlands-Mixed,56
+WWHT,Winter Wheat,57

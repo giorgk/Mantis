@@ -54,7 +54,6 @@ int main(int argc, char* argv[])
 	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
 	
 	std::string msg;
-	int NsimYears = 300;
 	if (quit) {
 		msg = "quit\n";
 	}
@@ -80,15 +79,17 @@ int main(int argc, char* argv[])
 			}
 		}
 		else {
-			// Number of years to simulate, The year to start the reductions, the unsaturated zone mobile water content 
-			msg = std::to_string(NsimYears);
-			msg += " 2025 0.002";
-			// Examples of the Second line line
-			//CVHM_95_99 1 1 1 -> CVHM_95_99 scenario 1st Base, 1 region, with id 1 (The 1st base map has only one polygon
-			//CVHM_95_99 2 1 3 -> CVHM_95_99 scenario 2st Base, 1 region, with id 3 (The second base map has 3 polygons (Subbasins) TLB has id 3)
-			//CVHM_95_99 5 2 1 19 -> CVHM_95_99 scenario 5st Base, 2 regions, with id 1 amd 19 (The 5th base map has 21 polygons (farms) )
-			msg += " CVHM_92_03_bud0 5 1 3"; // Scenario Name, MapID, Nregions, Region ids,
-			msg += " 12"; // Number of categories for reduction
+			// Default message
+			msg = "endSimYear 2100";
+			msg += " startRed 2000";
+			msg += " endRed 2007"; 
+			msg += " flowScen CVHM_92_03_BUD0";
+			msg += " loadScen GNLM";
+			msg += " unsatScen C2VSIM_SPRING_2015";
+			msg += " unsatWC 0.01";
+			msg += " bMap CVHMfarms";
+			msg += " Nregions 4 Farm21 Farm17 Farm12 Farm15";
+			msg += " Ncrops 12"; 
 			msg += " 301 0.5";
 			msg += " 302 0.5";
 			msg += " 303 0.4";
@@ -123,9 +124,9 @@ int main(int argc, char* argv[])
 	}
 	else {
 		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-		std::cout << data << std::endl;
+		//std::cout << data << std::endl;
 		std::string str(data);
-		std::cout << str << std::endl;
+		//std::cout << str << std::endl;
 		//std::stringstream ss(str.c_str());
 
 		std::vector<std::string> str1 = split(str, " ");
@@ -136,10 +137,12 @@ int main(int argc, char* argv[])
 		//ss >> tf;
 		if (tf == 1) {
 			int Nbtc = std::atoi(str1[ii].c_str()); ii++;
-			NsimYears = std::atoi(str1[ii].c_str()); ii++;
+			int NsimYears = std::atoi(str1[ii].c_str()); ii++;
+			std::cout << "Data size: " << Nbtc << " x " << NsimYears << std::endl;
 			//ss >> Nbtc;
 			std::string filename = "testClientResults.dat";
 			std::ofstream outstream;
+			std::cout << "Printing Results..." << std::endl;
 			outstream.open(filename.c_str());
 			float dd;
 			for (int i = 0; i < Nbtc; ++i) {
@@ -156,18 +159,5 @@ int main(int argc, char* argv[])
 			std::cout << data << std::endl;
 		}
 	}
-
 	return 0;
-
 }
-
-// Run program: Ctrl + F5 or Debug > Start Without Debugging menu
-// Debug program: F5 or Debug > Start Debugging menu
-
-// Tips for Getting Started: 
-//   1. Use the Solution Explorer window to add/manage files
-//   2. Use the Team Explorer window to connect to source control
-//   3. Use the Output window to see build output and other messages
-//   4. Use the Error List window to view errors
-//   5. Go to Project > Add New Item to create new code files, or Project > Add Existing Item to add existing code files to the project
-//   6. In the future, to open this project again, go to File > Open > Project and select the .sln file

@@ -64,6 +64,9 @@ int main(int argc, char *argv[])
 
 			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
 			if (bvalidMsg) {
+				bvalidMsg = M.validate_msg(outmsg);
+			}
+			if (bvalidMsg) {
 				M.resetReply();
 				auto start = std::chrono::high_resolution_clock::now();
 				std::vector<std::thread> T;

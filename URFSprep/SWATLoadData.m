@@ -26,7 +26,7 @@ SWAT_LULC = table(CODE, NAME);
 SWAT_LULC.CODE = categorical(SWAT_LULC.CODE);
 SWAT_LULC = sortrows(SWAT_LULC);
 SWAT_LULC.ID = [1:57]';
-writetable(SWAT_LULC,fullfile('..','MantisData','SWAT_LULC.csv'));
+% writetable(SWAT_LULC,fullfile('..','MantisData','SWAT_LULC.csv'));
 %% Keep the yearly values from the dataset
 SAC_TAB_yr = SAC_TAB(SAC_TAB.MON>1000,:);
 SJV_TAB_yr = SJV_TAB(SJV_TAB.MON>1000,:);
@@ -111,12 +111,12 @@ SWAT_conc = [pre + SAC.CVhru SAC.CVluid SAC.CVcon; ...
     pre + SSJV.CVhru SSJV.CVluid SSJV.CVcon];
 SWAT_conc = [[1:size(SWAT_conc,1)]' SWAT_conc];
 %% Write loading
-frmt = '%d %d %d';
+frmt = '%d %d';
 for ii = 1:25
     frmt = [frmt ' %.5f'];
 end
 frmt = [frmt '\n'];
 fid = fopen(fullfile('..','MantisData',['SWAT_LOADING_SCEN_' num2str(scen) '.dat']),'w');
-fprintf(fid, frmt,SWAT_conc');
+fprintf(fid, frmt,SWAT_conc(:,2:end)');
 fclose(fid);
 %% Identify the swat_index 

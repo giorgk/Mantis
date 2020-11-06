@@ -39,10 +39,10 @@ subplot(2,1,2);plot(N.*a.*pp,'c')
 fid = fopen('CPP\TestClient\TestClient\testClientResults.dat','r');
 CC = textscan(fid,'%f');
 fclose(fid);
-Conc = reshape(CC{1,1},155,1725)';
+Conc = reshape(CC{1,1},155,3575)';
 pp = prctile(Conc,[5 10:10:90 95],1);
 %plot(Conc','color',[0.5 0.5 0.5])
-hold on
+figure(2)
 plot(pp')
 
 

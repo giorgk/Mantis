@@ -19,6 +19,7 @@
 #Un-ignore the source code
 !/Local/*.md
 !/Local/*.sh
+!/Local/SWAT_LULC.csv
 
 # "un-ignore the URFSprep folder =========URFSprep========
 !/URFSprep

@@ -593,7 +593,7 @@ namespace mantisServer {
 		}
 		case mantisServer::LoadType::SWAT:
 		{
-			int load_index = (iyr - 1945) % 25;
+			int load_index = (iyr - 1940) % 25;
 			value = Ndata[index][load_index];
 			break;
 		}
@@ -657,13 +657,14 @@ namespace mantisServer {
 		int Nyears = endYear - startYear;
 		double adoptionCoeff = 0;
 		LF.resize(Nyears, 0.0);
-		double percReduction = 0;
+		double percReduction = 1.0;
 		std::map<int, double>::iterator it;
 		if (loadType == LoadType::SWAT) {
 			int lucode = getLU(index, 0);
 			it = scenario.LoadReductionMap.find(lucode);
 			if (it != scenario.LoadReductionMap.end()) {
 				percReduction = it->second;
+				//std::cout << "pR=" << percReduction << std::endl;
 			}
 		}
 
@@ -711,6 +712,15 @@ namespace mantisServer {
 					LF[i] = Nbase * mult;
 				}
 				//std::cout << " LF[i]=" << LF[i] << std::endl;
+			}
+			else if (loadType == LoadType::SWAT) {
+				double Nbase = static_cast<double>(getNload(index, i + startYear));
+				//std::cout << "Index " << index;
+				//std::cout << " Nbase " << Nbase;
+				double Nred = percReduction * Nbase;
+				//std::cout << " Nred " << Nred;
+				LF[i] = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
+				//std::cout << " LF[i] " << LF[i] << std::endl;
 			}
 		}
 	}
@@ -1558,7 +1568,7 @@ namespace mantisServer {
 		case LoadType::SWAT:
 		{
 			if (loadit->second.isValidIndex(swat_index)) {
-				loadit->second.buildLoadingFunction(swat_index, scenario.endSimulationYear, LF, scenario,1);
+				loadit->second.buildLoadingFunction(swat_index, scenario.endSimulationYear, LF, scenario, 1);
 				out = true;
 			}
 			//std::map<std::string, NLoad>::iterator gnlmit = NGWLoading.find("GNLM");
@@ -1964,12 +1974,16 @@ namespace mantisServer {
 
 								if (isNotZero) {
 									// Find the travel time in the unsaturated zone
-									double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
-									//std::cout << tau << std::endl;
-									tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-									if (tau < 0)
-										tau = 0.0;
-									int intTau = static_cast<int>(tau);
+									int intTau = 0;
+									if (unsatit != UNSAT.end()) {
+										double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
+										tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+										if (tau < 0)
+											tau = 0.0;
+										intTau = static_cast<int>(tau);
+										//std::cout << tau << std::endl;
+									}
+
 									if (intTau < NsimulationYears) {
 										int ibtc = 0;
 										for (int ii = intTau; ii < NsimulationYears; ++ii) {

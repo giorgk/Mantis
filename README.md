@@ -44,10 +44,10 @@ where </br>[TYPE] is one of the `GNLM` or `SWAT` flags </br>
 GNLM GNLM MantisData/GNLM_LU_NGW.dat </br>
 SWAT SWAT1 MantisData/SWAT_LOADING_SCEN_1.dat </br>
 SWAT SWAT2 MantisData/SWAT_LOADING_SCEN_2.dat </br>
-_Usually it takes a cople of minutes to load the N loading data._
-* __WELLS__ A file that lists the files (one in each row) that containt the wells for each flow scenario.
-* __URFS__ A file that lists the files (one in each row) that containt the URFS for each flow scenario.
-* __UNSAT__ A file that containts the values of `Depth/Recharge`. Each column in the file corresponds to a scenario. The first line contatins the names (`unsatScen`) of the scenarios. </br>
+_Usually it takes a couple of minutes to load the N loading data._
+* __WELLS__ A file that lists the files (one in each row) that contain the wells for each flow scenario.
+* __URFS__ A file that lists the files (one in each row) that contain the URFS for each flow scenario.
+* __UNSAT__ A file that contains the values of `Depth/Recharge`. Each column in the file corresponds to a scenario. The first line is a header with the names (`unsatScen`) of the scenarios. </br>
 SCEN1 SCEN2 ... </br>
 v1 v2 ... 
 * __PORT__ The port number
@@ -56,13 +56,13 @@ v1 v2 ...
 _The most recent input files are in the MantisData folder under the Mantis Google Drive main folder_.
 
 ### Input message 
-The server does nothing until it recieves an input message. </br>
-The input message has the KEYWORD VALUE format using spaces to separate. The input message has to be one line. The end line character `\n`  indicates the end of message.
-#### Required keywords values
+The server does nothing until it receives an input message. </br>
+The input message has the KEYWORD VALUE format using spaces as separation character. The input message has to be one line. The end line character `\n`  indicates the end of the message.
+#### Required Input keywords values
 The keywords have to use the exact lower Capital case as it appears on the list
-* __endSimYear__ [integer ####] The simulation always starts at 1945 and continues up to this year. The value has to be greater than 1945 of course. Currently there is a limit to 2500 if the end year is less that 1990 or greater than 2500 it gets reset to 2100.
-* __startRed__ [integer ####] The year to start the reduction scenarios. This should be always between 1945 and `endSimYear`. If not it gets reset to 2020
-* __endRed__ [integer ####] The year to fully implement the reduction rates. This should be always between `startRed` and `endSimYear`. If not it gets reset to `startRed` + 5
+* __endSimYear__ [integer ####] The simulation always starts at 1945 and continues up to this year. The value has to be greater than 1945 of course. Currently there is an upper limit of 2500. Yet if  the end year is less than 1990 or greater than 2500 it gets reset to 2100.
+* __startRed__ [integer ####] The year to start the reduction applications. This should be always between 1945 and `endSimYear`. If not it gets reset to 2020
+* __endRed__ [integer ####] The year to fully implement the reduction application rates. This should always be between `startRed` and `endSimYear`. If not it gets reset to `startRed` + 5
 * __flowScen__ [string] This is a keyword from the following list: 
 
 |Flow scenarios| Description |
@@ -71,7 +71,7 @@ The keywords have to use the exact lower Capital case as it appears on the list
 |CVHM_92_03_BUD1 | Simulation based on CVHM average flow conditions for the period 10/1992 - 9/2003 where the recharge is increased to match the pumping|
 
 
-* __loadScen__[string] This is a keyword from the following list:
+* __loadScen__ [string] This is a keyword from the following list:
 
 |N Loading scenarios | Description |
 |--|---|
@@ -80,39 +80,49 @@ The keywords have to use the exact lower Capital case as it appears on the list
 |SWAT2 | Concentrations history (1990 - 2015) based on _High Fertilization_|
 |SWAT3 | Concentrations history (1990 - 2015) based on _High Irrigation_|
 |SWAT4 | Concentrations history (1990 - 2015) based on _High Fertilization and High Fertilization_|
+Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the moment the SWAT period 1990-2015 is repeated during the simulation.
 
 * __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. However more are going to be added soon.
 
-* __unsatWC__ [float] This is the unsaturated mobile water concent coefficient.
+* __unsatWC__ [float] This is the unsaturated mobile water content coefficient.
 
 * __bMap__ [string] The name of the background map. This should be one of the following values:
 
 |Background map keys | Description |
 |--|---|
 |CentralValley | This is the entire Central Valley |
-|Basins | The CV is divided into 3 Subbasins that the user can choose from|
-|Counties | The CV s divided into 58 counties that the user can choose from|
-|B118 | The CV s divided into 45 groundwater basins that the user can choose from|
-|Townships | The CV s divided into 702 townships that the user can choose from|
-|CVHMfarms | The CV s divided into 21 subregions named as _farms_ that the user can choose from|
-|C2VsimSubregions | The CV s divided into 21 subregions named as _Subregions_ that the user can choose from|
+|Basins | The CV is divided into 3 Subbasins|
+|Counties | The CV is divided into 58 counties|
+|B118 | The CV is divided into 45 groundwater basins|
+|Townships | The CV is divided into 702 townships|
+|CVHMfarms | The CV is divided into 21 subregions named as _farms_|
+|C2VsimSubregions | The CV is divided into 21 subregions named as _Subregions_|
 
-* __Nregions__ [integer string1 string2,...,stringN] This is the number of subregions to consider during the simulation. This number if followed by `Nregions` names of the regions. Therefore the format would look like that:</br>
+* __Nregions__ [integer string1 string2,...,stringN] This is the number of subregions to consider during the simulation. This number is followed by `Nregions` names of the regions. Therefore the format should look like the following:</br>
 1 CentralValley (If the user has selected _CentralValley_ as background map) </br>
 2 SanJoaquinValley TulareLakeBasin (if the user has selected _Basins_ as background map)</br>
 4 Farm21 Farm17 Farm12 Farm15 (if the user has selected _CVHMfarms_ as background map)
 
 #### Codes for Regions
-1. _CentralValley_ has only one option which is  `CentralValley`
-2. _Basins_ is divided into `SacramentoValley`, `SanJoaquinValley` and `TulareLakeBasin`
-3. _Counties_ The list of counties can be found in the shapefile _counties_simple_ under the field _name_. The names in the field name containts spaces, which have to be stripped.
-4. _B118_ The list of B118 can be found in the shapefile _B118_simple_ under the field _Basin_Subb_. The names have a format similar to 5-22.13, 2-31 etc. The dashes and dots have to be replaced by `_` For example they have to be 5_22_13, 2_31
-5. _Townships_ The list of Townships can be found in the shapefile _CVHM_Townships_3310_simplified_ under the field _CO_MTR_.
-6. _CVHMfarms_ The CVHM farms take their names by appending to the word `FARM` the _dwr_sbrgns_ field of the shapefile _CVHM_FarmsTA_.
-7. _C2VsimSubregions_ The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
+1. _CentralValley_: has only one option which is  `CentralValley`
+2. _Basins_: is divided into `SacramentoValley`, `SanJoaquinValley` and `TulareLakeBasin`
+3. _Counties_: The list of counties can be found in the shapefile _counties_simple_ under the field _name_. The names in the field name containts spaces, which have to be stripped.
+4. _B118_: The list of B118 can be found in the shapefile _B118_simple_ under the field _Basin_Subb_. The names have a format similar to 5-22.13, 2-31 etc. The dashes and dots have to be replaced by `_` For example the above codes will be converted to 5_22_13, 2_31 etc
+5. _Townships_: The list of Townships can be found in the shapefile _CVHM_Townships_3310_simplified_ under the field _CO_MTR_.
+6. _CVHMfarms_: The CVHM farms take their names by appending to the word `Farm` the _dwr_sbrgns_ field of the shapefile _CVHM_FarmsTA_.
+7. _C2VsimSubregions_: The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
 
 * __Ncrops__ [integer, integer1 float1, integer2 float2,...,integerN floatN] The first integer is the number of crops to select for loading reduction. Then `Ncrops` pair of [int float] values which correspond to crop ids reduction percent. </br>
-__VERY IMPORTANT NOTE__ So far the percentage was interpreted as the amount of loading to keep. This was a bit confusing and could not address the option to increase the loading. So in the new version the percentage corresponds to reduction. If the loading of the base case is 30 mg/l and the reduction is 0.6, the final loading will be 30*0.6 e.g keep 40% of the base case.
+__VERY IMPORTANT NOTE:__ </br>
+ >So far the percentage was interpreted as the amount of loading to keep. This was a bit confusing and could not address the option to increase the loading. So in the new version the percentage corresponds to reduction. If the loading of the base case is 30 mg/l and the reduction is 0.6, the final loading will be 30*0.6 e.g keep 40% of the base case.
+
+ #### Codes for crops
+ For the GNLM the list of crops is identical to the one used in the LanduseTable_2017_0515 file which can be found [here](https://github.com/thharter/GNLM/tree/master/Input_Data). The column DWR/CAMLCode is what the server expects to find.
+
+ For the SWAT the codes the crop IDs are in the SWAT_LULC.csv under the Local folder of the repository. Valid ID codes are 1-57
+
+ At some point the crops codes will be identical for all loading scenarios.
+
 
 * __ENDofMSG__ This is a keyword that when found indicates that the message has been read in a correct way.
 
@@ -130,7 +140,7 @@ __VERY IMPORTANT NOTE__ So far the percentage was interpreted as the amount of l
 
  ## Client Test program
 
- TestClient that can be found under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP) is a small utility program that sends messages to the server and receives the replies.
+ A TestClient utility program can be found under [CPP](https://github.com/giorgk/Mantis/tree/master/CPP). It is used to send  messages to the server and receive the replies.
  If the messages are valid it prints them into a file so that can be read by other programs for further analysis/validation.
 
  ### Build client.
@@ -177,7 +187,7 @@ to build the program
     ```
     ./TestClient incomingMsg_v1.dat
     ```
-    where the ```incomingMsg_v1.dat``` is a file with the incoming message. The file can be split into multiple lines for readability and the TestClient will read reshape the message and send it to the server as one line. The TestClient will append the ENDofMSG keyword.
+    where the ```incomingMsg.dat``` is a file with the incoming message. The file can be split into multiple lines for readability and the TestClient will read and reshape the message and send it to the server as one line. The TestClient will append the ENDofMSG keyword.
 3. Stop server
     Simply send
     ```
