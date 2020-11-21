@@ -35,15 +35,39 @@ ylim([0 30])
 subplot(2,1,2);plot(Nred,'r')
 subplot(2,1,2);plot(N.*(1-a)+ Nred.*a,'g')
 subplot(2,1,2);plot(N.*a.*pp,'c')
+%%
+color_order = colororder;
+start_date = datetime(1945,1,1);
+tm = start_date + calyears(0:254);
 %% Read test client results
-fid = fopen('CPP\TestClient\TestClient\testClientResults.dat','r');
+fid = fopen('f:\UCDAVIS\Mantis\CPP\TestClient\testClientResults.dat','r');
 CC = textscan(fid,'%f');
 fclose(fid);
-Conc = reshape(CC{1,1},155,3575)';
+nTimes = 255;
+Nbtc = 1258;
+SWAT1_Conc_Farm2_BUD1 = reshape(CC{1,1},nTimes,Nbtc)';
+Conc = reshape(CC{1,1},nTimes,Nbtc)';
 pp = prctile(Conc,[5 10:10:90 95],1);
 %plot(Conc','color',[0.5 0.5 0.5])
+%%
 figure(2)
-plot(pp')
+clf
+prcnts = [50 75 90 95];
+pp0 = prctile(SWAT1_Conc_Farm2_BUD0,prcnts,1);
+plot(tm(1:156), pp0(:,1:156)','color',color_order(1,:), 'linewidth', 2)
+hold on
+pp1 = prctile(SWAT1_Conc_Farm2_BUD1,prcnts,1);
+plot(tm(1:156), pp1(:,1:156)','color',color_order(2,:), 'linewidth', 2)
+%legend('location','northwest')
+grid on
+ylabel('Concentration [mg/l]')
+xlabel('Time')
 
+for ii = 1:length(prcnts)
+    text(tm(156),pp1(ii,156),[' ' num2str(prcnts(ii)) '%'])
+    text(tm(156),pp0(ii,156),[' ' num2str(prcnts(ii)) '%'])
+end
+
+%patch([1945:2199 fliplr(1945:2199)], [pp0(11,:) fliplr(pp1(11,:))], 'g')
 
 

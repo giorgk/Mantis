@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
 	if (tf) {
 		ba::io_service io_service;
 		ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::tcp::v4(), msOptions.port));
-		char buff[1024];
+		char buff[4096];
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);
 			acceptor.accept(socket);

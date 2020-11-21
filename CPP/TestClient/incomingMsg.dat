@@ -1,22 +1,11 @@
-endSimYear 2100
-startRed 2000
-endRed 2007
+endSimYear 2200
+startRed 2020
+endRed 2025
 flowScen CVHM_92_03_BUD0
-loadScen SWAT1
-unsatScen C2VSIM_SPRING_2015
+loadScen GNLM
+unsatScen NONEC2VSIM_SPRING_2015
 unsatWC 0.01
 bMap CVHMfarms
-Nregions 4 Farm21 Farm17 Farm12 Farm15
-Ncrops 12
-10 0.5
-20 0.5
-30 0.4
-46 0.75
-41 0.7
-42 0.6
-57 0.8
-22 0.75
-15 0.253
-3 0.5501
-7 0.102
-33 0.458
+Nregions 1 Farm21
+Ncrops 1
+10 1

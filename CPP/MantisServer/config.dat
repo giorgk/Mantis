@@ -4,4 +4,4 @@ UNSAT = f:\UCDAVIS\Mantis\MantisData\C2VsimSpring_2015.dat
 MAPS = f:\UCDAVIS\Mantis\MantisData\BackgroundMaps.dat
 WELLS = f:\UCDAVIS\Mantis\Local\wellSets.mnts
 URFS = f:\UCDAVIS\Mantis\Local\urfSets.mnts
-NTHREADS = 1
+NTHREADS = 6
