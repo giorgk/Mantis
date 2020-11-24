@@ -30,6 +30,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
+	std::cout << "Running version 1.1.111" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
@@ -41,11 +42,18 @@ int main(int argc, char* argv[])
 	//}
 
 	bool quit = false;
-	std::string infile;
+	std::string infile, outfile;
 	if (argc > 1) {
 		infile = argv[1];
 		if (infile.compare("quit") == 0)
 			quit = true;
+	}
+
+	if (argc > 2) {
+		outfile = argv[2];
+	}
+	else {
+		outfile = "testClientResults.dat";
 	}
 
 	boost::asio::io_service io_service;
@@ -140,11 +148,11 @@ int main(int argc, char* argv[])
 			int NsimYears = std::atoi(str1[ii].c_str()); ii++;
 			std::cout << "Data size: " << Nbtc << " x " << NsimYears << std::endl;
 			//ss >> Nbtc;
-			std::string filename = "testClientResults.dat";
 			std::ofstream outstream;
 			std::cout << "Printing Results..." << std::endl;
-			outstream.open(filename.c_str());
-			float dd;
+			outstream.open(outfile.c_str());
+			double dd;
+			outstream << Nbtc << " " << NsimYears << std::endl;
 			for (int i = 0; i < Nbtc; ++i) {
 				for (int j = 0; j < NsimYears; ++j) {
 					//ss >> dd;

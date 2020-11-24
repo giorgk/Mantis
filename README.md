@@ -82,7 +82,7 @@ The keywords have to use the exact lower Capital case as it appears on the list
 |SWAT4 | Concentrations history (1990 - 2015) based on _High Fertilization and High Fertilization_|
 Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the moment the SWAT period 1990-2015 is repeated during the simulation.
 
-* __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. However more are going to be added soon.
+* __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. </br> You can also pass any value that does not match any scenario name to disable the unsaturated travel time. For example you can pass `NONE`
 
 * __unsatWC__ [float] This is the unsaturated mobile water content coefficient.
 
