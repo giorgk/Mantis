@@ -11,7 +11,7 @@ for ii = 1:length(bckgrMaps)
     CVmap(ii,1).data = shaperead(fullfile('gis_data', bckgrMaps{ii,2}));
 end
 %% 
-fid = fopen(fullfile('MantisData','BackgroundMaps.dat'),'w');
+fid = fopen(fullfile('MantisData','BackgroundMapsv1.dat'),'w');
 fprintf(fid, '%d\n', length(CVmap)); % Number of Background maps
 for ii = 1:length(CVmap)
     % Name and number of subregions this bacnkground maps is devided

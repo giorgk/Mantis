@@ -72,16 +72,27 @@ int main(int argc, char* argv[])
 				std::cout << "Can't open the file " << infile << std::endl;
 			}
 			else {
-				std::string line;
+				std::string line, line1;
 				bool firstLine = true;
 				while (getline(indata, line)) {
-					if (firstLine) {
-						msg += line;
-						firstLine = false;
-					}
-					else {
-						msg += " " + line;
-					}
+                    unsigned int nWords = 0;
+                    for (std::string::size_type i = 0; i < line.size(); i++){
+                        if (line[i] == ' ')
+                            nWords++;
+                    }
+                    std::istringstream inp(line.c_str());
+                    for (unsigned  int i = 0; i < nWords; ++i){
+                        inp >> line1;
+                        if (line1.empty())
+                            break;
+                        if (firstLine) {
+                            msg += line1;
+                            firstLine = false;
+                        }
+                        else {
+                            msg += " " + line1;
+                        }
+                    }
 				}
  				msg += " ENDofMSG\n";
 			}
@@ -92,7 +103,7 @@ int main(int argc, char* argv[])
 			msg += " startRed 2000";
 			msg += " endRed 2007"; 
 			msg += " flowScen CVHM_92_03_BUD0";
-			msg += " loadScen GNLM";
+			msg += " loadScen SWAT1";
 			msg += " unsatScen C2VSIM_SPRING_2015";
 			msg += " unsatWC 0.01";
 			msg += " bMap CVHMfarms";

@@ -940,11 +940,14 @@ namespace mantisServer {
 
 	bool Mantis::validate_msg(std::string& outmsg) {
 		if ((scenario.endSimulationYear <= 1990) | (scenario.endSimulationYear > 2500))
-			scenario.endSimulationYear = 2100;
-		if ((scenario.startReductionYear < 1945) | (scenario.startReductionYear > scenario.endSimulationYear))
+			scenario.endSimulationYear = 2500;
+		if (scenario.startReductionYear < 1945)
 			scenario.startReductionYear = 2020;
-		if ((scenario.endReductionYear < scenario.startReductionYear) | (scenario.endReductionYear > scenario.endSimulationYear))
-			scenario.endReductionYear = scenario.startReductionYear + 5;
+		if (scenario.startReductionYear >= scenario.endReductionYear)
+            scenario.endReductionYear = scenario.startReductionYear + 1;
+		if (scenario.endReductionYear > scenario.endSimulationYear)
+			scenario.endReductionYear = scenario.endSimulationYear;
+
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		if (mapit == MAPList.end()) {
 			outmsg += "0 ERROR: The Background map with id [";
@@ -1157,7 +1160,10 @@ namespace mantisServer {
 	bool Mantis::readBackgroundMaps() {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream MAPSdatafile;
-		MAPSdatafile.open(options.MAPSfile);
+		if (!options.bAbsolutePaths)
+            options.MAPSfile = options.mainPath + options.MAPSfile;
+
+        MAPSdatafile.open(options.MAPSfile);
 		if (!MAPSdatafile.is_open()) {
 			std::cout << "Cant open file: " << options.MAPSfile << std::endl;
 			return false;
@@ -1307,21 +1313,35 @@ namespace mantisServer {
 
 	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
 		std::ifstream WellMasterfile;
+
+		if (!options.bAbsolutePaths)
+		    filename = options.mainPath + filename;
+
 		WellMasterfile.open(filename);
 		if (!WellMasterfile.is_open()) {
 			std::cout << "Cant open file: " << filename << std::endl;
 			return false;
 		}
 		else {
-			std::string line;
+			std::string line, filename;
 			while (getline(WellMasterfile, line)) {
+                std::istringstream inp(line.c_str());
+                inp >> filename;
+			    if (filename.empty())
+			        continue;
+			    if (filename.front() == '#')
+			        continue;
+
+                if (!options.bAbsolutePaths)
+                    filename = options.mainPath + filename;
 				bool tf;
 				if (isWell)
-					tf = readWellSet(line);
+                    tf = readWellSet(filename);
 				else
-					tf = readURFs(line);
+                    tf = readURFs(filename);
+
 				if (!tf) {
-					std::cout << "An error occured while reading " << line << std::endl;
+					std::cout << "An error occured while reading " << filename << std::endl;
 					return false;
 				}
 			}
@@ -1341,15 +1361,19 @@ namespace mantisServer {
 		else {
 			std::cout << "Reading " << filename << std::endl;
 			int Nwells, Eid;
-			std::string setName;
-			Welldatafile >> Nwells;
-			Welldatafile >> setName;
+			std::string setName, line;
+            getline(Welldatafile, line);
+            std::istringstream inp(line.c_str());
+			inp >> Nwells;
+			inp >> setName;
 			double xw, yw;
 			for (int i = 0; i < Nwells; ++i) {
-				Welldatafile >> Eid;
+                getline(Welldatafile, line);
+                std::istringstream inp1(line.c_str());
+				inp1 >> Eid;
 				//std::cout << Eid << std::endl;
-				Welldatafile >> xw;
-				Welldatafile >> yw;
+				inp1 >> xw;
+				inp1 >> yw;
 				assign_point_in_sets(xw, yw, Eid, setName);
 				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, wellClass()));
 			}
@@ -1373,26 +1397,29 @@ namespace mantisServer {
 			std::cout << "Reading " << filename << std::endl;
 			std::map<std::string, std::map<int, wellClass> >::iterator scenit;
 			std::map<int, wellClass>::iterator wellmapit;
-			std::string setName, urftypestring;
+			std::string setName, urftypestring, line;
 			URFTYPE urftype;
 			int Nurfs;
-			URFdatafile >> Nurfs;
-			URFdatafile >> setName;
-			scenit = Wellmap.find(setName);
-			{// Identify urf type
-				URFdatafile >> urftypestring;
-				if (urftypestring.compare("LGNRM") == 0)
-					urftype = URFTYPE::LGNRM;
-				else if (urftypestring.compare("ADE") == 0)
-					urftype = URFTYPE::ADE;
-				else if (urftypestring.compare("BOTH") == 0)
-					urftype = URFTYPE::BOTH;
-				else{
-					std::cout << "The URF type " << urftypestring << " is not valid" << std::endl;
-					return false;
-				}
-			}
 
+            getline(URFdatafile, line);
+            std::istringstream inp(line.c_str());
+            inp >> Nurfs;
+            inp >> setName;
+            inp >> urftypestring;
+
+			// Identify urf type
+            if (urftypestring == "LGNRM")
+                urftype = URFTYPE::LGNRM;
+            else if (urftypestring =="ADE")
+                urftype = URFTYPE::ADE;
+            else if (urftypestring =="BOTH")
+                urftype = URFTYPE::BOTH;
+            else{
+                std::cout << "The URF type " << urftypestring << " is not valid" << std::endl;
+                return false;
+            }
+
+            scenit = Wellmap.find(setName);
 			if (scenit == Wellmap.end()) {
 				std::cout << "The URF Scenario " << setName << " is not defined for the wells" << std::endl;
 				return false;
@@ -1403,17 +1430,19 @@ namespace mantisServer {
 				paramC = 0.0;
 				paramD = 0.0;
 				for (int i = 0; i < Nurfs; ++i) {
-					URFdatafile >> Eid;
-					URFdatafile >> Sid;
-					URFdatafile >> gnlm_ind;
-					URFdatafile >> swat_ind;
-					URFdatafile >> paramA;
-					URFdatafile >> paramB;
-					URFdatafile >> w;
-					URFdatafile >> rch;
+                    getline(URFdatafile, line);
+                    std::istringstream inp1(line.c_str());
+					inp1 >> Eid;
+					inp1 >> Sid;
+					inp1 >> gnlm_ind;
+					inp1 >> swat_ind;
+					inp1 >> paramA;
+					inp1 >> paramB;
+					inp1 >> w;
+					inp1 >> rch;
 					if (urftype == URFTYPE::BOTH){
-						URFdatafile >> paramC;
-						URFdatafile >> paramD;
+						inp1 >> paramC;
+						inp1 >> paramD;
 					}
 
 					//std::cout << Eid << ", " << Sid << ", " << ROW << ", " << COL << ", " << w << ", " << paramA << ", " << paramB << std::endl;
@@ -1746,9 +1775,13 @@ namespace mantisServer {
 	bool Mantis::readUNSAT() {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream unsatfile;
+
+        if (!options.bAbsolutePaths)
+            options.UNSATfile = options.mainPath + options.UNSATfile;
+
 		unsatfile.open(options.UNSATfile);
 		if (!unsatfile.is_open()) {
-			std::cout << "Cant open file: " << options.NO3LoadFile << std::endl;
+			std::cout << "Cant open file: " << options.UNSATfile << std::endl;
 			return false;
 		}
 		else {
@@ -1793,6 +1826,10 @@ namespace mantisServer {
 		auto start = std::chrono::high_resolution_clock::now();
 
 		std::ifstream no3MainFile;
+
+		if (!options.bAbsolutePaths)
+		    options.NO3LoadFile = options.mainPath + options.NO3LoadFile;
+
 		no3MainFile.open(options.NO3LoadFile);
 		if (!no3MainFile.is_open()) {
 			std::cout << "Cant open file: " << options.NO3LoadFile << std::endl;
@@ -1803,9 +1840,20 @@ namespace mantisServer {
 			while (getline(no3MainFile, line)) {
 				std::string Ltype, Lname, Lfile;
 				std::istringstream inp(line.c_str());
-				inp >> Ltype;
+                inp >> Ltype;
+
+				if (Ltype.empty())
+				    continue;
+
+				if (Ltype.front() == '#')
+                    continue;
+
 				inp >> Lname;
 				inp >> Lfile;
+
+                if (!options.bAbsolutePaths)
+                    Lfile = options.mainPath + Lfile;
+
 				if (Ltype.compare("GNLM") == 0) {
 					NLoad NL;
 					NL.readData(Lfile, LoadType::GNLM);

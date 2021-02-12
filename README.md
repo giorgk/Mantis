@@ -25,10 +25,19 @@ MantisServer.exe -c config_file -t
 ```
 In test mode it doesn't load the N loading data and therefore does not execute the simulation. However it reads the incoming message and if there are no errors will return a message similar to the one in the actuall mode populated with random numbers.
 
-Last, ommit the *t* flag to run the actual server
+To run the program in simulation mode just ommit the *t* flag.
 ```
 MantisServer.exe -c config_file
 ```
+
+It is possible to setup the input files in relative mode using the *p* flag
+```
+MantisServer.exe -c config_file -p path/to/data
+```
+All the input files should be relative to the path.
+
+
+
 The list of inputs of the configuration file is shown with the help option `MantisServer.exe -h`. </br> 
 An example of configuration file can also be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
 
@@ -44,6 +53,7 @@ where </br>[TYPE] is one of the `GNLM` or `SWAT` flags </br>
 GNLM GNLM MantisData/GNLM_LU_NGW.dat </br>
 SWAT SWAT1 MantisData/SWAT_LOADING_SCEN_1.dat </br>
 SWAT SWAT2 MantisData/SWAT_LOADING_SCEN_2.dat </br>
+If the line starts with ```#``` then it is ignore. This is a way to comment lines.
 _Usually it takes a couple of minutes to load the N loading data._
 * __WELLS__ A file that lists the files (one in each row) that contain the wells for each flow scenario.
 * __URFS__ A file that lists the files (one in each row) that contain the URFS for each flow scenario.

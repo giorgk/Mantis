@@ -82,8 +82,45 @@ namespace mantisServer {
 		int nThreads;
 
 		bool testMode;
+
+        /**
+         * Indicates whether the paths inside the configuration file are absolute or relative to the main path
+         */
+		bool bAbsolutePaths = true;
+
+		/**
+		 * This is the main path where all input files are relative to.
+		 */
+		std::string mainPath;
+		/**
+		 * The name of the configuration file
+		 */
+		std::string configFile;
 	};
 
+	/**
+	 * This is the function that parses the input arguments
+	 *
+	 * There are options that can be defined at command line or inside the configuration file
+	 *
+	 * Command line options are the following:
+	 * - v or version Prints the version and exists
+	 * - h or help Prints a help message and exits
+	 * - c or config. A file name must be entered after this option with the name of the configuration file
+	 * - p or path. A path must be enter after this option. \n
+	 *              This path indicates that the configuration file and all the files inside the configuration file
+	 *              are set relative to this path. If the paths of the configuration file and the names of the files inside
+	 *              the configuration file are absolute then this path must be empty.
+	 * - t This runs mantis in test mode. The output messages are just random numbers which have the exact format
+	 *     the actual runs.
+	 *
+	 *
+	 *
+	 * @param argc
+	 * @param argv
+	 * @param opt
+	 * @return true if parsing was successful.
+	 */
 	bool readInputParameters(int argc, char *argv[], options& opt) {
 		// user command line options
 		po::options_description commandLineOptions("Command line options");
@@ -91,6 +128,7 @@ namespace mantisServer {
 			("version,v", "print version information")
 			("help,h", "Get a list of options in the configuration file")
 			("config,c", po::value<std::string >(), "Set configuration file")
+            ("path,p", po::value<std::string>(), "The path where all input files are located")
 			("test,t", "Run Server in test mode [a config file is required]")
 			;
 
@@ -108,7 +146,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.4.00 |" << std::endl;
+			std::cout << "| Version : 1.4.11 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -140,18 +178,38 @@ namespace mantisServer {
 			return false;
 		}
 
+        if (vm_cmd.count("path")){
+            opt.mainPath = vm_cmd["path"].as<std::string>();
+            if (opt.mainPath.empty()){
+                opt.bAbsolutePaths = true;
+            }
+            else{
+                opt.bAbsolutePaths = false;
+            }
+        }
+        else{
+            opt.bAbsolutePaths = true;
+        }
+
 		po::variables_map vm_cfg;
 
 		if (vm_cmd.count("config")) {
 			if (vm_cmd.count("test")) {
+			    std::cout << "Mantis is set to run in test mode!. The results are random numbers!!" << std::endl;
 				opt.testMode = true;
 			}
 			else {
 				opt.testMode = false;
 			}
+
+			if (!opt.bAbsolutePaths)
+			    opt.configFile = opt.mainPath + vm_cmd["config"].as<std::string>();
+			else
+			    opt.configFile = vm_cmd["config"].as<std::string>();
+
 			bool tf;
 			std::cout << vm_cmd["config"].as<std::string>().c_str() << std::endl;
-			po::store(po::parse_config_file<char>(vm_cmd["config"].as<std::string>().c_str(), config_options), vm_cfg);
+			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
 			// read mandatory options
 			opt.gnlmNpixels = vm_cfg["GNLM_Npixels"].as<int>();
 			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
@@ -168,8 +226,14 @@ namespace mantisServer {
 			//opt.startYear = vm_cfg["StartYR"].as<int>();
 			//opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
 			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
+            return true;
 		}
-		return true;
+
+
+
+        std::cout << "Mantis received wrong input options" << std::endl;
+		std::cout << "Run mantisServer -h for additional help" << std::endl;
+        return false;
 	}
 
 }
