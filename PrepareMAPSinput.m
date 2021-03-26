@@ -64,3 +64,40 @@ for ii = 1:length(CVmap)
     end
 end
 fclose(fid);
+%% Write the backgroundMaps without the polygons
+basins = shaperead(fullfile('..','Mantis','gis_data','CVHM_Basins_TAproj'));
+counties = shaperead(fullfile('..','Mantis','gis_data','california_counties'));
+b118 = shaperead(fullfile('..','Mantis','gis_data','B118_CV_TAproj'));
+townships = shaperead(fullfile('..','Mantis','gis_data','CVHM_Townships_3310'));
+subreg = shaperead(fullfile('..','Mantis','gis_data','C2Vsim_Subregions_3310'));
+%%
+fid = fopen(fullfile('MantisData','BackgroundMapsv2.dat'),'w');
+fprintf(fid, '%d\n', 5);
+% Central Valley
+fprintf(fid, '%s %d\n', 'CentralValley', 1);
+fprintf(fid,'%s\n','CentralValley');
+% Basins
+fprintf(fid, '%s %d\n', 'Basins', 3);
+fprintf(fid,'%s\n','SanJoaquinValley', 'SacramentoValley',  'TulareLakeBasin');
+% Counties
+fprintf(fid, '%s %d\n', 'Counties', length(counties));
+for ii = 1:length(counties)
+    fprintf(fid,'%s\n', replace(counties(ii,1).name, " ", ""));
+end
+% B118
+fprintf(fid, '%s %d\n', 'B118', length(b118));
+for ii = 1:length(b118)
+    fprintf(fid,'%s\n', replace(b118(ii,1). Basin_Subb,{' ','-','.'}, '_'));
+end
+% Townships
+fprintf(fid, '%s %d\n', 'Townships', length(townships));
+for ii = 1:length(townships)
+    fprintf(fid,'%s\n', townships(ii,1).CO_MTR);
+end
+% Subregions
+fprintf(fid, '%s %d\n', 'CVHMfarms', length(subreg));
+for ii = 1:length(subreg)
+    fprintf(fid,'%s\n', ['Subregion' num2str(subreg(ii,1).IRGE)]);
+end
+fclose(fid);
+

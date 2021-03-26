@@ -3,6 +3,7 @@
 #include <iostream>
 #include <string>
 #include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
 
 
 namespace po = boost::program_options;
@@ -96,6 +97,9 @@ namespace mantisServer {
 		 * The name of the configuration file
 		 */
 		std::string configFile;
+
+		std::string DebugFolder;
+
 	};
 
 	/**
@@ -226,7 +230,14 @@ namespace mantisServer {
 			//opt.startYear = vm_cfg["StartYR"].as<int>();
 			//opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
 			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
-            return true;
+
+			if (vm_cfg.count("DEBUG_DIR")) {
+				tf = get_option<std::string>("DEBUG_DIR", vm_cfg, opt.DebugFolder);
+			}
+			else {
+				opt.DebugFolder = boost::filesystem::current_path().string();
+			}
+
 		}
 
 
@@ -235,5 +246,4 @@ namespace mantisServer {
 		std::cout << "Run mantisServer -h for additional help" << std::endl;
         return false;
 	}
-
 }

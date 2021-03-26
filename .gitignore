@@ -45,6 +45,7 @@
 /CPP/MantisServer/*
 !/CPP/MantisServer/*.sln
 !/CPP/MantisServer/*.ini
+!/CPP/MantisServer/config.ini
 !/CPP/MantisServer/MantisServer
 /CPP/MantisServer/MantisServer/*
 !/CPP/MantisServer/MantisServer/*.cpp

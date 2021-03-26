@@ -8,19 +8,19 @@
 #include <boost/bimap.hpp>
 #include <cstdlib>
 
-#define CGAL_HEADER_ONLY 1
+//#define CGAL_HEADER_ONLY 1
 
-#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
-#include <CGAL/Polygon_2.h>
-#include <CGAL/Polygon_2_algorithms.h>
+//#include <CGAL/Exact_predicates_inexact_constructions_kernel.h>
+//#include <CGAL/Polygon_2.h>
+//#include <CGAL/Polygon_2_algorithms.h>
 
 
 #include "MSoptions.h"
 //#include "MShelper.h"
 
-typedef CGAL::Exact_predicates_inexact_constructions_kernel ine_Kernel;
-typedef ine_Kernel::Point_2 ine_Point2;
-typedef CGAL::Polygon_2< ine_Kernel> ine_Poly_2;
+//typedef CGAL::Exact_predicates_inexact_constructions_kernel ine_Kernel;
+//typedef ine_Kernel::Point_2 ine_Point2;
+//typedef CGAL::Polygon_2< ine_Kernel> ine_Poly_2;
 
 const double sqrt2pi = std::sqrt(2*std::acos(-1));
 const double pi = std::atan(1)*4;
@@ -316,6 +316,9 @@ namespace mantisServer {
 		// This is the unsaturated zone mobile water content (m3/m3)
 		// Typical values are 0.05,0.1 ,0.15 and 0.20 
 		double unsatZoneMobileWaterContent;
+
+		bool printAdditionalInfo = false;
+		int debugID;
 		// Once the Nsimulation year has set this is populated with the actual 4digit years.
 		// This is used in the loading function building method 
 		//std::vector<int> SimulationYears;
@@ -329,6 +332,7 @@ namespace mantisServer {
 			loadScen = "";
 			regionIDs.clear();
 			LoadReductionMap.clear();
+			printAdditionalInfo = false;
 			//SimulationYears.clear();
 		}
 	};
@@ -749,7 +753,7 @@ namespace mantisServer {
 	public:
 		//! This is a list of cgal polygons that define the unit analysis such as a Basin, a farm, a county etc.
 		//! The unit may consists of more polygons that's why we use a vector here
-		std::vector<ine_Poly_2> polys;
+		//std::vector<ine_Poly_2> polys;
 
 		//! The well ids that are contained by the polygon. 
 		//! This is actually a map so that it can contain mutliple well sets where the name of the set is the key
@@ -836,6 +840,7 @@ namespace mantisServer {
 		//! a list of background maps
 		//std::map<int, std::map<int, Polyregion> > MAPList;
 		std::map<std::string, std::map<std::string, Polyregion> > MAPList;
+
 		//! A map of well ids and wellClass
 		std::map<std::string, std::map<int, wellClass> > Wellmap;
 
@@ -1039,6 +1044,12 @@ namespace mantisServer {
 				continue;
 			}
 
+			if (test.compare("DebugID") == 0) {
+				scenario.printAdditionalInfo = true;
+				int debugid;
+				ss >> scenario.debugID;
+			}
+
 			// The incoming messages express the reduction in loading
 			// If the reduction is 0.2 then the Nloading 80% less compared to base case
 			if (test.compare("Ncrops") == 0) {
@@ -1158,7 +1169,7 @@ namespace mantisServer {
 	}
 
 	bool Mantis::readBackgroundMaps() {
-		auto start = std::chrono::high_resolution_clock::now();
+		//auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream MAPSdatafile;
 		if (!options.bAbsolutePaths)
             options.MAPSfile = options.mainPath + options.MAPSfile;
@@ -1169,6 +1180,7 @@ namespace mantisServer {
 			return false;
 		}
 		else {
+            Polyregion polyreg;
 			std::cout << "Reading " << options.MAPSfile << std::endl;
 			std::string line;
 			int Nmaps;
@@ -1191,69 +1203,20 @@ namespace mantisServer {
 				for (int irg = 0; irg < Nregions; ++irg) {
 					std::string RegionKey;
 					int Npoly; //number of polygons for this region
-					Polyregion polyRegion;
+
 					{// Get the Key for the Subregion of the background map and the number of polygons it consists from
 						std::getline(MAPSdatafile, line);
 						std::istringstream inp(line.c_str());
 						inp >> RegionKey;
-						inp >> Npoly;
 					}
-					for (int ipl = 0; ipl < Npoly; ++ipl) {
-						int Nvert; // Number of vertices per polygon
-						{
-							std::getline(MAPSdatafile, line);
-							std::istringstream inp(line.c_str());
-							inp >> Nvert;
-						}
-						double xm, ym;
-						std::vector<ine_Point2> poly_pnts;
-						for (int ivrt = 0; ivrt < Nvert; ++ivrt) {
-							std::getline(MAPSdatafile, line);
-							std::istringstream inp(line.c_str());
-							inp >> xm;
-							inp >> ym;
-							poly_pnts.push_back(ine_Point2(xm, ym));
-						}
-						ine_Poly_2 p(poly_pnts.begin(), poly_pnts.end());
-						polyRegion.polys.push_back(p);
-					}
-					std::map<std::string, Polyregion>::iterator it = RegionMap.find(RegionKey);
-					if (it == RegionMap.end())
-						RegionMap.insert(std::pair<std::string, Polyregion>(RegionKey, polyRegion));
-					else {
-						std::cout << "The region with key " << RegionKey << " was found twice" << std::endl;
-					}
+                    RegionMap.insert(std::pair<std::string, Polyregion>(RegionKey, polyreg));
+
 				}
 				MAPList.insert(std::pair<std::string, std::map<std::string, Polyregion>>(MapKey, RegionMap));
-				/*
-				std::map<int, Polyregion> RegionMap;
-				for (int irg = 0; irg < Nregions; ++irg) {
-					int Npoly; // This is the number of polygons for each region. For example TLB region may consists of more than on polygon
-					Polyregion polyRegion;
-					MAPSdatafile >> Npoly;
-					for (int ipl = 0; ipl < Npoly; ++ipl) {
-						int Nvert; // Number of vertices per polygon
-						MAPSdatafile >> Nvert;
-						double xm, ym;
-						std::vector<ine_Point2> poly_pnts;
-						for (int ivrt = 0; ivrt < Nvert; ++ivrt) {
-							MAPSdatafile >> xm;
-							MAPSdatafile >> ym;
-							poly_pnts.push_back(ine_Point2(xm, ym));
-						}
-						ine_Poly_2 p(poly_pnts.begin(), poly_pnts.end());
-						polyRegion.polys.push_back(p);
-					}
-					RegionMap[irg+1] = polyRegion;
-				}
-				*/
-				//MAPList[imap+1] = RegionMap;
+
 			}
 		}
 		MAPSdatafile.close();
-		auto finish = std::chrono::high_resolution_clock::now();
-		std::chrono::duration<double> elapsed = finish - start;
-		std::cout << "Read Maps in " << elapsed.count() << std::endl;
 		return true;
 	}
 
@@ -1264,26 +1227,27 @@ namespace mantisServer {
 		bool tf = readBackgroundMaps();
 		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
 
-		if (!options.testMode) {
-			tf = readUNSAT();
-			if (!tf) { std::cout << "Error reading UNSAT" << std::endl; return false; }
-		}
+        tf = readMultipleSets(options.WELLfile, true);
+        if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
+
+		//if (!options.testMode) {
+		tf = readUNSAT();
+		if (!tf) { std::cout << "Error reading UNSAT" << std::endl; return false; }
+		//}
 
 		if (!options.testMode) {
 			tf = readLU_NGW();
 			if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
 		}
 		
-		if (!options.testMode) {
-			tf = readMultipleSets(options.WELLfile, true);
-			if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
-		}
+		//if (!options.testMode) {
 
-		if (!options.testMode) {
-			tf = readMultipleSets(options.URFfile, false);
-			if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
-		}
+		//}
 
+		//if (!options.testMode) {
+		tf = readMultipleSets(options.URFfile, false);
+		if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
+		//}
 		return tf;
 	}
 
@@ -1291,20 +1255,20 @@ namespace mantisServer {
 		//std::map<int, std::map<int, Polyregion> >::iterator mapit;
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit;
 		std::map<std::string, Polyregion>::iterator regit;
-		std::vector<ine_Poly_2>::iterator polyit;
+		//std::vector<ine_Poly_2>::iterator polyit;
 
-		ine_Point2 testPoint(x, y);
+		//ine_Point2 testPoint(x, y);
 		for (mapit = MAPList.begin(); mapit != MAPList.end(); ++mapit) {
 			bool found = false;
 			for (regit = mapit->second.begin(); regit != mapit->second.end(); ++regit) {
-				for (polyit = regit->second.polys.begin(); polyit != regit->second.polys.end(); ++polyit) {
-					switch (polyit->bounded_side(testPoint)) {
-					case CGAL::ON_BOUNDED_SIDE:
-						regit->second.wellids[setname].push_back(wellid);
-						found = true;
-						break;
-					}
-				}
+				//for (polyit = regit->second.polys.begin(); polyit != regit->second.polys.end(); ++polyit) {
+				//	switch (polyit->bounded_side(testPoint)) {
+				//	case CGAL::ON_BOUNDED_SIDE:
+				//		regit->second.wellids[setname].push_back(wellid);
+				//		found = true;
+				//		break;
+				//	}
+				//}
 				if (found)
 					break;
 			}
@@ -1958,9 +1922,12 @@ namespace mantisServer {
 
 			// Number of wells in the selected region
 			int Nwells = static_cast<int>(wellscenit->second.size());
+			if (Nwells == 0)
+				continue;
+
 			int startWell, endWell;
 
-			if (Nwells < options.nThreads) {
+			if (Nwells <= options.nThreads) {
 				if (id > 0)
 					return;
 				else {
@@ -1980,7 +1947,7 @@ namespace mantisServer {
 			
 			
 
-			std::cout << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
+			std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
 			int wellid;
 			std::vector<double> LF;
 			
@@ -2076,11 +2043,17 @@ namespace mantisServer {
 
 	void Mantis::makeReply(std::string &outmsg) {
 		outmsg.clear();
-		outmsg += "1 ";
+		
 		int nBTC = 0;
 		for (int i = 0; i < static_cast<int>(replyLength.size()); ++i) {
 			nBTC += replyLength[i];
 		}
+		if (nBTC == 0) {
+			outmsg += "0 ERROR: There are no BTCs to send ENDofMSG\n";
+			return;
+		}
+
+		outmsg += "1 ";
 		outmsg += std::to_string(nBTC);
 		int Nyears = scenario.endSimulationYear - 1945;
 		outmsg += " " + std::to_string(Nyears);
