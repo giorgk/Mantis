@@ -132,7 +132,6 @@ namespace mantisServer {
 			("version,v", "print version information")
 			("help,h", "Get a list of options in the configuration file")
 			("config,c", po::value<std::string >(), "Set configuration file")
-            ("path,p", po::value<std::string>(), "The path where all input files are located")
 			("test,t", "Run Server in test mode [a config file is required]")
 			;
 
@@ -165,6 +164,7 @@ namespace mantisServer {
 			("WELLS", "A list of files with the well info for each scenario")
 			("URFS", "A list of files with the URF information")
 			("UNSAT", "A file that containts the travel time for each LU pixel")
+            ("DataPath", "If this is not empty all data all data must be relative to DataPath.")
 			("PORT", po::value<int>()->default_value(1234), "Port number")
 			("NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
 			;
@@ -182,22 +182,10 @@ namespace mantisServer {
 			return false;
 		}
 
-        if (vm_cmd.count("path")){
-            opt.mainPath = vm_cmd["path"].as<std::string>();
-            if (opt.mainPath.empty()){
-                opt.bAbsolutePaths = true;
-            }
-            else{
-                opt.bAbsolutePaths = false;
-            }
-        }
-        else{
-            opt.bAbsolutePaths = true;
-        }
-
 		po::variables_map vm_cfg;
 
 		if (vm_cmd.count("config")) {
+            opt.configFile = vm_cmd["config"].as<std::string>();
 			if (vm_cmd.count("test")) {
 			    std::cout << "Mantis is set to run in test mode!. The results are random numbers!!" << std::endl;
 				opt.testMode = true;
@@ -206,42 +194,44 @@ namespace mantisServer {
 				opt.testMode = false;
 			}
 
-			if (!opt.bAbsolutePaths)
-			    opt.configFile = opt.mainPath + vm_cmd["config"].as<std::string>();
-			else
-			    opt.configFile = vm_cmd["config"].as<std::string>();
-
 			bool tf;
-			std::cout << vm_cmd["config"].as<std::string>().c_str() << std::endl;
+			std::cout << opt.configFile << std::endl;
 			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
 			// read mandatory options
 			opt.gnlmNpixels = vm_cfg["GNLM_Npixels"].as<int>();
-			tf = get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile);
-			tf = get_option<std::string>("NO3_LOAD", vm_cfg, opt.NO3LoadFile);
-			tf = get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile);
-			tf = get_option<std::string>("WELLS", vm_cfg, opt.WELLfile);
-			tf = get_option<std::string>("URFS", vm_cfg, opt.URFfile);
+			if (!get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile)) return false;
+			if (!get_option<std::string>("NO3_LOAD", vm_cfg, opt.NO3LoadFile)) return false;
+			if (!get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile)) return false;
+			if (!get_option<std::string>("WELLS", vm_cfg, opt.WELLfile)) return false;
+			if (!get_option<std::string>("URFS", vm_cfg, opt.URFfile)) return false;
+
+            opt.mainPath = "";
+			if (vm_cfg.count("DataPath")){
+			    if (!get_option<std::string>("DataPath", vm_cfg, opt.mainPath)){
+                    opt.bAbsolutePaths = true;
+			    }
+			    else{
+                    opt.bAbsolutePaths = false;
+			    }
+			}
+			else{
+			    opt.bAbsolutePaths = true;
+			}
 
 			// read optional options
 			opt.port = vm_cfg["PORT"].as<int>();
-			//opt.Nrow = vm_cfg["Nrow"].as<int>();
-			//opt.Ncol= vm_cfg["Ncol"].as<int>();
-			//opt.yearInterval = vm_cfg["YRINTERVAL"].as<int>();
-			//opt.startYear = vm_cfg["StartYR"].as<int>();
-			//opt.nSimulationYears = vm_cfg["NYRS"].as<int>();
+
 			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
 
 			if (vm_cfg.count("DEBUG_DIR")) {
-				tf = get_option<std::string>("DEBUG_DIR", vm_cfg, opt.DebugFolder);
+				if (!get_option<std::string>("DEBUG_DIR", vm_cfg, opt.DebugFolder));
+                    opt.DebugFolder = "";
 			}
-			else {
-				opt.DebugFolder = boost::filesystem::current_path().string();
+			else{
+                opt.DebugFolder = "";
 			}
-
+            return true;
 		}
-
-
-
         std::cout << "Mantis received wrong input options" << std::endl;
 		std::cout << "Run mantisServer -h for additional help" << std::endl;
         return false;

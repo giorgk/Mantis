@@ -840,6 +840,7 @@ namespace mantisServer {
 		//! a list of background maps
 		//std::map<int, std::map<int, Polyregion> > MAPList;
 		std::map<std::string, std::map<std::string, Polyregion> > MAPList;
+		std::vector<std::string> backgroundMapNames;
 
 		//! A map of well ids and wellClass
 		std::map<std::string, std::map<int, wellClass> > Wellmap;
@@ -1213,6 +1214,7 @@ namespace mantisServer {
 
 				}
 				MAPList.insert(std::pair<std::string, std::map<std::string, Polyregion>>(MapKey, RegionMap));
+                backgroundMapNames.push_back(MapKey);
 
 			}
 		}
@@ -1317,6 +1319,10 @@ namespace mantisServer {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream Welldatafile;
 
+        std::map<std::string, std::map<std::string, Polyregion> >::iterator mapIt;
+        std::map<std::string, Polyregion>::iterator regIt;
+        std::map<std::string, std::vector<int>>::iterator scenIt;
+
 		Welldatafile.open(filename);
 		if (!Welldatafile.is_open()) {
 			std::cout << "Cant open file: " << filename << std::endl;
@@ -1330,7 +1336,8 @@ namespace mantisServer {
             std::istringstream inp(line.c_str());
 			inp >> Nwells;
 			inp >> setName;
-			double xw, yw;
+			double xw, yw, D, SL, Q;
+			std::string regionCode;
 			for (int i = 0; i < Nwells; ++i) {
                 getline(Welldatafile, line);
                 std::istringstream inp1(line.c_str());
@@ -1338,7 +1345,38 @@ namespace mantisServer {
 				//std::cout << Eid << std::endl;
 				inp1 >> xw;
 				inp1 >> yw;
-				assign_point_in_sets(xw, yw, Eid, setName);
+				inp1 >> D;
+				inp1 >> SL;
+				inp1 >> Q;
+				for (unsigned int j = 0; j < backgroundMapNames.size(); ++j){
+				    inp1 >> regionCode;
+                    mapIt = MAPList.find(backgroundMapNames[j]);
+                    if (mapIt != MAPList.end()){
+                        regIt = mapIt->second.find(regionCode);
+                        if (regIt != mapIt->second.end()){
+                            scenIt = regIt->second.wellids.find(setName);
+                            if (scenIt == regIt->second.wellids.end()){
+                                std::vector<int> tmpid;
+                                tmpid.push_back(Eid);
+                                regIt->second.wellids.insert(std::pair<std::string, std::vector<int>>(setName, tmpid));
+                            }
+                            else{
+                                scenIt->second.push_back(Eid);
+                            }
+                        }
+                        else{
+                            std::cout << "Cannot find region " <<  regionCode << " in background map " << backgroundMapNames[j] << std::endl;
+                        }
+                    }
+                    else{
+                        std::cout << " Cannot find background map with name : " << backgroundMapNames[j] << std::endl;
+                    }
+
+				    if (j == 0){
+
+				    }
+				}
+				//assign_point_in_sets(xw, yw, Eid, setName);
 				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, wellClass()));
 			}
 		}
