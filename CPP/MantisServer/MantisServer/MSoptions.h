@@ -205,7 +205,6 @@ namespace mantisServer {
 				opt.testMode = false;
 			}
 
-			bool tf;
 			std::cout << opt.configFile << std::endl;
 			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
             // CV_Raster
@@ -239,7 +238,7 @@ namespace mantisServer {
 			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
 
 			if (vm_cfg.count("ServerOptions.Prefix")) {
-				if (!get_option<std::string>("ServerOptions.Prefix", vm_cfg, opt.DebugPrefix));
+				if (!get_option<std::string>("ServerOptions.Prefix", vm_cfg, opt.DebugPrefix))
                     opt.DebugPrefix = "";
 			}
 			else{

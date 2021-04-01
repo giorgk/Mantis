@@ -30,7 +30,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "Running version 1.1.111" << std::endl;
+	std::cout << "Running version 1.5.00" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
@@ -99,7 +99,7 @@ int main(int argc, char* argv[])
 		}
 		else {
 			// Default message
-			msg = "endSimYear 2100";
+			msg = "endSimYear 2200";
             msg += " loadScen GNLM";
 			msg += " startRed 2000";
             msg += " unsatScen C2VSIM_SPRING_2000";
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 			msg += " flowScen C2VsimRun01Ref6";
 			msg += " unsatWC 0.01";
 			msg += " bMap Subregions";
-			msg += " Nregions 1 Subregion21";
+			msg += " Nregions 1 Subregion20";
 			msg += " Ncrops 13";
 			msg += " 301 0.5";
 			msg += " 302 0.5";

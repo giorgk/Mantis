@@ -278,11 +278,11 @@ namespace mantisServer {
 		//std::cout << "BTC size: " << BTC.size() << std::endl;
 		int shift = 0;
 		for (int i = 0; i < static_cast<int>(LF.size()); ++i) {
-			if (std::abs(LF[i] - 0) < zeroLoading)
-				continue;
-			for (int k = shift; k < static_cast<int>(LF.size()); ++k) {
-				//std::cout << k - shift << " : " << urf[k - shift] << " " << LF[i] << std::endl;
-				BTC[k] = BTC[k] + urf[k - shift] * LF[i];
+			if (std::abs(LF[i] - 0) > zeroLoading) {
+				for (int k = shift; k < static_cast<int>(LF.size()); ++k) {
+					//std::cout << k - shift << " : " << urf[k - shift] << " " << LF[i] << std::endl;
+					BTC[k] = BTC[k] + urf[k - shift] * LF[i];
+				}
 			}
 			shift++;
 		}
@@ -309,7 +309,7 @@ namespace mantisServer {
 
 		//! If the input message contains crop id with -9 then this is applied to all crops except to the ones defined
 		//! in the LoadReductionMap
-		double globalMod;
+		double globalReduction;
 		//! ReductionYear is the year to start the reduction. 
 		//! The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
 		//! any of the default 15 year time increments.
@@ -326,6 +326,8 @@ namespace mantisServer {
 
 		bool printAdditionalInfo = false;
 		int debugID;
+
+		double minRecharge;
 		// Once the Nsimulation year has set this is populated with the actual 4digit years.
 		// This is used in the loading function building method 
 		//std::vector<int> SimulationYears;
@@ -340,8 +342,9 @@ namespace mantisServer {
 			regionIDs.clear();
 			LoadReductionMap.clear();
 			printAdditionalInfo = false;
-			globalMod = 1.0;
+			globalReduction = 1.0;
             unsatZoneMobileWaterContent = 0.0;
+			minRecharge = 0.000027; // 10 mm/year
 		}
 	};
 
@@ -482,7 +485,7 @@ namespace mantisServer {
 	public:
 		NLoad() {}
 		bool readData(std::string filename, LoadType ltype);
-		float getNload(int index,int iyr);
+		double getNload(int index,int iyr);
 		void getNload(int index, int iyr, double &N1, double &N2, double &u);
 		void getLU(int index, int iyr, int &LUcS, int &LUcE, double &perc);
 		int getLU(int index, int iyr);
@@ -499,14 +502,14 @@ namespace mantisServer {
 	};
 
 	bool NLoad::isValidIndex(int index) {
-		if ((index >= 0) | (index < Ndata[0].size()))
+		if ((index >= 0) || (index < Ndata[0].size()))
 			return true;
 		else
 			return false;
 	}
 
 	int NLoad::getLU(int index, int iyr) {
-	    if ((iyr >=0 & iyr < LU.size()) & (index >=0 & index < LU[0].size()))
+	    if (iyr >=0 && iyr < LU.size() && index >=0 && index < LU[0].size())
 	        return LU[iyr][index];
 		/*switch (loadType)
 		{
@@ -528,6 +531,7 @@ namespace mantisServer {
 			break;
 		}
 		}*/
+		return 0;
 	}
 	void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
 		switch (loadType)
@@ -570,13 +574,13 @@ namespace mantisServer {
 		{
 			//std::cout << " index=" << index << " iyr=" << iyr;
 			if (iyr < 1945) {
-				N1 = Ndata[index][0];
-				N2 = Ndata[index][0];
+				N1 = Ndata[0][index];
+				N2 = Ndata[0][index];
 				u = 1.0;
 			}
 			else if (iyr >= 2050) {
-				N1 = Ndata[index][7];
-				N2 = Ndata[index][7];
+				N1 = Ndata[7][index];
+				N2 = Ndata[7][index];
 				u = 0.0;
 			}
 			else {
@@ -585,8 +589,8 @@ namespace mantisServer {
 				int ieN = isN + 1; // index of starting year
 				//std::cout << " isN=" << isN << " ieN=" << ieN;
 				u = static_cast<double>((iyr - 1945) % 15) / 15.f;
-				N1 = Ndata[index][isN];
-				N2 = Ndata[index][ieN];
+				N1 = Ndata[isN][index];
+				N2 = Ndata[ieN][index];
 				//std::cout << " u=" << u;
 				//std::cout << " N1=" << N1 << " N2=" << N2;
 			}
@@ -602,8 +606,8 @@ namespace mantisServer {
 		}
 	}
 
-	float NLoad::getNload(int index, int iyr) {
-		float value = 0.0;
+	double NLoad::getNload(int index, int iyr) {
+		double value = 0.0;
 		switch (loadType)
 		{
 		case mantisServer::LoadType::GNLM:
@@ -614,7 +618,7 @@ namespace mantisServer {
 		case mantisServer::LoadType::SWAT:
 		{
 			int load_index = (iyr - 1940) % 25;
-			value = Ndata[index][load_index];
+			value = Ndata[load_index][index];
 			break;
 		}
 		default:
@@ -684,7 +688,9 @@ namespace mantisServer {
 		return true;
 	}
 
-	void NLoad::buildLoadingFunction(int index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
+	void NLoad::buildLoadingFunction(int CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
+		// The index correspond to the CVraster index.
+		int nload_idx = Nidx[CVindex];
 		
 		int startYear = 1945;
 		int istartReduction = scenario.startReductionYear - startYear;
@@ -692,10 +698,10 @@ namespace mantisServer {
 		int Nyears = endYear - startYear;
 		double adoptionCoeff = 0;
 		LF.resize(Nyears, 0.0);
-		double percReduction = 1.0;
+		double percReduction = scenario.globalReduction;
 		std::map<int, double>::iterator it;
 		if (loadType == LoadType::SWAT) {
-			int lucode = getLU(index, 0);
+			int lucode = getLU(CVindex, 0);
 			it = scenario.LoadReductionMap.find(lucode);
 			if (it != scenario.LoadReductionMap.end()) {
 				percReduction = it->second;
@@ -705,7 +711,7 @@ namespace mantisServer {
 
 		for (int i = 0; i < Nyears; i++) {
 			//std::cout << "i=" << i << " Y=" << i + startYear << std::endl;
-			if ((i >= istartReduction) & (i <= iendReduction))
+			if ((i >= istartReduction) && (i <= iendReduction))
 				adoptionCoeff = (static_cast<double>(i) - static_cast<double>(istartReduction)) / (static_cast<double>(iendReduction) - static_cast<double>(istartReduction));
 			else if (i > iendReduction)
 				adoptionCoeff = 1.0;
@@ -718,14 +724,16 @@ namespace mantisServer {
 				double prc = 0.0;
 				double rs = 1.0;
 				double re = 1.0;
-				getLU(index, i + startYear, lus, lue, prc);
+				getLU(CVindex, i + startYear, lus, lue, prc);
 				//std::cout << " lus=" << lus << " lue=" << lue << " prc=" << prc;
 				if (adoptionCoeff > 0) {
+					rs = scenario.globalReduction;
 					it = scenario.LoadReductionMap.find(lus);
 					if (it != scenario.LoadReductionMap.end()) {
 						rs = it->second;
 						//std::cout << " rs=" << rs;
 					}
+					re = scenario.globalReduction;
 					it = scenario.LoadReductionMap.find(lue);
 					if (it != scenario.LoadReductionMap.end()) {
 						re = it->second;
@@ -733,12 +741,12 @@ namespace mantisServer {
 					}
 				}
 				double N1 = 0, N2 = 0, u = 0;
-				getNload(index, i + startYear, N1, N2, u);
+				getNload(nload_idx, i + startYear, N1, N2, u);
 
 				double Nbase = N1* (1 - u) + N2* u;
 				//std::cout << " Nbase=" << Nbase;
 				
-				if ((adoptionCoeff > 0) & ((std::abs(1 - rs) > 0.000000001) | (std::abs(1 - re) > 0.000000001))) {
+				if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
 					double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
 					//std::cout << " Nred=" << Nred;
 					LF[i] = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
@@ -749,7 +757,7 @@ namespace mantisServer {
 				//std::cout << " LF[i]=" << LF[i] << std::endl;
 			}
 			else if (loadType == LoadType::SWAT) {
-				double Nbase = static_cast<double>(getNload(index, i + startYear));
+				double Nbase = getNload(nload_idx, i + startYear);
 				//std::cout << "Index " << index;
 				//std::cout << " Nbase " << Nbase;
 				double Nred = percReduction * Nbase;
@@ -1075,6 +1083,12 @@ namespace mantisServer {
 				ss >> scenario.mapID;
 				continue;
 			}
+
+			if (test == "minRch") {
+				ss >> scenario.minRecharge;
+				continue;
+			}
+
 			if (test == "Nregions") {
 				int Nregions;
 				ss >> Nregions;
@@ -1102,7 +1116,7 @@ namespace mantisServer {
 					ss >> cropid;
 					ss >> perc;
 					if (cropid == -9){
-					    scenario.globalMod = perc;
+					    scenario.globalReduction = perc;
 					}
 					else{
                         scenario.LoadReductionMap.insert(std::pair<int, double>(cropid, perc));
@@ -1686,27 +1700,43 @@ namespace mantisServer {
 	*/
 
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
-	    int lin_idx = CVraster[col][row];
-		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
 		bool out = false;
+	    int lin_idx = CVraster[col][row]; // This index spans from [1 - Ncells] e.g. 21,000,000
+		if (lin_idx == -9) {
+			// This streamline starts outside the active study area
+			return out;
+		}
+		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
 		switch (loadit->second.getLtype())
 		{
 		case LoadType::GNLM:
 		{
-			if (loadit->second.isValidIndex(lin_idx)) {
-				double mult = 100.0 / rch;
-				loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, mult);
-				out = true;
-				
-			}
+			// The units of NO3 are Kg / ha / year
+			// NO3 = NO3 * 1000000  mg / ha / year
+			// NO3 = NO3 / 10000	mg / m ^ 2 / year
+			// NO3 = NO3 / 1000000	mg / mm ^ 2 / year
+			// The units of recharge are m / day
+			// Rch = Rch * 365 * 1000	mm / year
+			// Con = NO3 / Rch		    mg / mm ^ 3
+			// Con = Con * 1000000	    mg / L
+			// NO3 * 1000000 / 10000 / 1000000 / (RCH * 365000) * 1000000
+			// NO3 * 1000000 / 10000 /  (RCH * 365000)
+			// NO3 * 100 /  (RCH * 365000)
+			// NO3 * (RCH * 3650)
+			if (rch < scenario.minRecharge)
+				return out;
+
+			double mult = 1 / (rch*3650);
+			loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, mult);
+			out = true;
+
 			break;
 		}
 		case LoadType::SWAT:
 		{
-			if (loadit->second.isValidIndex(lin_idx)) {
-				loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, 1);
-				out = true;
-			}
+			loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, 1);
+			out = true;
+			
 			//std::map<std::string, NLoad>::iterator gnlmit = NGWLoading.find("GNLM");
 			//std::vector<double> temp_LF;
 			//double mult = 100.0 / rch;
@@ -1991,13 +2021,14 @@ namespace mantisServer {
 
 				if (Ltype.compare("GNLM") == 0) {
 					NLoad NL;
-					NL.readData(Lfile, LoadType::GNLM);
-					NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
+                    NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
+                    NGWLoading[Lname].readData(Lfile, LoadType::GNLM);
+
 				}
 				else if (Ltype.compare("SWAT") == 0) {
 					NLoad NL;
-					NL.readData(Lfile, LoadType::SWAT);
-					NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
+                    NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
+                    NGWLoading[Lname].readData(Lfile, LoadType::SWAT);
 				}
 				else {
 					std::cout << "Unknown loading type " << Ltype << std::endl;
@@ -2161,14 +2192,16 @@ namespace mantisServer {
 								if (isNotZero) {
 									// Find the travel time in the unsaturated zone
 									int intTau = 0;
-							///		if (unsatit != UNSATscenarios.end()) {
-							///			double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
-							///			tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-							///			if (tau < 0)
-							///				tau = 0.0;
-							///			intTau = static_cast<int>(tau);
+									if (unsatit != UNSATscenarios.end()) {
+										int iunsat_idx = unsatit->second;
+										int lin_idx = CVraster[strmlnit->second.col][strmlnit->second.row];
+										double tau = UNSATData[iunsat_idx][lin_idx];
+										tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+										if (tau < 0)
+											tau = 0.0;
+										intTau = static_cast<int>(tau);
 										//std::cout << tau << std::endl;
-							///		}
+									}
 
 									if (intTau < NsimulationYears) {
 										int ibtc = 0;

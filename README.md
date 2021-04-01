@@ -169,10 +169,14 @@ mkdir build
 cd build
 cmake ..
  ```
- If there is a system default installation of boost and cmake pick the default instead of the one that comes under the spack environment then do the following
+ If there is a system default installation of boost but cmake picks the default instead of the one that comes under the spack environment then do the following
  ```
-cmake -DBoost_NO_BOOST_CMAKE=TRUE -DBoost_NO_SYSTEM_PATHS=TRUE ..
+cmake -DBoost_NO_BOOST_CMAKE=TRUE \
+-DBoost_NO_SYSTEM_PATHS=TRUE \
+-DBOOST_ROOT:PATHNAME=/path/to/spack/var/spack/environments/myenv/.spack-env/view/ ..
  ```
+
+
 #### Vcpkg
 The workflow is the same with vcpkg the difference is the cmake configuration
 ```

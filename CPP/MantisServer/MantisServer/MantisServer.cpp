@@ -70,11 +70,11 @@ int main(int argc, char *argv[])
 				M.resetReply();
 				auto start = std::chrono::high_resolution_clock::now();
 				std::vector<std::thread> T;
-				M.simulate_with_threads(0);
-				//for (int i = 0; i < msOptions.nThreads; ++i)
-				//	T.push_back(std::thread(&mantisServer::Mantis::simulate_with_threads, std::ref(M), i));
-				//for (int i = 0; i < msOptions.nThreads; ++i)
-				//	T[i].join();
+				//M.simulate_with_threads(0);
+				for (int i = 0; i < msOptions.nThreads; ++i)
+					T.push_back(std::thread(&mantisServer::Mantis::simulate_with_threads, std::ref(M), i));
+				for (int i = 0; i < msOptions.nThreads; ++i)
+					T[i].join();
 
 				auto finish = std::chrono::high_resolution_clock::now();
 				std::chrono::duration<double> elapsed = finish - start;
