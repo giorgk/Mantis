@@ -100,20 +100,20 @@ int main(int argc, char* argv[])
 		else {
 			// Default message
 			msg = "endSimYear 2100";
+            msg += " loadScen GNLM";
 			msg += " startRed 2000";
+            msg += " unsatScen C2VSIM_SPRING_2000";
 			msg += " endRed 2007"; 
-			msg += " flowScen CVHM_92_03_BUD0";
-			msg += " loadScen SWAT1";
-			msg += " unsatScen C2VSIM_SPRING_2015";
+			msg += " flowScen C2VsimRun01Ref6";
 			msg += " unsatWC 0.01";
-			msg += " bMap CVHMfarms";
-			msg += " Nregions 4 Farm21 Farm17 Farm12 Farm15";
-			msg += " Ncrops 12"; 
+			msg += " bMap Subregions";
+			msg += " Nregions 1 Subregion21";
+			msg += " Ncrops 13";
 			msg += " 301 0.5";
 			msg += " 302 0.5";
 			msg += " 303 0.4";
-			msg += " 400 0.7";
-			msg += " 401 0.7";
+			msg += " 400 0.6";
+			msg += " 401 0.45";
 			msg += " 402 0.6";
 			msg += " 605 0.3";
 			msg += " 1451 0.75";
@@ -121,6 +121,7 @@ int main(int argc, char* argv[])
 			msg += " 1460 0.5501";
 			msg += " 212910 0.102";
 			msg += " 10003 0.458";
+            msg += " -9 0.7";
 			msg += " ENDofMSG\n";
 		}
 	}

@@ -5,15 +5,18 @@ set(CMAKE_BUILD_TYPE Debug)
 
 project(MantisServer)
 
-#find_package( CGAL QUIET COMPONENTS  )
-#include( ${CGAL_USE_FILE} )
+set(PROJECT_LIBS "")
+
+find_package(HighFive REQUIRED)
+find_package(HDF5 REQUIRED)
 
 find_package (Threads REQUIRED)
 
 find_package(Boost 1.69 REQUIRED COMPONENTS serialization program_options system)
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS} ${HDF5_INCLUDE_DIRS})
+set(PROJECT_LIBS ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES} ${HDF5_C_LIBRARIES})
 
 
 add_executable(${PROJECT_NAME} "MantisServer.cpp")
 
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${PROJECT_LIBS})

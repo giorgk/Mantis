@@ -25,13 +25,13 @@ namespace mantisServer {
 
 	struct options {
 		//! The number of pixels in \p LUfile and \p NGWfile files
-		int gnlmNpixels;
+		int Npixels;
 
 		//! The number of rows of the Land use and Nitrate groundwater loading maps
-		//int Nrow;
+		int Nrow;
 
 		//! The number of columns of the Land use and Nitrate groundwater loading maps
-		//int Ncol;
+		int Ncol;
 
 		//! GNLM_LUfile holds name file for the Land use file.
 		/*!
@@ -44,6 +44,8 @@ namespace mantisServer {
 		that are non zero either in land use.
 		*/
 		std::string NO3LoadFile;
+
+		std::string CVrasterFile;
 
 		//! GNLM_NGWfile holds the Nitrate groundwater load according to GNLM.
 		/*!
@@ -98,7 +100,7 @@ namespace mantisServer {
 		 */
 		std::string configFile;
 
-		std::string DebugFolder;
+		std::string DebugPrefix;
 
 	};
 
@@ -149,7 +151,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.4.11 |" << std::endl;
+			std::cout << "| Version : 1.5.00 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -158,15 +160,24 @@ namespace mantisServer {
 		// Configuration file options
 		po::options_description config_options("Configuration file options");
 		config_options.add_options()
-			("GNLM_Npixels", po::value<int>(), "Number of pixel in GNLM load. It is used for allocation")
-			("MAPS", "Geometry of background maps")
-			("NO3_LOAD", "A File with a list of files that contain the loading information")
-			("WELLS", "A list of files with the well info for each scenario")
-			("URFS", "A list of files with the URF information")
-			("UNSAT", "A file that containts the travel time for each LU pixel")
-            ("DataPath", "If this is not empty all data all data must be relative to DataPath.")
-			("PORT", po::value<int>()->default_value(1234), "Port number")
-			("NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
+		    // CV_Raster
+            ("CV_Raster.Ncells", po::value<int>(), "Number of active pixels in background raster")
+            ("CV_Raster.Nrows", po::value<int>(), "Number of rows of the background raster")
+            ("CV_Raster.Ncols", po::value<int>(), "Number of columns of the background raster")
+            ("CV_Raster.Raster", "An hdf5 file with the raster indices that point to Nidx")
+
+            // Data
+			("Data.MAPS", "A List of the background maps with their subregions")
+			("Data.NO3", "A file with a list of files that contain the Nitrate loading base scenarios")
+            ("Data.UNSAT", "A file that containts the travel time for each LU pixel")
+			("Data.WELLS", "A list of files with the well info for each scenario")
+			("Data.URFS", "A list of files with the URF information")
+            ("Data.Path", "If this is not empty all data all data must be relative to DataPath.")
+
+			// ServerOptions
+            ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
+            ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
+            ("ServerOptions.Prefix", "Any output file will start with this prefix. You can include a full path")
 			;
 
 		if (vm_cmd.count("help")) {
@@ -197,17 +208,22 @@ namespace mantisServer {
 			bool tf;
 			std::cout << opt.configFile << std::endl;
 			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
-			// read mandatory options
-			opt.gnlmNpixels = vm_cfg["GNLM_Npixels"].as<int>();
-			if (!get_option<std::string>("MAPS", vm_cfg, opt.MAPSfile)) return false;
-			if (!get_option<std::string>("NO3_LOAD", vm_cfg, opt.NO3LoadFile)) return false;
-			if (!get_option<std::string>("UNSAT", vm_cfg, opt.UNSATfile)) return false;
-			if (!get_option<std::string>("WELLS", vm_cfg, opt.WELLfile)) return false;
-			if (!get_option<std::string>("URFS", vm_cfg, opt.URFfile)) return false;
+            // CV_Raster
+			opt.Npixels = vm_cfg["CV_Raster.Ncells"].as<int>();
+            opt.Nrow = vm_cfg["CV_Raster.Nrows"].as<int>();
+            opt.Ncol = vm_cfg["CV_Raster.Ncols"].as<int>();
+            if (!get_option<std::string>("CV_Raster.Raster", vm_cfg, opt.CVrasterFile)) return false;
+
+            // Data
+			if (!get_option<std::string>("Data.MAPS", vm_cfg, opt.MAPSfile)) return false;
+			if (!get_option<std::string>("Data.NO3", vm_cfg, opt.NO3LoadFile)) return false;
+			if (!get_option<std::string>("Data.UNSAT", vm_cfg, opt.UNSATfile)) return false;
+			if (!get_option<std::string>("Data.WELLS", vm_cfg, opt.WELLfile)) return false;
+			if (!get_option<std::string>("Data.URFS", vm_cfg, opt.URFfile)) return false;
 
             opt.mainPath = "";
-			if (vm_cfg.count("DataPath")){
-			    if (!get_option<std::string>("DataPath", vm_cfg, opt.mainPath)){
+			if (vm_cfg.count("Data.Path")){
+			    if (!get_option<std::string>("Data.Path", vm_cfg, opt.mainPath)){
                     opt.bAbsolutePaths = true;
 			    }
 			    else{
@@ -218,17 +234,16 @@ namespace mantisServer {
 			    opt.bAbsolutePaths = true;
 			}
 
-			// read optional options
-			opt.port = vm_cfg["PORT"].as<int>();
+            // ServerOptions
+			opt.port = vm_cfg["ServerOptions.PORT"].as<int>();
+			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
 
-			opt.nThreads = vm_cfg["NTHREADS"].as<int>();
-
-			if (vm_cfg.count("DEBUG_DIR")) {
-				if (!get_option<std::string>("DEBUG_DIR", vm_cfg, opt.DebugFolder));
-                    opt.DebugFolder = "";
+			if (vm_cfg.count("ServerOptions.Prefix")) {
+				if (!get_option<std::string>("ServerOptions.Prefix", vm_cfg, opt.DebugPrefix));
+                    opt.DebugPrefix = "";
 			}
 			else{
-                opt.DebugFolder = "";
+                opt.DebugPrefix = "";
 			}
             return true;
 		}

@@ -7,6 +7,9 @@
 #include <thread>
 #include <boost/bimap.hpp>
 #include <cstdlib>
+#include <highfive/H5File.hpp>
+
+namespace hf = HighFive;
 
 //#define CGAL_HEADER_ONLY 1
 
@@ -303,9 +306,13 @@ namespace mantisServer {
 		//! LoadReductionMap is a map the sets the nitrate loading reduction for selected land use categories.
 		//! The key value of the map is the land use category and the value is the percentage of loading reduction.
 		std::map<int, double> LoadReductionMap;
+
+		//! If the input message contains crop id with -9 then this is applied to all crops except to the ones defined
+		//! in the LoadReductionMap
+		double globalMod;
 		//! ReductionYear is the year to start the reduction. 
 		//! The implementation of these is not fully thought. The best is to choose a starting year that corresponds to
-		//! any of the default 15 year time incements.
+		//! any of the default 15 year time increments.
 		int startReductionYear;
 		//! The end reduction is the year when the loading has reduced to the desired amount
 		int endReductionYear;
@@ -333,7 +340,8 @@ namespace mantisServer {
 			regionIDs.clear();
 			LoadReductionMap.clear();
 			printAdditionalInfo = false;
-			//SimulationYears.clear();
+			globalMod = 1.0;
+            unsatZoneMobileWaterContent = 0.0;
 		}
 	};
 
@@ -353,29 +361,30 @@ namespace mantisServer {
 	class streamlineClass {
 	public:
 		/*! \brief streamlineClass constructor expects the parameters that define a streamline
-		\param gnlm_ind is the index in GNLM loading where this streamline starts from near the land surface.
-		\param swat_ind is the index in SWAT loading where this streamline starts from near the land surface.
+		\param row_ind is the index in GNLM loading where this streamline starts from near the land surface.
+		\param col_ind is the index in SWAT loading where this streamline starts from near the land surface.
 		\param w_in is the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
-		\param rch_in is the groundwater recharge rate in m/day according to CVHM
-		\param type_in is the type of the unit respons function
+		\param rch_in is the groundwater recharge rate in m/day according to the flow model
+		\param type_in is the type of the unit response function
 		\param paramA this is either the mean value or the streamline length.
 		\param paramB this is either the standard deviation or the velocity.
 		\param paramC if the type is both this is mean, while A and B are length and velocity
 		\param paramD if the type is both this is standard deviation
 		*/
-		streamlineClass(int gnlm_ind, int swat_ind, double w_in, double rch_in, URFTYPE type_in, double paramA, double paramB, double paramC = 0, double paramD = 0);
+		streamlineClass(int row_ind, int col_ind, double w_in, double rch_in, URFTYPE type_in, int Riv,
+                  double paramA, double paramB, double paramC = 0, double paramD = 0);
 		
 		//! The index of GNLM loading
-		int gnlm_index;
+		//int gnlm_index;
 		
 		//! The index of SWAT loading
-		int swat_index;
+		//int swat_index;
 		
 		//! the row number of the pixel where this streamline starts from near the land surface.
-		//int row;
+		int row;
 		
 		//! the column number of the pixel where this streamline starts from near the land surface.
-		//int col;
+		int col;
 		
 		//! the mean value of the fitted unit response function.
 		double mu;
@@ -392,20 +401,24 @@ namespace mantisServer {
 		//! the mean velocity along the streamline
 		double vel;
 
-		//! This is the groundwater recharge according to CVHM
+		//! This is the groundwater recharge according to the flow model
 		double gwrch;
+
+		bool inRiver;
 
 		//! The type of streamline
 		URFTYPE type;
 
 
 	};
-	streamlineClass::streamlineClass(int gnlm_ind, int swat_ind, double w_in, double rch_in, URFTYPE type_in, double paramA, double paramB, double paramC, double paramD) {
-		gnlm_index = gnlm_ind;
-		swat_index = swat_ind;
+	streamlineClass::streamlineClass(int row_ind, int col_ind, double w_in, double rch_in, URFTYPE type_in, int Riv,
+                                  double paramA, double paramB, double paramC, double paramD) {
+		row = row_ind;
+		col = col_ind;
 		w = w_in;
 		gwrch = rch_in;
 		type = type_in;
+		inRiver = Riv == 1;
 		switch (type)
 		{
 		case URFTYPE::LGNRM:
@@ -447,21 +460,22 @@ namespace mantisServer {
 		 * @param w 
 		 * @param rch
 		 * @param type
+		 * @param riv
 		 * @param paramA 
 		 * @param paramB 
 		 * @param paramC 
 		 * @param paramD 
 		 */
-		void addStreamline(int Sid, int gnlm_ind, int swat_ind, double w, double rch, URFTYPE type,
+		void addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
 			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
-		//! streamlines is a map where the key is the streamline id and the value is an obect of type streamlineClass::streamlineClass.
+		//! streamlines is a map where the key is the streamline id and the value is an object of type streamlineClass::streamlineClass.
 		std::map<int, streamlineClass> streamlines;
 	};
 
-	void wellClass::addStreamline(int Sid, int gnlm_ind, int swat_ind, double w, double rch, URFTYPE type,
+	void wellClass::addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
 		double paramA, double paramB, double paramC, double paramD) {
-		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass(gnlm_ind, swat_ind, w, rch, type, paramA, paramB, paramC, paramD)));
+		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass( row_ind, col_ind, w, rch, type, riv, paramA, paramB, paramC, paramD)));
 	}
 
 	class NLoad {
@@ -479,19 +493,22 @@ namespace mantisServer {
 		bool isValidIndex(int index);
 	private:
 		LoadType loadType;
-		std::vector<std::vector<float> > Ndata;
+		std::vector<std::vector<double> > Ndata;
 		std::vector<std::vector<int> > LU;
+		std::vector<int> Nidx;
 	};
 
 	bool NLoad::isValidIndex(int index) {
-		if ((index >= 0) | (index < Ndata.size()))
+		if ((index >= 0) | (index < Ndata[0].size()))
 			return true;
 		else
 			return false;
 	}
 
 	int NLoad::getLU(int index, int iyr) {
-		switch (loadType)
+	    if ((iyr >=0 & iyr < LU.size()) & (index >=0 & index < LU[0].size()))
+	        return LU[iyr][index];
+		/*switch (loadType)
 		{
 		case mantisServer::LoadType::GNLM:
 		{
@@ -510,7 +527,7 @@ namespace mantisServer {
 			return 0;
 			break;
 		}
-		}
+		}*/
 	}
 	void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
 		switch (loadType)
@@ -518,23 +535,22 @@ namespace mantisServer {
 		case mantisServer::LoadType::GNLM:
 		{
 			if (iyr < 1945) {
-				LUcS = LU[index][0];
-				LUcE = LU[index][0];
+				LUcS = getLU(index,0);
+				LUcE = getLU(index,0);
 				perc = 1.0;
 			}
 			else if (iyr >= 2005) {
-				LUcS = LU[index][4];
-				LUcE = LU[index][4];
+				LUcS = getLU(index,4);
+				LUcE = getLU(index,4);
 				perc = 0.0;
 			}
 			else {
 				int isN = static_cast<int>( std::floor((iyr - 1945) / 15) );
 				int ieN = isN + 1;
-				LUcS = LU[index][isN];
-				LUcE = LU[index][ieN];
+				LUcS = getLU(index,isN);
+				LUcE = getLU(index,ieN);
 				perc = static_cast<double>((iyr - 1945) % 15) / 15.0;
 			}
-
 			break;
 		}
 		case mantisServer::LoadType::SWAT:
@@ -608,7 +624,21 @@ namespace mantisServer {
 	}
 
 	bool NLoad::readData(std::string filename, LoadType ltype) {
-		loadType = ltype;
+        const std::string LUNameSet("LU");
+        const std::string NidxNameSet("Nidx");
+        const std::string NloadNameSet("NLoad");
+
+        hf::File HDFNfile(filename, hf::File::ReadOnly);
+        hf::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);
+        hf::DataSet datasetNidx = HDFNfile.getDataSet(NidxNameSet);
+        hf::DataSet datasetNLoad = HDFNfile.getDataSet(NloadNameSet);
+        datasetLU.read(LU);
+        datasetNidx.read(Nidx);
+        datasetNLoad.read(Ndata);
+        loadType = ltype;
+
+        /*
+
 		std::ifstream ifile;
 		ifile.open(filename);
 		if (!ifile.is_open()) {
@@ -650,6 +680,7 @@ namespace mantisServer {
 			}
 			ifile.close();
 		}
+		*/
 		return true;
 	}
 
@@ -829,6 +860,16 @@ namespace mantisServer {
 	private:
 		mantisServer::options options;
 
+		/*!
+		 * CVraster is a 2D raster map that contains the indices of the linear vector.
+		 * All the info that is formatted as 1D or 2D arrays with length 1 - Ncells
+		 * must use the CVraster indices to indentify the associated record.
+		 * For example LU[0][CVraster[col][row]].
+		 * Note however that CVraster contains negative numbers. which correspond to the
+		 * cells that have no associated info. These are outside the study area.
+		 */
+		std::vector<std::vector<int>> CVraster;
+
 		std::map<std::string, NLoad> NGWLoading;
 
 		//! LU is a 3D array of Nrow x Ncol x Years (5)
@@ -836,7 +877,8 @@ namespace mantisServer {
 		//! NGW is a 3D array of Nrow x Ncol x Years (8)
 		//std::vector< std::vector< std::vector<float> > > NGW;
 		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
-		std::map<std::string, std::vector<float> > UNSAT;
+		std::map<std::string, int > UNSATscenarios;
+        std::vector<std::vector<double>> UNSATData;
 		//! a list of background maps
 		//std::map<int, std::map<int, Polyregion> > MAPList;
 		std::map<std::string, std::map<std::string, Polyregion> > MAPList;
@@ -926,11 +968,13 @@ namespace mantisServer {
 
 		bool readUNSAT();
 
-		void assign_point_in_sets(double x, double y, int wellid, std::string setname);
-		
-		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int gnlm_index, int swat_index, double rch);
+		bool readCVraster();
 
-		float unsatTravelTime(std::map<std::string, std::vector<float> >::iterator& it, int gnlm_index);
+		//void assign_point_in_sets(double x, double y, int wellid, std::string setname);
+		
+		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
+
+		float unsatTravelTime(std::map<std::string, int >::iterator& it, int gnlm_index);
 	};
 
 
@@ -938,11 +982,7 @@ namespace mantisServer {
 	Mantis::Mantis(mantisServer::options options_in)
 		:
 		options(options_in)
-	{
-		//LU.resize(options.Nrow, std::vector< std::vector<int> >(options.Ncol, std::vector<int>(5, 0)));
-		//NGW.resize(options.Nrow, std::vector< std::vector<float> >(options.Ncol, std::vector<float>(8, 0)));
-
-	}
+	{}
 
 	bool Mantis::validate_msg(std::string& outmsg) {
 		if ((scenario.endSimulationYear <= 1990) | (scenario.endSimulationYear > 2500))
@@ -1003,39 +1043,39 @@ namespace mantisServer {
 			std::string test;
 			counter++;
 			ss >> test;
-			if (test.compare("endSimYear") == 0) {
+			if (test == "endSimYear") {
 				ss >> scenario.endSimulationYear;
 				continue;
 			}
-			if (test.compare("startRed") == 0) {
+			if (test == "startRed" ) {
 				ss >> scenario.startReductionYear;
 				continue;
 			}
-			if (test.compare("endRed") == 0) {
+			if (test == "endRed") {
 				ss >> scenario.endReductionYear;
 				continue;
 			}
-			if (test.compare("flowScen") == 0) {
+			if (test == "flowScen") {
 				ss >> scenario.flowScen;
 				continue;
 			}
-			if (test.compare("loadScen") == 0) {
+			if (test == "loadScen") {
 				ss >> scenario.loadScen;
 				continue;
 			}
-			if (test.compare("unsatScen") == 0) {
+			if (test == "unsatScen") {
 				ss >> scenario.unsatScenario;
 				continue;
 			}
-			if (test.compare("unsatWC") == 0) {
+			if (test == "unsatWC") {
 				ss >> scenario.unsatZoneMobileWaterContent;
 				continue;
 			}
-			if (test.compare("bMap") == 0) {
+			if (test == "bMap") {
 				ss >> scenario.mapID;
 				continue;
 			}
-			if (test.compare("Nregions") == 0) {
+			if (test == "Nregions") {
 				int Nregions;
 				ss >> Nregions;
 				for (int i = 0; i < Nregions; i++) {
@@ -1045,25 +1085,32 @@ namespace mantisServer {
 				continue;
 			}
 
-			if (test.compare("DebugID") == 0) {
+			if (test ==  "DebugID") {
 				scenario.printAdditionalInfo = true;
 				int debugid;
 				ss >> scenario.debugID;
+				continue;
 			}
 
 			// The incoming messages express the reduction in loading
 			// If the reduction is 0.2 then the Nloading 80% less compared to base case
-			if (test.compare("Ncrops") == 0) {
+			if (test == "Ncrops") {
 				int Ncrops, cropid;
 				double perc;
 				ss >> Ncrops;
 				for (int i = 0; i < Ncrops; i++) {
 					ss >> cropid;
 					ss >> perc;
-					scenario.LoadReductionMap.insert(std::pair<int, double>(cropid, perc));
+					if (cropid == -9){
+					    scenario.globalMod = perc;
+					}
+					else{
+                        scenario.LoadReductionMap.insert(std::pair<int, double>(cropid, perc));
+					}
 				}
+				continue;
 			}
-			if (test.compare("ENDofMSG") == 0) {
+			if (test == "ENDofMSG") {
 				out = true;
 				break;
 			}
@@ -1224,23 +1271,29 @@ namespace mantisServer {
 
 	bool Mantis::readInputs() {
 
+        bool tf = readCVraster();
+        if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
-
-		bool tf = readBackgroundMaps();
+		tf = readBackgroundMaps();
 		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
+
+        tf = readUNSAT();
+        if (!tf) { std::cout << "Error reading UNSAT" << std::endl; return false; }
+
+        tf = readLU_NGW();
+        if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
 
         tf = readMultipleSets(options.WELLfile, true);
         if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
 
 		//if (!options.testMode) {
-		tf = readUNSAT();
-		if (!tf) { std::cout << "Error reading UNSAT" << std::endl; return false; }
+
 		//}
 
-		if (!options.testMode) {
-			tf = readLU_NGW();
-			if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
-		}
+		//if (!options.testMode) {
+		//	tf = readLU_NGW();
+		//	if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+		//}
 		
 		//if (!options.testMode) {
 
@@ -1253,6 +1306,7 @@ namespace mantisServer {
 		return tf;
 	}
 
+	/*
 	void Mantis::assign_point_in_sets(double x, double y, int wellid, std::string setname) {
 		//std::map<int, std::map<int, Polyregion> >::iterator mapit;
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit;
@@ -1276,6 +1330,7 @@ namespace mantisServer {
 			}
 		}
 	}
+	*/
 
 	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
 		std::ifstream WellMasterfile;
@@ -1388,6 +1443,54 @@ namespace mantisServer {
 	}
 
 	bool Mantis::readURFs(std::string filename) {
+        const std::string NamesNameSet("Names");
+        const std::string IntsNameSet("ESIJRiv");
+        const std::string FloatNameSet("MSWR");
+
+        hf::File HDFfile(filename, hf::File::ReadOnly);
+
+        hf::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+        hf::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
+        hf::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
+        std::vector<std::string> names;
+        std::vector<std::vector<int>> IDS;
+        std::vector<std::vector<double>> DATA;
+        datasetNames.read(names);
+        datasetInts.read(IDS);
+        datasetFloat.read(DATA);
+
+        URFTYPE urftype;
+        if (names[1].compare("LGNRM") == 0)
+            urftype = URFTYPE::LGNRM;
+        else if (names[1].compare("ADE") == 0)
+            urftype = URFTYPE::ADE;
+        else if (names[1].compare("BOTH") == 0)
+            urftype = URFTYPE::BOTH;
+        else{
+            std::cout << "The URF type " << names[1] << " is not valid" << std::endl;
+            return false;
+        }
+
+        std::map<std::string, std::map<int, wellClass> >::iterator scenit;
+        scenit = Wellmap.find(names[0]);
+        if (scenit == Wellmap.end()) {
+            std::cout << "The URF Scenario " << names[0] << " is not defined for the wells" << std::endl;
+            return false;
+        }
+        else{
+            std::map<int, wellClass>::iterator wellmapit;
+            for (unsigned int i = 0; i < IDS[0].size(); ++i){
+                wellmapit = scenit->second.find(IDS[0][i]);
+                if (wellmapit != scenit->second.end()){
+                    wellmapit->second.addStreamline(IDS[1][i], IDS[2][i], IDS[3][i],
+                                                    DATA[2][i], DATA[3][i],urftype, IDS[4][i],
+                                                    DATA[0][i],DATA[1][i]);
+                }
+            }
+        }
+
+
+        /*
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream URFdatafile;
 		URFdatafile.open(filename);
@@ -1469,6 +1572,7 @@ namespace mantisServer {
 		auto finish = std::chrono::high_resolution_clock::now();
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read URFS in " << elapsed.count() << std::endl;
+		*/
 		return true;
 	}
 
@@ -1581,16 +1685,17 @@ namespace mantisServer {
 
 	*/
 
-	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int gnlm_index, int swat_index, double rch) {
+	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
+	    int lin_idx = CVraster[col][row];
 		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
 		bool out = false;
 		switch (loadit->second.getLtype())
 		{
 		case LoadType::GNLM:
 		{
-			if (loadit->second.isValidIndex(gnlm_index)) {
+			if (loadit->second.isValidIndex(lin_idx)) {
 				double mult = 100.0 / rch;
-				loadit->second.buildLoadingFunction(gnlm_index, scenario.endSimulationYear, LF, scenario, mult);
+				loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, mult);
 				out = true;
 				
 			}
@@ -1598,8 +1703,8 @@ namespace mantisServer {
 		}
 		case LoadType::SWAT:
 		{
-			if (loadit->second.isValidIndex(swat_index)) {
-				loadit->second.buildLoadingFunction(swat_index, scenario.endSimulationYear, LF, scenario, 1);
+			if (loadit->second.isValidIndex(lin_idx)) {
+				loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, 1);
 				out = true;
 			}
 			//std::map<std::string, NLoad>::iterator gnlmit = NGWLoading.find("GNLM");
@@ -1767,19 +1872,46 @@ namespace mantisServer {
 		*/
 	}
 
-	float Mantis::unsatTravelTime(std::map<std::string, std::vector<float> >::iterator &it, int gnlm_index) {
+	float Mantis::unsatTravelTime(std::map<std::string, int >::iterator &it, int gnlm_index) {
 
-		return it->second[gnlm_index];
+        return 0.0;
+		//return it->second[gnlm_index];
 	}
 
-	
+	bool Mantis::readCVraster() {
+        const std::string NameSet("Raster");
+        if (!options.bAbsolutePaths)
+            options.CVrasterFile = options.mainPath + options.CVrasterFile;
+
+        hf::File HDFfile(options.CVrasterFile, hf::File::ReadOnly);
+        hf::DataSet dataset = HDFfile.getDataSet(NameSet);
+        dataset.read(CVraster);
+        return true;
+	}
 
 	bool Mantis::readUNSAT() {
-		auto start = std::chrono::high_resolution_clock::now();
-		std::ifstream unsatfile;
+        const std::string NamesNameSet("Names");
+        const std::string DataNameSet("Data");
 
         if (!options.bAbsolutePaths)
             options.UNSATfile = options.mainPath + options.UNSATfile;
+
+        hf::File HDFfile(options.UNSATfile, hf::File::ReadOnly);
+
+        hf::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+        hf::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
+        std::vector<std::string> names;
+        datasetNames.read(names);
+        datasetData.read(UNSATData);
+        for (unsigned int i = 0; i < names.size(); ++i){
+            UNSATscenarios.insert(std::pair<std::string, int>(names[i],i));
+        }
+        return true;
+        /*
+		auto start = std::chrono::high_resolution_clock::now();
+		std::ifstream unsatfile;
+
+
 
 		unsatfile.open(options.UNSATfile);
 		if (!unsatfile.is_open()) {
@@ -1822,6 +1954,7 @@ namespace mantisServer {
 		}
 		unsatfile.close();
 		return true;
+         */
 	}
 
 	bool Mantis::readLU_NGW() {
@@ -1943,7 +2076,7 @@ namespace mantisServer {
 
 		std::map<std::string, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
-		std::map<std::string, std::vector<float> >::iterator unsatit = UNSAT.find(scenario.unsatScenario);
+		std::map<std::string, int >::iterator unsatit = UNSATscenarios.find(scenario.unsatScenario);
 
 		
 
@@ -2010,7 +2143,7 @@ namespace mantisServer {
 									//}
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
 										
-									isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
+									isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
 									//if (iw >= 7337 && iw < 7338)
 									//	printVector<double>(LF, "LF");
 									if (isNotZero) {
@@ -2021,21 +2154,21 @@ namespace mantisServer {
 								}
 								else if (strmlnit->second.type == URFTYPE::ADE){
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
-									isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
+							///		isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
 									urf.convolute(LF, BTC);
 								}
 
 								if (isNotZero) {
 									// Find the travel time in the unsaturated zone
 									int intTau = 0;
-									if (unsatit != UNSAT.end()) {
-										double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
-										tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-										if (tau < 0)
-											tau = 0.0;
-										intTau = static_cast<int>(tau);
+							///		if (unsatit != UNSATscenarios.end()) {
+							///			double tau = static_cast<double>( unsatTravelTime(unsatit, strmlnit->second.gnlm_index));
+							///			tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+							///			if (tau < 0)
+							///				tau = 0.0;
+							///			intTau = static_cast<int>(tau);
 										//std::cout << tau << std::endl;
-									}
+							///		}
 
 									if (intTau < NsimulationYears) {
 										int ibtc = 0;
