@@ -100,14 +100,14 @@ int main(int argc, char* argv[])
 		else {
 			// Default message
 			msg = "endSimYear 2100";
-            msg += " loadScen SWAT1";
+            msg += " loadScen GNLM";
 			msg += " startRed 2020";
             msg += " unsatScen C2VSIM_SPRING_2000";
 			msg += " endRed 2025"; 
 			msg += " flowScen C2VsimRun01Ref6";
 			msg += " unsatWC 0.0";
-			msg += " bMap Townships";
-			msg += " Nregions 1 15M31S28E";
+			msg += " bMap Basins";
+			msg += " Nregions 1 SanJoaquinValley";
 			msg += " Ncrops 1";
 			//msg += " Ncrops 13";
 			//msg += " 301 0.5";
@@ -123,7 +123,7 @@ int main(int argc, char* argv[])
 			//msg += " 212910 0.102";
 			//msg += " 10003 0.458";
             msg += " -9 1";
-			msg += " DebugID test21";
+			//msg += " DebugID test21";
 			msg += " ENDofMSG\n";
 		}
 	}
