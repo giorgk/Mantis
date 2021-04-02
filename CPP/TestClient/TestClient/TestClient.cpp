@@ -99,29 +99,31 @@ int main(int argc, char* argv[])
 		}
 		else {
 			// Default message
-			msg = "endSimYear 2200";
-            msg += " loadScen GNLM";
-			msg += " startRed 2000";
+			msg = "endSimYear 2100";
+            msg += " loadScen SWAT1";
+			msg += " startRed 2020";
             msg += " unsatScen C2VSIM_SPRING_2000";
-			msg += " endRed 2007"; 
+			msg += " endRed 2025"; 
 			msg += " flowScen C2VsimRun01Ref6";
-			msg += " unsatWC 0.01";
-			msg += " bMap Subregions";
-			msg += " Nregions 1 Subregion20";
-			msg += " Ncrops 13";
-			msg += " 301 0.5";
-			msg += " 302 0.5";
-			msg += " 303 0.4";
-			msg += " 400 0.6";
-			msg += " 401 0.45";
-			msg += " 402 0.6";
-			msg += " 605 0.3";
-			msg += " 1451 0.75";
-			msg += " 1452 0.253";
-			msg += " 1460 0.5501";
-			msg += " 212910 0.102";
-			msg += " 10003 0.458";
-            msg += " -9 0.7";
+			msg += " unsatWC 0.0";
+			msg += " bMap Townships";
+			msg += " Nregions 1 15M31S28E";
+			msg += " Ncrops 1";
+			//msg += " Ncrops 13";
+			//msg += " 301 0.5";
+			//msg += " 302 0.5";
+			//msg += " 303 0.4";
+			//msg += " 400 0.6";
+			//msg += " 401 0.45";
+			//msg += " 402 0.6";
+			//msg += " 605 0.3";
+			//msg += " 1451 0.75";
+			//msg += " 1452 0.253";
+			//msg += " 1460 0.5501";
+			//msg += " 212910 0.102";
+			//msg += " 10003 0.458";
+            msg += " -9 1";
+			msg += " DebugID test21";
 			msg += " ENDofMSG\n";
 		}
 	}

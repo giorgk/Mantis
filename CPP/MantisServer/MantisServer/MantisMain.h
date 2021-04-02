@@ -2,6 +2,7 @@
 
 #include <sstream>
 #include <fstream>
+#include <iomanip>
 #include <math.h>
 #include <chrono>
 #include <thread>
@@ -32,6 +33,12 @@ const double pi = std::atan(1)*4;
  * 
  */
 namespace mantisServer {
+
+	std::string num2Padstr(int i, int n) {
+		std::stringstream ss;
+		ss << std::setw(n) << std::setfill('0') << i;
+		return ss.str();
+	}
 
 	template<typename T>
 	void printVector(std::vector<T>& v, std::string varname) {
@@ -195,6 +202,8 @@ namespace mantisServer {
 		To improve performance the function does not even loop for loading values less than \ref zeroLoading.
 		*/
 		void convolute(std::vector<double> &LF, std::vector<double> &BTC);
+
+		void print_urf(std::ofstream& urf_file);
 		
 	private:
 		/// The mean fitted value.
@@ -272,6 +281,12 @@ namespace mantisServer {
 			urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
 	}
 
+	void URF::print_urf(std::ofstream& urf_file) {
+		for (int i = 0; i < static_cast<int>(urf.size()); ++i)
+			urf_file << std::scientific << std::setprecision(10) << urf[i] << " ";
+		urf_file << std::endl;
+	}
+
 	void URF::convolute(std::vector<double> &LF, std::vector<double> &BTC) {
 		//std::cout << "LF size: " << LF.size() << std::endl;
 		//BTC.resize(LF.size(), 0.0);
@@ -325,7 +340,7 @@ namespace mantisServer {
 		double unsatZoneMobileWaterContent;
 
 		bool printAdditionalInfo = false;
-		int debugID;
+		std::string debugID;
 
 		double minRecharge;
 		// Once the Nsimulation year has set this is populated with the actual 4digit years.
@@ -502,14 +517,14 @@ namespace mantisServer {
 	};
 
 	bool NLoad::isValidIndex(int index) {
-		if ((index >= 0) || (index < Ndata[0].size()))
+		if ((index >= 0) || (index < static_cast<int>(Ndata[0].size())))
 			return true;
 		else
 			return false;
 	}
 
 	int NLoad::getLU(int index, int iyr) {
-	    if (iyr >=0 && iyr < LU.size() && index >=0 && index < LU[0].size())
+	    if (iyr >=0 && iyr < static_cast<int>(LU.size()) && index >=0 && index < static_cast<int>(LU[0].size()))
 	        return LU[iyr][index];
 		/*switch (loadType)
 		{
@@ -993,7 +1008,7 @@ namespace mantisServer {
 	{}
 
 	bool Mantis::validate_msg(std::string& outmsg) {
-		if ((scenario.endSimulationYear <= 1990) | (scenario.endSimulationYear > 2500))
+		if ((scenario.endSimulationYear <= 1990) || (scenario.endSimulationYear > 2500))
 			scenario.endSimulationYear = 2500;
 		if (scenario.startReductionYear < 1945)
 			scenario.startReductionYear = 2020;
@@ -1009,6 +1024,8 @@ namespace mantisServer {
 			outmsg += "] could not be found";
 			return false;
 		}
+
+		int Nwells = 0;
 		std::map<std::string, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
 		for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i) {
@@ -1023,11 +1040,15 @@ namespace mantisServer {
 			}
 
 			wellscenit = regit->second.wellids.find(scenario.flowScen);
-			if (wellscenit == regit->second.wellids.end()) {
-				outmsg += "0 ERROR: There is no scenario with name: ";
-				outmsg += scenario.flowScen;
-				return false;
+			if (wellscenit != regit->second.wellids.end()) {
+				Nwells = wellscenit->second.size();
 			}
+		}
+		if (Nwells == 0) {
+			outmsg += "0 ERROR: There no wells in the selected regions for the flow scenario[";
+			outmsg += scenario.flowScen;
+			outmsg += "]";
+			return false;
 		}
 
 		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowScen);
@@ -1036,6 +1057,17 @@ namespace mantisServer {
 			outmsg += scenario.flowScen;
 			return false;
 		}
+
+		std::map<std::string, int >::iterator unsatit = UNSATscenarios.find(scenario.unsatScenario);
+		if (unsatit == UNSATscenarios.end()) {
+			outmsg += "0 ERROR: There is no unsaturated scenario with name: ";
+			outmsg += scenario.unsatScenario;
+			return false;
+		}
+		if (scenario.unsatZoneMobileWaterContent <= 0) {
+			scenario.unsatZoneMobileWaterContent = 0.0;
+		}
+
 		return true;
 	}
 
@@ -1100,9 +1132,9 @@ namespace mantisServer {
 			}
 
 			if (test ==  "DebugID") {
-				scenario.printAdditionalInfo = true;
-				int debugid;
 				ss >> scenario.debugID;
+				if (!scenario.debugID.empty())
+					scenario.printAdditionalInfo = true;
 				continue;
 			}
 
@@ -1264,7 +1296,7 @@ namespace mantisServer {
 				std::map<std::string, Polyregion> RegionMap;
 				for (int irg = 0; irg < Nregions; ++irg) {
 					std::string RegionKey;
-					int Npoly; //number of polygons for this region
+					//int Npoly; //number of polygons for this region
 
 					{// Get the Key for the Subregion of the background map and the number of polygons it consists from
 						std::getline(MAPSdatafile, line);
@@ -2100,6 +2132,22 @@ namespace mantisServer {
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
 
+		std::ofstream urf_file;
+		std::ofstream lf_file;
+		std::ofstream btc_file;
+		std::ofstream well_btc_file;
+		if (scenario.printAdditionalInfo) {
+			std::string root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+			std::string urf_file_name = root_name + "_urf.dat";
+			urf_file.open(urf_file_name.c_str());
+			std::string lf_file_name = root_name + "_lf.dat";
+			lf_file.open(lf_file_name.c_str());
+			std::string btc_file_name = root_name + "_btc.dat";
+			btc_file.open(btc_file_name.c_str());
+			std::string well_btc_file_name = root_name + "_well_btc.dat";
+			well_btc_file.open(well_btc_file_name.c_str());
+		}
+
 		// Get an iterator to the selected map
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		// Get an iterator to the list of wells for the selected scenario
@@ -2121,6 +2169,9 @@ namespace mantisServer {
 		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
 			regit = mapit->second.find(scenario.regionIDs[irg]);
 			wellscenit = regit->second.wellids.find(scenario.flowScen);
+			if (wellscenit == regit->second.wellids.end()) {
+				continue;
+			}
 
 			// Number of wells in the selected region
 			int Nwells = static_cast<int>(wellscenit->second.size());
@@ -2151,7 +2202,6 @@ namespace mantisServer {
 
 			std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
 			int wellid;
-			std::vector<double> LF;
 			
 			for (int iw = startWell; iw < endWell; ++iw) {
 				wellid = wellscenit->second[iw];
@@ -2160,25 +2210,40 @@ namespace mantisServer {
 				if (wellit != wellscenNameit->second.end()) {
 					std::vector<double> weightBTC(NsimulationYears, 0);
 					double sumW = 0;
+					int nStreamlines = 0;
 					if (wellit->second.streamlines.size() > 0) {
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
+								if (CVraster[strmlnit->second.col][strmlnit->second.row] == -1)
+									continue; // If the source area is outside the domain skip it
 								//std::cout << cnt_strmlines++ << std::endl;
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 								std::vector<double> BTC(NsimulationYears, 0);
+								std::vector<double> LF(NsimulationYears, 0);
 								bool isNotZero = true;
 								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {								
 									//if (iw >= 7337 && iw < 7338) {
 									//	std::cout << iw << ":" << strmlnit->second.mu << " " << strmlnit->second.std << " " << strmlnit->second.w << std::endl;
 									//}
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
+									urf.print_urf(urf_file);
 										
 									isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
+									if (scenario.printAdditionalInfo) {
+										for (int ii = 0; ii < NsimulationYears; ++ii)
+											lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
+										lf_file << std::endl;
+									}
 									//if (iw >= 7337 && iw < 7338)
 									//	printVector<double>(LF, "LF");
 									if (isNotZero) {
 										urf.convolute(LF, BTC);
+									}
+									if (scenario.printAdditionalInfo) {
+										for (int ii = 0; ii < NsimulationYears; ++ii)
+											btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
+										btc_file << std::endl;
 									}
 									//if (iw >= 7337 && iw < 7338)
 									//	printVector<double>(BTC, "BTC");
@@ -2213,6 +2278,10 @@ namespace mantisServer {
 									}
 								}
 								sumW += strmlnit->second.w;
+								nStreamlines++;
+							}
+							if (nStreamlines == 0) {
+								continue;
 							}
 							//average streamlines
 							for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
@@ -2220,6 +2289,12 @@ namespace mantisServer {
 								//std::cout << weightBTC[i] << std::endl;
 								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
 								replymsg[id] += " ";
+							}
+							if (scenario.printAdditionalInfo) {
+								well_btc_file << wellit->first << " " << nStreamlines << " ";
+								for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
+									well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
+								well_btc_file << std::endl;
 							}
 							//printVector<double>(weightBTC, "wBTC");
 						}
@@ -2235,6 +2310,14 @@ namespace mantisServer {
 			}
 		}// loop through regions
 		replyLength[id] = cntBTC;
+
+		if (scenario.printAdditionalInfo) {
+			urf_file.close();
+			lf_file.close();
+			btc_file.close();
+			well_btc_file.close();
+		}
+
 	}
 
 	void Mantis::resetReply() {
@@ -2270,6 +2353,6 @@ namespace mantisServer {
 		outmsg += " ENDofMSG\n";
 
 		//std::cout << outmsg << std::endl;
-		std::cout << nBTC << "BTCs will be sent" << std::endl;
+		std::cout << nBTC << " BTCs will be sent" << std::endl;
 	}
 }
