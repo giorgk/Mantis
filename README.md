@@ -101,9 +101,16 @@ The keywords have to use the exact lower Capital case as it appears on the list
 |SWAT4 | Concentrations history (1990 - 2015) based on _High Irrigation and High Fertilization_|
 Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the moment the SWAT period 1990-2015 is repeated during the simulation.
 
-* __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. </br> You can also pass any value that does not match any scenario name to disable the unsaturated travel time. For example you can pass `NONE`
+* __unsatScen__[string] The unsaturated scenario name. Valid options are
 
-* __unsatWC__ [float] This is the unsaturated mobile water content coefficient.
+| Unsaturated scenarios | Description |
+|--|--|
+|C2VSIM_SPRING_2000 | Depth and recharge for sprong 2000. This corresponds to slow travel times |
+|C2VSIM_SPRING_2015 | Depth and recharge for sprong 2015. This corresponds to fast travel times |
+
+For any other non valid option the Unsaturated travel is disabled
+
+* __unsatWC__ [float] This is the unsaturated mobile water content coefficient. THis is a multiplier coefficient to the Depth/Recharge value. 
 
 * __bMap__ [string] The name of the background map. This should be one of the following values:
 
