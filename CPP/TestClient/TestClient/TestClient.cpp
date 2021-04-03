@@ -56,11 +56,6 @@ int main(int argc, char* argv[])
 		outfile = "testClientResults.dat";
 	}
 
-	boost::asio::io_service io_service;
-
-	boost::asio::ip::tcp::socket socket(io_service);
-	socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
-	
 	std::string msg;
 	if (quit) {
 		msg = "quit\n";
@@ -127,6 +122,11 @@ int main(int argc, char* argv[])
 			msg += " ENDofMSG\n";
 		}
 	}
+
+    boost::asio::io_service io_service;
+
+    boost::asio::ip::tcp::socket socket(io_service);
+    socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
 		
 	boost::system::error_code error;
 	boost::asio::write(socket, boost::asio::buffer(msg), error);
