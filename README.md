@@ -105,8 +105,8 @@ Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the 
 
 | Unsaturated scenarios | Description |
 |--|--|
-|C2VSIM_SPRING_2000 | Depth and recharge for sprong 2000. This corresponds to slow travel times |
-|C2VSIM_SPRING_2015 | Depth and recharge for sprong 2015. This corresponds to fast travel times |
+|C2VSIM_SPRING_2000 | Depth and recharge for spring 2000. This corresponds to slow travel times |
+|C2VSIM_SPRING_2015 | Depth and recharge for spring 2015. This corresponds to fast travel times |
 
 For any other non valid option the Unsaturated travel is disabled
 
