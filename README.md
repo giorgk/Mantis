@@ -4,8 +4,8 @@ Is a server application that executes the forward phase of the NPSAT.
 During the development we developed a couple of different versions. However the focus is on the c++ server implementation.
 
 1. [C++ Server](https://github.com/giorgk/Mantis#c-server)
-2. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop)
-3. [Matlab server](https://github.com/giorgk/Mantis#matlab-server)
+2. [Matlab Desktop](https://github.com/giorgk/Mantis#matlab-desktop) (obsolete)
+3. [Matlab server](https://github.com/giorgk/Mantis#matlab-server) (obsolete)
 
 ## C++ Server
 The C++ version is the one that we actually support. 
@@ -30,21 +30,27 @@ To run the program in simulation mode just ommit the *t* flag.
 MantisServer.exe -c config_file
 ```
 
-It is possible to setup the input files in relative mode using the *p* flag
-```
-MantisServer.exe -c config_file -p path/to/data
-```
-All the input files should be relative to the path.
-
-
 
 The list of inputs of the configuration file is shown with the help option `MantisServer.exe -h`. </br> 
-An example of configuration file can also be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
+An example of configuration file can also be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/mantisConfig.ini)
 
-### Configuration options (The important ones)
-* __GNLM_Npixels__ : is the number of rows of the GNLM loading input file. This is used only for allocating memory.
+### Configuration options
+The configuration options are divided into sections:
+
+#### CV_Raster
+The CV Raster section contains information about hte active area in Central valley and 
+the discretization. Contains the following options:
+
+* __Ncells__ : is the total number of active pixels of the Central Valley.
+* __Nrows__ : is the number of rows of the raster
+* __Ncols__ : is the number of the columns of the raster
+* __Raster__ : is the the name of the file that containts the active area. </br>
+The raster is a 2D array that contains -1 to the pixels that correspond to the area outside the domain. Every pixel in the active area contains a unique id from 0 to __Ncells-1__ 
+
+#### Data
+The Data section provides the input files of the main data
 * __MAPS__ : This is a file which containts all the background maps.
-* __NO3_LOAD__ a filename that contains a list of loading scenarios.</br>
+* __NO3__ a filename that contains a list of loading scenarios.</br>
 Each line in the file describes an N loading scenario as follows </br>
 [TYPE] [NAME] [filename] </br>
 where </br>[TYPE] is one of the `GNLM` or `SWAT` flags </br>
@@ -54,31 +60,34 @@ GNLM GNLM MantisData/GNLM_LU_NGW.dat </br>
 SWAT SWAT1 MantisData/SWAT_LOADING_SCEN_1.dat </br>
 SWAT SWAT2 MantisData/SWAT_LOADING_SCEN_2.dat </br>
 If the line starts with ```#``` then it is ignore. This is a way to comment lines.
-_Usually it takes a couple of minutes to load the N loading data._
+
 * __WELLS__ A file that lists the files (one in each row) that contain the wells for each flow scenario.
 * __URFS__ A file that lists the files (one in each row) that contain the URFS for each flow scenario.
-* __UNSAT__ A file that contains the values of `Depth/Recharge`. Each column in the file corresponds to a scenario. The first line is a header with the names (`unsatScen`) of the scenarios. </br>
-SCEN1 SCEN2 ... </br>
-v1 v2 ... 
+* __UNSAT__ A file that contains the values of `Depth/Recharge`. 
+
+* __Path__ If the path is not empty then all the input files will be relative to this path
+
+#### ServerOptions
+Options specific to server
 * __PORT__ The port number
 * __NTHREADS__ The number of threads.
+* __Prefix__ This is used as a prefix if ```DebugID``` is provided in the input scenario. It will use this prefix for the various files that are printed
 
 _The most recent input files are in the MantisData folder under the Mantis Google Drive main folder_.
 
 ### Input message 
 The server does nothing until it receives an input message. </br>
 The input message has the KEYWORD VALUE format using spaces as separation character. The input message has to be one line. The end line character `\n`  indicates the end of the message.
-#### Required Input keywords values
+#### Input keywords values
 The keywords have to use the exact lower Capital case as it appears on the list
-* __endSimYear__ [integer ####] The simulation always starts at 1945 and continues up to this year. The value has to be greater than 1945 of course. Currently there is an upper limit of 2500. Yet if  the end year is less than 1990 or greater than 2500 it gets reset to 2100.
-* __startRed__ [integer ####] The year to start the reduction applications. This should be always between 1945 and `endSimYear`. If not it gets reset to 2020
-* __endRed__ [integer ####] The year to fully implement the reduction application rates. This should always be between `startRed` and `endSimYear`. If not it gets reset to `startRed` + 5
+* __endSimYear__ [integer YYYY] The simulation always starts at 1945 and continues up to this year. The value has to be greater than 1945 of course. Currently there is an upper hardcoded limit of 2500. Yet if  the end year is less than 1990 or greater than 2500 it gets reset to 2100.
+* __startRed__ [integer YYYY] The year to start the reduction applications. This should be always between 1945 and `endSimYear`. If not it gets reset to 2020
+* __endRed__ [integer ####] The year to fully implement the reduction application rates. This should always be between `startRed+1` and `endSimYear`. If not it gets reset to `startRed` + 1. 
 * __flowScen__ [string] This is a keyword from the following list: 
 
 |Flow scenarios| Description |
 |--|---|
-|CVHM_92_03_BUD0 | Simulation based on CVHM average flow conditions for the period 10/1992 - 9/2003 where the pumping is reduced to match the recharge|
-|CVHM_92_03_BUD1 | Simulation based on CVHM average flow conditions for the period 10/1992 - 9/2003 where the recharge is increased to match the pumping|
+|C2VsimRun01Ref6 | Simulation based on C2Vsim average flow conditions. Each basin has beem averaged on a different period |
 
 
 * __loadScen__ [string] This is a keyword from the following list:
@@ -89,7 +98,7 @@ The keywords have to use the exact lower Capital case as it appears on the list
 |SWAT1 | Concentrations history (1990 - 2015) based on _Baseline_|
 |SWAT2 | Concentrations history (1990 - 2015) based on _High Fertilization_|
 |SWAT3 | Concentrations history (1990 - 2015) based on _High Irrigation_|
-|SWAT4 | Concentrations history (1990 - 2015) based on _High Fertilization and High Fertilization_|
+|SWAT4 | Concentrations history (1990 - 2015) based on _High Irrigation and High Fertilization_|
 Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the moment the SWAT period 1990-2015 is repeated during the simulation.
 
 * __unsatScen__[string] The only valid value for this parameter is `C2VSIM_SPRING_2015`. </br> You can also pass any value that does not match any scenario name to disable the unsaturated travel time. For example you can pass `NONE`
@@ -104,23 +113,26 @@ Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the 
 |Basins | The CV is divided into 3 Subbasins|
 |Counties | The CV is divided into 58 counties|
 |B118 | The CV is divided into 45 groundwater basins|
-|Townships | The CV is divided into 702 townships|
-|CVHMfarms | The CV is divided into 21 subregions named as _farms_|
-|C2VsimSubregions | The CV is divided into 21 subregions named as _Subregions_|
+|Townships | The CV is divided into 703 townships|
+|Subregions | The CV is divided into 21 subregions named as _Subregions_|
 
 * __Nregions__ [integer string1 string2,...,stringN] This is the number of subregions to consider during the simulation. This number is followed by `Nregions` names of the regions. Therefore the format should look like the following:</br>
 1 CentralValley (If the user has selected _CentralValley_ as background map) </br>
 2 SanJoaquinValley TulareLakeBasin (if the user has selected _Basins_ as background map)</br>
-4 Farm21 Farm17 Farm12 Farm15 (if the user has selected _CVHMfarms_ as background map)
+4 Subregion2 Subregion17 Subregion12 Subregion8 (if the user has selected _Subregions_ as background map)
 
 #### Codes for Regions
 1. _CentralValley_: has only one option which is  `CentralValley`
+
 2. _Basins_: is divided into `SacramentoValley`, `SanJoaquinValley` and `TulareLakeBasin`
+
 3. _Counties_: The list of counties can be found in the shapefile _counties_simple_ under the field _name_. The names in the field name containts spaces, which have to be stripped.
+
 4. _B118_: The list of B118 can be found in the shapefile _B118_simple_ under the field _Basin_Subb_. The names have a format similar to 5-22.13, 2-31 etc. The dashes and dots have to be replaced by `_` For example the above codes will be converted to 5_22_13, 2_31 etc
+
 5. _Townships_: The list of Townships can be found in the shapefile _CVHM_Townships_3310_simplified_ under the field _CO_MTR_.
-6. _CVHMfarms_: The CVHM farms take their names by appending to the word `Farm` the _dwr_sbrgns_ field of the shapefile _CVHM_FarmsTA_.
-7. _C2VsimSubregions_: The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
+
+6. _Subregions_: The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
 
 * __Ncrops__ [integer, integer1 float1, integer2 float2,...,integerN floatN] The first integer is the number of crops to select for loading reduction. Then `Ncrops` pair of [int float] values which correspond to crop ids reduction percent. </br>
 __VERY IMPORTANT NOTE:__ </br>
@@ -133,8 +145,23 @@ __VERY IMPORTANT NOTE:__ </br>
 
  At some point the crops codes will be identical for all loading scenarios.
 
+* __minRch__ [optional] The default value is 0.000027 which corresponds to 10 mm/year. </br>
+This has effect on GNLM loading only. During the conversion from kg/ha to mg/l if the recharge is less than this value the concentration is set to zero
+
+
+* __DebugID__ [optional] If this is present in the input message then the simulation prints 4 files with the following names 
+    - DebugID_urf.dat with the all the urfs expanded
+    - DebugID_lf_dat with all the loadinf functions
+    - DebugID_btc.dat with the streamline breaktrhough curves
+    - DebugID_well_btc with the averaged well btcs.
+    
+    Printing all the files is time consuming while the urf, lf and btc files tend to be very large for areas with many wells. </br>
+    __This should be used for debug purposes only__
+
 
 * __ENDofMSG__ This is a keyword that when found indicates that the message has been read in a correct way.
+
+
 
 
 ### Output message 
@@ -143,8 +170,11 @@ __VERY IMPORTANT NOTE:__ </br>
  If the status is 1 then the following info is listed:
 
  * __Number of wells in the selected regions__ [int]
+
  * __Number of years__ [int]
+
  * __BreakThrough Curve values__ [float]: Repeat this for _Nwells_ x _Nyears_. The first _Nyears_ values correspond to the BTC of the first well, the next _Nyears_ values correspond to the second well and so on so forth.
+
  * __ENDofMSG\n__ is appended at the end of the message along with the endline character. 
  
 
@@ -209,7 +239,7 @@ to build the program
     ```
 
 ----
-Anything below this line is outdated 
+__Anything below this line is obsolete__
 ## Matlab Desktop
 Matlab Desktop is essentially a prototype for the web application.  The following line loads the GUI
 ```
