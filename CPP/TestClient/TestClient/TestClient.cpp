@@ -118,6 +118,7 @@ int main(int argc, char* argv[])
 			//msg += " 212910 0.102";
 			//msg += " 10003 0.458";
             msg += " -9 1";
+            msg += " PixelRadius 0";
 			//msg += " DebugID test21";
 			msg += " ENDofMSG\n";
 		}

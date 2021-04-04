@@ -383,6 +383,8 @@ namespace mantisServer {
          */
 		double minRecharge;
 
+		int PixelRadius;
+
 
 		/**
 		 * @brief clear is making sure that the scenario has no data from a previous run.
@@ -398,6 +400,7 @@ namespace mantisServer {
 			globalReduction = 1.0;
             unsatZoneMobileWaterContent = 0.0;
 			minRecharge = 0.000027; // 10 mm/year
+			PixelRadius = 0;
 		}
 	};
 
@@ -589,7 +592,7 @@ namespace mantisServer {
 		 * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
 		 * For SWAT this must be 1
 		 */
-		void buildLoadingFunction(int index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
+		void buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
 		LoadType getLtype() {
 			return loadType;
 		}
@@ -729,25 +732,23 @@ namespace mantisServer {
 		return true;
 	}
 
-	void NLoad::buildLoadingFunction(int CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
-		// The index correspond to the CVraster index.
-		int nload_idx = Nidx[CVindex];
-		
+	void NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
 		int startYear = 1945;
 		int istartReduction = scenario.startReductionYear - startYear;
 		int iendReduction = scenario.endReductionYear - startYear;
 		int Nyears = endYear - startYear;
 		double adoptionCoeff = 0;
 		LF.resize(Nyears, 0.0);
-		double percReduction = scenario.globalReduction;
+		std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
 		std::map<int, double>::iterator it;
 		if (loadType == LoadType::SWAT) {
-			int lucode = getLU(CVindex, 0);
-			it = scenario.LoadReductionMap.find(lucode);
-			if (it != scenario.LoadReductionMap.end()) {
-				percReduction = it->second;
-				//std::cout << "pR=" << percReduction << std::endl;
-			}
+		    for (unsigned int i = 0; i < CVindex.size(); ++i){
+                int lucode = getLU(CVindex[i], 0);
+                it = scenario.LoadReductionMap.find(lucode);
+                if (it != scenario.LoadReductionMap.end()) {
+                    percReduction[i] = it->second;
+                }
+		    }
 		}
 
 		for (int i = 0; i < Nyears; i++) {
@@ -760,51 +761,63 @@ namespace mantisServer {
 			//std::cout << "a=" << adoptionCoeff;
 
 			if (loadType == LoadType::GNLM) {
-				int lus = 0;
-				int lue = 0;
-				double prc = 0.0;
-				double rs = 1.0;
-				double re = 1.0;
-				getLU(CVindex, i + startYear, lus, lue, prc);
-				//std::cout << " lus=" << lus << " lue=" << lue << " prc=" << prc;
-				if (adoptionCoeff > 0) {
-					rs = scenario.globalReduction;
-					it = scenario.LoadReductionMap.find(lus);
-					if (it != scenario.LoadReductionMap.end()) {
-						rs = it->second;
-						//std::cout << " rs=" << rs;
-					}
-					re = scenario.globalReduction;
-					it = scenario.LoadReductionMap.find(lue);
-					if (it != scenario.LoadReductionMap.end()) {
-						re = it->second;
-						//std::cout << " rs=" << rs;
-					}
-				}
-				double N1 = 0, N2 = 0, u = 0;
-				getNload(nload_idx, i + startYear, N1, N2, u);
-
-				double Nbase = N1* (1 - u) + N2* u;
-				//std::cout << " Nbase=" << Nbase;
-				
-				if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
-					double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
-					//std::cout << " Nred=" << Nred;
-					LF[i] = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
-				}
-				else {
-					LF[i] = Nbase * mult;
-				}
-				//std::cout << " LF[i]=" << LF[i] << std::endl;
+                double lf = 0;
+                if (CVindex.size() == 0){
+                    LF[i] = 0;
+                }
+                else{
+                    for (unsigned int j = 0; j < CVindex.size(); ++j){
+                        int lus = 0;
+                        int lue = 0;
+                        double prc = 0.0;
+                        double rs = 1.0;
+                        double re = 1.0;
+                        getLU(CVindex[j], i + startYear, lus, lue, prc);
+                        if (adoptionCoeff > 0) {
+                            rs = scenario.globalReduction;
+                            it = scenario.LoadReductionMap.find(lus);
+                            if (it != scenario.LoadReductionMap.end()) {
+                                rs = it->second;
+                                //std::cout << " rs=" << rs;
+                            }
+                            re = scenario.globalReduction;
+                            it = scenario.LoadReductionMap.find(lue);
+                            if (it != scenario.LoadReductionMap.end()) {
+                                re = it->second;
+                                //std::cout << " rs=" << rs;
+                            }
+                        }
+                        double N1 = 0, N2 = 0, u = 0;
+                        int nload_idx = Nidx[CVindex[j]];
+                        getNload(nload_idx, i + startYear, N1, N2, u);
+                        double Nbase = N1* (1 - u) + N2* u;
+                        if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
+                            double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
+                            //std::cout << " Nred=" << Nred;
+                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
+                        }
+                        else{
+                            lf += Nbase * mult;
+                        }
+                    }
+                    if (CVindex.size() > 1)
+                        LF[i] = lf/static_cast<double>(CVindex.size());
+                    else
+                        LF[i] = lf;
+                }
 			}
 			else if (loadType == LoadType::SWAT) {
-				double Nbase = getNload(nload_idx, i + startYear);
-				//std::cout << "Index " << index;
-				//std::cout << " Nbase " << Nbase;
-				double Nred = percReduction * Nbase;
-				//std::cout << " Nred " << Nred;
-				LF[i] = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
-				//std::cout << " LF[i] " << LF[i] << std::endl;
+                double lf = 0;
+                for (unsigned int j = 0; j < CVindex.size(); ++j){
+                    int nload_idx = Nidx[CVindex[j]];
+                    double Nbase = getNload(nload_idx, i + startYear);
+                    double Nred = percReduction[i] * Nbase;
+                    lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                }
+                if (CVindex.size() > 1)
+                    LF[i] = lf/static_cast<double>(CVindex.size());
+                else
+                    LF[i] = lf;
 			}
 		}
 	}
@@ -999,6 +1012,8 @@ namespace mantisServer {
 		
 		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
 
+		void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
+
 	};
 
 
@@ -1131,6 +1146,12 @@ namespace mantisServer {
 				}
 				continue;
 			}
+
+			//PixelRadius
+            if (test ==  "PixelRadius") {
+                ss >> scenario.PixelRadius;
+                continue;
+            }
 
 			if (test ==  "DebugID") {
 				ss >> scenario.debugID;
@@ -1415,9 +1436,37 @@ namespace mantisServer {
 		return true;
 	}
 
+	void Mantis::identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds) {
+	    if (Npixels == 0){
+	        if (row >= 0 && row < CVraster[0].size() && col >= 0 && col < CVraster.size()){
+	            if (CVraster[col][row] >= 0)
+                    lin_inds.push_back(CVraster[col][row]);
+	        }
+	    }
+	    else{
+            for (int i = row - Npixels; i <= row + Npixels; ++i){
+                if (i < 0 || i >= CVraster[0].size())
+                    continue;
+                for (int j = col - Npixels; j <= col + Npixels; ++j){
+                    if (j < 0 || j >= CVraster.size())
+                        continue;
+                    if (CVraster[j][i] >= 0)
+                        lin_inds.push_back(CVraster[j][i]);
+                }
+            }
+	    }
+	}
+
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
 		bool out = false;
+        std::vector<int> lin_idx_vec;
+        identifySurroundingPixel(scenario.PixelRadius, row, col, lin_idx_vec);
+        if (lin_idx_vec.empty()){
+            return out;
+        }
+
 	    int lin_idx = CVraster[col][row]; // This index spans from [1 - Ncells] e.g. 21,000,000
+
 		if (lin_idx == -9) {
 			// This streamline starts outside the active study area
 			return out;
@@ -1443,14 +1492,14 @@ namespace mantisServer {
 				return out;
 
 			double mult = 1 / (rch*3650);
-			loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, mult);
+			loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, mult);
 			out = true;
 
 			break;
 		}
 		case LoadType::SWAT:
 		{
-			loadit->second.buildLoadingFunction(lin_idx, scenario.endSimulationYear, LF, scenario, 1);
+			loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, 1);
 			out = true;
 
 			break;
