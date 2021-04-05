@@ -101,8 +101,8 @@ int main(int argc, char* argv[])
 			msg += " endRed 2025"; 
 			msg += " flowScen C2VsimRun01Ref6";
 			msg += " unsatWC 0.0";
-			msg += " bMap Basins";
-			msg += " Nregions 1 SanJoaquinValley";
+			msg += " bMap CentralValley";
+			msg += " Nregions 1 CentralValley";
 			msg += " Ncrops 1";
 			//msg += " Ncrops 13";
 			//msg += " 301 0.5";
@@ -119,6 +119,8 @@ int main(int argc, char* argv[])
 			//msg += " 10003 0.458";
             msg += " -9 1";
             msg += " PixelRadius 0";
+            //msg += " RadSelect -67151.0 -58185.0 15000 ";
+            msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0 ";
 			//msg += " DebugID test21";
 			msg += " ENDofMSG\n";
 		}

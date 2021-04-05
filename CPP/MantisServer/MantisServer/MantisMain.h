@@ -23,6 +23,82 @@ namespace hf = HighFive;
  */
 namespace mantisServer {
 
+    class numericRange{
+    public:
+        numericRange(){};
+        bool isInRange(double x);
+        void setData(double xmn, double xmx);
+        void clear();
+    private:
+        double xmin;
+        double xmax;
+    };
+    bool numericRange::isInRange(double x) {
+        return x > xmin && x <= xmax;
+    }
+    void numericRange::setData(double xmn, double xmx) {
+        xmin = xmn;
+        xmax = xmx;
+    }
+    void numericRange::clear() {
+        xmin = 0.0;
+        xmax = 0.0;
+    }
+
+    class rectSelection{
+    public:
+        rectSelection(){};
+        bool isPointIn(double x, double y);
+        void setData(double xmn, double ymn, double xmx, double ymx);
+        void clear();
+    private:
+        double xmin;
+        double ymin;
+        double xmax;
+        double ymax;
+    };
+    bool rectSelection::isPointIn(double x, double y) {
+        return x >= xmin && x <= xmax && y >= ymin && y <= ymax;
+    }
+    void rectSelection::setData(double xmn, double ymn, double xmx, double ymx){
+        xmin = xmn;
+        ymin = ymn;
+        xmax = xmx;
+        ymax = ymx;
+    }
+
+    void rectSelection::clear() {
+        xmin = 0.0;
+        ymin = 0.0;
+        xmax = 0.0;
+        ymax = 0.0;
+    }
+
+    class radialSelection{
+    public:
+        radialSelection(){};
+        bool isPointIn(double x, double y);
+        void setData(double x, double y, double rad);
+        void clear();
+    private:
+        double cx;
+        double cy;
+        double r;
+    };
+    bool radialSelection::isPointIn(double x, double y){
+        return (cx - x) * (cx - x) + (cy - y) * (cy - y) < r * r;
+    }
+    void radialSelection::setData(double x, double y, double rad){
+        cx = x;
+        cy = y;
+        r = rad;
+    }
+    void radialSelection::clear() {
+        cx = 0.0;
+        cy = 0.0;
+        r = 0.0;
+    }
+
     //! Set the square pi as constant
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
@@ -385,6 +461,16 @@ namespace mantisServer {
 
 		int PixelRadius;
 
+        radialSelection RadSelect;
+        rectSelection RectSelect;
+        bool useRadSelect;
+        bool useRectSelect;
+
+        numericRange DepthRange;
+        numericRange ScreenLengthRange;
+        bool useDepthRange;
+        bool useScreenLenghtRange;
+
 
 		/**
 		 * @brief clear is making sure that the scenario has no data from a previous run.
@@ -401,6 +487,14 @@ namespace mantisServer {
             unsatZoneMobileWaterContent = 0.0;
 			minRecharge = 0.000027; // 10 mm/year
 			PixelRadius = 0;
+			RadSelect.clear();
+			RectSelect.clear();
+			DepthRange.clear();
+			ScreenLengthRange.clear();
+			useRectSelect = false;
+			useRadSelect = false;
+			useDepthRange = false;
+			useScreenLenghtRange = false;
 		}
 	};
 
@@ -518,11 +612,25 @@ namespace mantisServer {
 
 		//! streamlines is a map where the key is the streamline id and the value is an object of type streamlineClass::streamlineClass.
 		std::map<int, streamlineClass> streamlines;
+		double xcoord;
+		double ycoord;
+		double depth;
+		double screenLength;
+		double pumpingRate;
+		void setAdditionalData(double x, double y, double d, double s, double q);
 	};
 
 	void wellClass::addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
 		double paramA, double paramB, double paramC, double paramD) {
 		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass( row_ind, col_ind, w, rch, type, riv, paramA, paramB, paramC, paramD)));
+	}
+
+	void wellClass::setAdditionalData(double x, double y, double d, double s, double q){
+	    xcoord = x;
+	    ycoord = y;
+	    depth = d;
+	    screenLength = s;
+	    pumpingRate = q;
 	}
 
 	/**
@@ -1160,6 +1268,45 @@ namespace mantisServer {
 				continue;
 			}
 
+			if (test == "RadSelect"){
+                scenario.useRadSelect = true;
+                double cx, cy, r;
+                ss >> cx;
+                ss >> cy;
+                ss >> r;
+                scenario.RadSelect.setData(cx,cy,r);
+                continue;
+			}
+
+			if (test == "RectSelect"){
+			    scenario.useRectSelect = true;
+			    double xmin, ymin, xmax, ymax;
+			    ss >> xmin;
+			    ss >> ymin;
+			    ss >> xmax;
+			    ss >> ymax;
+			    scenario.RectSelect.setData(xmin, ymin, xmax, ymax);
+			    continue;
+			}
+
+			if (test == "DepthRange"){
+			    scenario.useDepthRange = true;
+			    double dmin, dmax;
+			    ss >> dmin;
+			    ss >> dmax;
+			    scenario.DepthRange.setData(dmin, dmax);
+			    continue;
+			}
+
+			if (test == "ScreenLenRange"){
+			    scenario.useScreenLenghtRange = true;
+			    double slmin, slmax;
+			    ss >> slmin;
+			    ss >> slmax;
+			    scenario.ScreenLengthRange.setData(slmin, slmax);
+			    continue;
+			}
+
 			// The incoming messages express the reduction in loading
 			// If the reduction is 0.2 then the Nloading 80% less compared to base case
 			if (test == "Ncrops") {
@@ -1372,7 +1519,9 @@ namespace mantisServer {
 				    }
 				}
 				//assign_point_in_sets(xw, yw, Eid, setName);
-				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, wellClass()));
+                wellClass w;
+				w.setAdditionalData(xw, yw, D, SL, Q);
+				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, w));
 			}
 		}
 		Welldatafile.close();
@@ -1686,6 +1835,24 @@ namespace mantisServer {
 				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
 				if (wellit != wellscenNameit->second.end()) {
+				    if (scenario.useRadSelect){
+                        if (!scenario.RadSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
+                            continue;
+				    }
+				    if (scenario.useRectSelect){
+				        if (!scenario.RectSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
+                            continue;
+				    }
+
+				    if (scenario.useDepthRange){
+                        if (!scenario.DepthRange.isInRange(wellit->second.depth))
+                            continue;
+
+				    }
+				    if (scenario.useScreenLenghtRange){
+                        if (!scenario.ScreenLengthRange.isInRange(wellit->second.screenLength))
+                            continue;
+				    }
 					std::vector<double> weightBTC(NsimulationYears, 0);
 					double sumW = 0;
 					int nStreamlines = 0;
