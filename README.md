@@ -152,6 +152,8 @@ __VERY IMPORTANT NOTE:__ </br>
 
  At some point the crops codes will be identical for all loading scenarios.
 
+ * __PixelRadius__ [optional] This is an integer with default value equal to 0. Zero means that the loading function is taken directly from the pixel that intesects with the exit point of the streamline. Setting that to 1, the simulation will also use the average loading including the 8 surrounding pixels. Every increment of this value adds a layer of pixels. The simulation runc time increases exponentially with this number.     Each pixel is 0.25 ha. Setting this to 1 will use the loading from an area of 2.25 ha, while for 2 the contributing area becomes 6.25 ha 
+
 * __minRch__ [optional] The default value is 0.000027 which corresponds to 10 mm/year. </br>
 This has effect on GNLM loading only. During the conversion from kg/ha to mg/l if the recharge is less than this value the concentration is set to zero
 
@@ -167,6 +169,22 @@ This has effect on GNLM loading only. During the conversion from kg/ha to mg/l i
 
 
 * __ENDofMSG__ This is a keyword that when found indicates that the message has been read in a correct way.
+
+#### Methods to narrow the simulation ranges
+The input message allows to narrow the simulation using any combination of the following methods:
+* __RadSelect__ After the keyword 3 floating numbers are expected </br>
+cx, cy, radius. The coordinates must be given in the 3310 coordinate system and the radius in m.
+The simulation will use only wells that are closer that radius from the center (cx, cy).
+
+* __RectSelect__ After the keyword 4 floating numbers are expected. </br> 
+xmin, ymin, xmax, ymax. The simulation will include the wells that lei in the ractangle defined by the two points (xmin,ymin) and (xmax, ymax)
+
+* __DepthRange__ After the keyword 2 floats are expected.</br>
+Dmin, Dmax. The simulation will include the wells that the depth is greater that Dmin and less that Dmax.
+
+* __ScreenLenRange__ After the keyword 2 floats are expected.</br>
+SLmin, SLmax. The simulation will include the wells that their screen length is greater that SLmin and less that SLmax.
+
 
 
 
