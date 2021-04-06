@@ -110,7 +110,7 @@ Eventually the SWAT scenarios will use a mixed of GNLM and SWAT loading. At the 
 
 For any other non valid option the Unsaturated travel is disabled
 
-* __unsatWC__ [float] This is the unsaturated mobile water content coefficient. THis is a multiplier coefficient to the Depth/Recharge value. 
+* __unsatWC__ [float] This is the unsaturated mobile water content coefficient. This is a multiplier coefficient to the Depth/Recharge value. 
 
 * __bMap__ [string] The name of the background map. This should be one of the following values:
 

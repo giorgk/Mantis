@@ -9,6 +9,7 @@
 #include <string>
 #include <fstream>
 #include <boost/asio.hpp>
+#include <boost/algorithm/string.hpp>
 //#include <boost/thread.hpp>
 #include <math.h>
 #include <cstdlib>
@@ -70,24 +71,26 @@ int main(int argc, char* argv[])
 				std::string line, line1;
 				bool firstLine = true;
 				while (getline(indata, line)) {
-                    unsigned int nWords = 0;
-                    for (std::string::size_type i = 0; i < line.size(); i++){
-                        if (line[i] == ' ')
-                            nWords++;
-                    }
-                    std::istringstream inp(line.c_str());
-                    for (unsigned  int i = 0; i < nWords; ++i){
-                        inp >> line1;
-                        if (line1.empty())
-                            break;
-                        if (firstLine) {
-                            msg += line1;
+				    if (line.empty())
+				        continue;
+				    if (line.front() == '#')
+				        continue;
+
+				    std::vector<std::string> words;
+				    boost::split(words, line, boost::is_any_of(" "));
+
+				    for (unsigned int i = 0; i < words.size(); ++i ){
+				        boost::trim(words[i]);
+				        if (words[i].empty())
+                            continue;
+                        if (firstLine){
+                            msg += words[i];
                             firstLine = false;
                         }
-                        else {
-                            msg += " " + line1;
+                        else{
+                            msg += " " + words[i];
                         }
-                    }
+				    }
 				}
  				msg += " ENDofMSG\n";
 			}

@@ -470,6 +470,7 @@ namespace mantisServer {
         numericRange ScreenLengthRange;
         bool useDepthRange;
         bool useScreenLenghtRange;
+        bool bNarrowSelection;
 
 
 		/**
@@ -495,6 +496,7 @@ namespace mantisServer {
 			useRadSelect = false;
 			useDepthRange = false;
 			useScreenLenghtRange = false;
+            bNarrowSelection = false;
 		}
 	};
 
@@ -1269,6 +1271,7 @@ namespace mantisServer {
 			}
 
 			if (test == "RadSelect"){
+			    scenario.bNarrowSelection = true;
                 scenario.useRadSelect = true;
                 double cx, cy, r;
                 ss >> cx;
@@ -1279,6 +1282,7 @@ namespace mantisServer {
 			}
 
 			if (test == "RectSelect"){
+                scenario.bNarrowSelection = true;
 			    scenario.useRectSelect = true;
 			    double xmin, ymin, xmax, ymax;
 			    ss >> xmin;
@@ -1290,6 +1294,7 @@ namespace mantisServer {
 			}
 
 			if (test == "DepthRange"){
+                scenario.bNarrowSelection = true;
 			    scenario.useDepthRange = true;
 			    double dmin, dmax;
 			    ss >> dmin;
@@ -1299,6 +1304,7 @@ namespace mantisServer {
 			}
 
 			if (test == "ScreenLenRange"){
+                scenario.bNarrowSelection = true;
 			    scenario.useScreenLenghtRange = true;
 			    double slmin, slmax;
 			    ss >> slmin;
@@ -1834,25 +1840,28 @@ namespace mantisServer {
 				wellid = wellscenit->second[iw];
 				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
+
 				if (wellit != wellscenNameit->second.end()) {
-				    if (scenario.useRadSelect){
-                        if (!scenario.RadSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
-                            continue;
-				    }
-				    if (scenario.useRectSelect){
-				        if (!scenario.RectSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
-                            continue;
-				    }
+                    if (scenario.bNarrowSelection = true){
+                        if (scenario.useRadSelect){
+                            if (!scenario.RadSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
+                                continue;
+                        }
+                        if (scenario.useRectSelect){
+                            if (!scenario.RectSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
+                                continue;
+                        }
 
-				    if (scenario.useDepthRange){
-                        if (!scenario.DepthRange.isInRange(wellit->second.depth))
-                            continue;
+                        if (scenario.useDepthRange){
+                            if (!scenario.DepthRange.isInRange(wellit->second.depth))
+                                continue;
+                        }
+                        if (scenario.useScreenLenghtRange){
+                            if (!scenario.ScreenLengthRange.isInRange(wellit->second.screenLength))
+                                continue;
+                        }
+                    }
 
-				    }
-				    if (scenario.useScreenLenghtRange){
-                        if (!scenario.ScreenLengthRange.isInRange(wellit->second.screenLength))
-                            continue;
-				    }
 					std::vector<double> weightBTC(NsimulationYears, 0);
 					double sumW = 0;
 					int nStreamlines = 0;
