@@ -8,12 +8,15 @@
 #include <iostream>
 
 #include <boost/asio.hpp>
-#include <boost/bind.hpp>
+#include <boost/bind/bind.hpp>
+//#include <functional>
 #include <thread>
 #include <chrono>
 #include <ctime>
 
+#include "MShelper.h"
 #include "MSoptions.h"
+#include "Nload.h"
 #include "MantisMain.h"
 
 namespace ba = boost::asio;
@@ -50,7 +53,7 @@ int main(int argc, char *argv[])
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);
 			acceptor.accept(socket);
-			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, _1, _2)));
+			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, boost::placeholders::_1, boost::placeholders::_2)));
 			std::string msg(buff, bytes);
 			std::string outmsg;
 			if (msg.compare("quit\n") == 0) {

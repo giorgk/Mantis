@@ -1,5 +1,8 @@
 #pragma once
 
+#ifndef MANTISSERVER_MANTISMAIN_H
+#define MANTISSERVER_MANTISMAIN_H
+
 #include <sstream>
 #include <fstream>
 #include <iomanip>
@@ -8,13 +11,13 @@
 #include <thread>
 #include <boost/bimap.hpp>
 #include <cstdlib>
-#include <highfive/H5File.hpp>
+//#include <highfive/H5File.hpp>
 
-namespace hf = HighFive;
+//
 
 
 #include "MSoptions.h"
-//#include "MShelper.h"
+#include "MShelper.h"
 
 
 /**
@@ -22,82 +25,6 @@ namespace hf = HighFive;
  * 
  */
 namespace mantisServer {
-
-    class numericRange{
-    public:
-        numericRange(){};
-        bool isInRange(double x);
-        void setData(double xmn, double xmx);
-        void clear();
-    private:
-        double xmin;
-        double xmax;
-    };
-    bool numericRange::isInRange(double x) {
-        return x > xmin && x <= xmax;
-    }
-    void numericRange::setData(double xmn, double xmx) {
-        xmin = xmn;
-        xmax = xmx;
-    }
-    void numericRange::clear() {
-        xmin = 0.0;
-        xmax = 0.0;
-    }
-
-    class rectSelection{
-    public:
-        rectSelection(){};
-        bool isPointIn(double x, double y);
-        void setData(double xmn, double ymn, double xmx, double ymx);
-        void clear();
-    private:
-        double xmin;
-        double ymin;
-        double xmax;
-        double ymax;
-    };
-    bool rectSelection::isPointIn(double x, double y) {
-        return x >= xmin && x <= xmax && y >= ymin && y <= ymax;
-    }
-    void rectSelection::setData(double xmn, double ymn, double xmx, double ymx){
-        xmin = xmn;
-        ymin = ymn;
-        xmax = xmx;
-        ymax = ymx;
-    }
-
-    void rectSelection::clear() {
-        xmin = 0.0;
-        ymin = 0.0;
-        xmax = 0.0;
-        ymax = 0.0;
-    }
-
-    class radialSelection{
-    public:
-        radialSelection(){};
-        bool isPointIn(double x, double y);
-        void setData(double x, double y, double rad);
-        void clear();
-    private:
-        double cx;
-        double cy;
-        double r;
-    };
-    bool radialSelection::isPointIn(double x, double y){
-        return (cx - x) * (cx - x) + (cy - y) * (cy - y) < r * r;
-    }
-    void radialSelection::setData(double x, double y, double rad){
-        cx = x;
-        cy = y;
-        r = rad;
-    }
-    void radialSelection::clear() {
-        cx = 0.0;
-        cy = 0.0;
-        r = 0.0;
-    }
 
     //! Set the square pi as constant
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
@@ -157,16 +84,7 @@ namespace mantisServer {
 		BOTH /**< The URF has parameters for both of the above definitions. It is used for testing */
 	};
 
-	/*!
-	 * This is a list of available load types. Currently there are two types available.
-	 *  - GNLM loading from GNLM
-	 *  - SWAT loading from swat
-	 *
-	 */
-	enum class LoadType {
-		GNLM,
-		SWAT
-	};
+
 
 	/*!
 	 * This is a container for ADE options. In future this will be deleted as we use only LGNRM type of URF
@@ -395,110 +313,7 @@ namespace mantisServer {
 	}
 
 
-	/**
-	 * @brief Scenario is a struct variable that contains all the information needed for each simulation scenario.
-	 * 
-	 * This struct is a convenient way to transfer around all inputs at once.
-	 */
-	struct Scenario {
-		//! mapID is the id of selected background map.
-		std::string mapID;
 
-		//! flowScen is the code name of the selected flow scenario.
-		std::string flowScen;
-
-		//! The loading scenario
-		std::string loadScen;
-
-		//! regionIDs is a list of regions to compute the breakthrough curves
-		std::vector<std::string> regionIDs;
-
-		//! LoadReductionMap is a map that sets the nitrate loading reduction for selected land use categories.
-		//! The key value of the map is the land use category and the value is the percentage of loading reduction.
-		std::map<int, double> LoadReductionMap;
-
-		//! If the input message contains crop id with -9 then this is applied to all crops except to the ones defined
-		//! in the LoadReductionMap
-		double globalReduction;
-
-		//! ReductionYear is the year to start the reduction.
-		int startReductionYear;
-
-		//! The end reduction is the year when the loading has reduced to the desired amount
-		int endReductionYear;
-
-		//! This is the number of years to simulate starting from 1945
-		int endSimulationYear;
-
-		//! THis is the name of the unsaturated flow scenario
-		std::string unsatScenario;
-
-		//! This is the unsaturated zone mobile water content (m3/m3)
-		//! Typical values are 0.05,0.1 ,0.15 and 0.20
-		double unsatZoneMobileWaterContent;
-
-		/**
-		 * This is an id for the current scenario. e.g. test001.
-		 * If this variable is present then during the simulation the following files will be printed
-		 * - debugID_urfs.dat contains the expanded unit respondse functions
-		 * - debugID_lf.dat containts the loading functions
-		 * - debugID_btc.dat contains the breakthrough curves. The convolution between urfs and lf
-		 * - debugID_well_btc.dat containts the averages BTC for the wells
-		 */
-        std::string debugID;
-        //! If the #debugID is present then this is set to true;
-		bool printAdditionalInfo = false;
-
-        /**
-         * In GNLM the loading is defined as kg/ha. To convert to cocnentration we divide by the groundwater
-         * recharge. However sometimes this has very low values due to errors in particle tracing.
-         * In those cases letting the NO3 mas divided by a very small number results in unrealistically
-         * large concentration. To avoid this we set loading to zero the the recharge is less than minRecharge.
-         *
-         * By defaults it gets 0.000027 which corresponds to 10 mm/year
-         */
-		double minRecharge;
-
-		int PixelRadius;
-
-        radialSelection RadSelect;
-        rectSelection RectSelect;
-        bool useRadSelect;
-        bool useRectSelect;
-
-        numericRange DepthRange;
-        numericRange ScreenLengthRange;
-        bool useDepthRange;
-        bool useScreenLenghtRange;
-        bool bNarrowSelection;
-
-
-		/**
-		 * @brief clear is making sure that the scenario has no data from a previous run.
-		 * 
-		 */
-		void clear() {
-			mapID = "";
-			flowScen = "";
-			loadScen = "";
-			regionIDs.clear();
-			LoadReductionMap.clear();
-			printAdditionalInfo = false;
-			globalReduction = 1.0;
-            unsatZoneMobileWaterContent = 0.0;
-			minRecharge = 0.000027; // 10 mm/year
-			PixelRadius = 0;
-			RadSelect.clear();
-			RectSelect.clear();
-			DepthRange.clear();
-			ScreenLengthRange.clear();
-			useRectSelect = false;
-			useRadSelect = false;
-			useDepthRange = false;
-			useScreenLenghtRange = false;
-            bNarrowSelection = false;
-		}
-	};
 
 	/**
 	 * @brief Stores data for each streamline. 
@@ -635,302 +450,7 @@ namespace mantisServer {
 	    pumpingRate = q;
 	}
 
-	/**
-	 * Nload is a container for each nitrate loading scenario.
-	 *
-	 * In future versions this may need restructuring.
-	 * It may be better to define a Nload base class and the each type overwrites the methods instead of overloading
-	 */
-	class NLoad {
-	public:
-	    //! The constructor does nothing
-		NLoad() {}
-		/**
-		 * Reads the data from a file. The file must be an hdf5 format with the follwing datasets
-		 * - LU is a 2D integer array with size 2 Ncells x Nyears, where Ncells is the number of active pixels in the area
-		 * and Nyears is the number of yearly land use changes. For GNLM Nyears is 5 and SWAT is 1
-		 * - Nidx is an 1D integer type array of length Ncells. The values correspond the the row of the Nload dataset
-		 * - NLoad is a 2D double type array that contains the loading time series
-		 * @param filename is the name of the file
-		 * @param ltype is the loading type. Currently this must be either GNLM or SWAT
-		 * @return
-		 */
-		bool readData(std::string filename, LoadType ltype);
-        /**
-         * This returns the N load value. This version must be used for SWAT only
-         * @param index is the loading id
-         * @param iyr is the year as YYYY.
-         * @return
-         */
-		double getNload(int index,int iyr);
-		/**
-		 * This returns the N load value. This version must be used for GNLM only
-		 * In GNLM the loading is defined in 15 year intervals.
-		 * @param index The N loading index
-		 * @param iyr the year in YYYY format
-		 * @param N1 is the N load value at the start of the period where the iyr falls in
-		 * @param N2 is the N load value at the end of the period where the iyr falls in
-		 * @param u is the parametric value that correspond the iyr. e.g iyr = StartYear *(1-u) + EndYear*u
-		 */
-		void getNload(int index, int iyr, double &N1, double &N2, double &u);
 
-		/**
-		 * This methods reads the land use information for the GNLM
-		 * @param index is the CV pixel
-		 * @param iyr is the year formatted as YYYY
-		 * @param LUcS The land use type at the start of the 15 year period
-		 * @param LUcE The land use type at the end of the 15 year period
-		 * @param perc the parametric value that corresponds to iyr
-		 */
-		void getLU(int index, int iyr, int &LUcS, int &LUcE, double &perc);
-
-		/**
-		 * This methods reads the land use information for the SWAT type.
-		 * In SWAT the land use does not change
-		 * @param index is the CV pixel
-		 * @param iyr must be always 0
-		 * @return
-		 */
-		int getLU(int index, int iyr);
-
-		/**
-		 * This builds the loading function.
-		 * @param index this is the index of #NLoad
-		 * @param endYear the ending year of hte simulation
-		 * @param LF THis is the output loading function
-		 * @param scenario the options of the simulatied scenario
-		 * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
-		 * For SWAT this must be 1
-		 */
-		void buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
-		LoadType getLtype() {
-			return loadType;
-		}
-		//! checks if the index is not out of range
-		bool isValidIndex(int index);
-	private:
-	    //! The type of loading function GNLM or SWAT
-		LoadType loadType;
-	    //! Container for the data
-		std::vector<std::vector<double> > Ndata;
-		//! Container for the Land use data
-		std::vector<std::vector<int> > LU;
-		//! A map between the CV active pixels and the Ndata
-		std::vector<int> Nidx;
-	};
-
-	bool NLoad::isValidIndex(int index) {
-		if ((index >= 0) || (index < static_cast<int>(Ndata[0].size())))
-			return true;
-		else
-			return false;
-	}
-
-	int NLoad::getLU(int index, int iyr) {
-	    if (iyr >=0 && iyr < static_cast<int>(LU.size()) && index >=0 && index < static_cast<int>(LU[0].size()))
-	        return LU[iyr][index];
-		return 0;
-	}
-	void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
-		switch (loadType)
-		{
-		case mantisServer::LoadType::GNLM:
-		{
-			if (iyr < 1945) {
-				LUcS = getLU(index,0);
-				LUcE = getLU(index,0);
-				perc = 1.0;
-			}
-			else if (iyr >= 2005) {
-				LUcS = getLU(index,4);
-				LUcE = getLU(index,4);
-				perc = 0.0;
-			}
-			else {
-				int isN = static_cast<int>( std::floor((iyr - 1945) / 15) );
-				int ieN = isN + 1;
-				LUcS = getLU(index,isN);
-				LUcE = getLU(index,ieN);
-				perc = static_cast<double>((iyr - 1945) % 15) / 15.0;
-			}
-			break;
-		}
-		case mantisServer::LoadType::SWAT:
-		{
-			std::cout << "You cant call this method for SWAT loading type" << std::endl;
-			break;
-		}
-		default:
-			break;
-		}
-	}
-
-	void NLoad::getNload(int index, int iyr, double& N1, double& N2, double& u) {
-		switch (loadType)
-		{
-		case mantisServer::LoadType::GNLM:
-		{
-			//std::cout << " index=" << index << " iyr=" << iyr;
-			if (iyr < 1945) {
-				N1 = Ndata[0][index];
-				N2 = Ndata[0][index];
-				u = 1.0;
-			}
-			else if (iyr >= 2050) {
-				N1 = Ndata[7][index];
-				N2 = Ndata[7][index];
-				u = 0.0;
-			}
-			else {
-
-				int isN = static_cast<int>(std::floor((iyr - 1945) / 15)); //index of starting year
-				int ieN = isN + 1; // index of starting year
-				//std::cout << " isN=" << isN << " ieN=" << ieN;
-				u = static_cast<double>((iyr - 1945) % 15) / 15.f;
-				N1 = Ndata[isN][index];
-				N2 = Ndata[ieN][index];
-				//std::cout << " u=" << u;
-				//std::cout << " N1=" << N1 << " N2=" << N2;
-			}
-			break;
-		}
-		case mantisServer::LoadType::SWAT:
-		{
-			std::cout << "You can't call this method for SWAT loading type" << std::endl;
-			break;
-		}
-		default:
-			break;
-		}
-	}
-
-	double NLoad::getNload(int index, int iyr) {
-		double value = 0.0;
-		switch (loadType)
-		{
-		case mantisServer::LoadType::GNLM:
-		{
-			std::cout << "You can't call this method for GNLM loading type" << std::endl;
-			break;
-		}
-		case mantisServer::LoadType::SWAT:
-		{
-			int load_index = (iyr - 1940) % 25;
-			value = Ndata[load_index][index];
-			break;
-		}
-		default:
-			break;
-		}
-		return value;
-	}
-
-	bool NLoad::readData(std::string filename, LoadType ltype) {
-        const std::string LUNameSet("LU");
-        const std::string NidxNameSet("Nidx");
-        const std::string NloadNameSet("NLoad");
-
-        hf::File HDFNfile(filename, hf::File::ReadOnly);
-        hf::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);
-        hf::DataSet datasetNidx = HDFNfile.getDataSet(NidxNameSet);
-        hf::DataSet datasetNLoad = HDFNfile.getDataSet(NloadNameSet);
-        datasetLU.read(LU);
-        datasetNidx.read(Nidx);
-        datasetNLoad.read(Ndata);
-        loadType = ltype;
-
-		return true;
-	}
-
-	void NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
-		int startYear = 1945;
-		int istartReduction = scenario.startReductionYear - startYear;
-		int iendReduction = scenario.endReductionYear - startYear;
-		int Nyears = endYear - startYear;
-		double adoptionCoeff = 0;
-		LF.resize(Nyears, 0.0);
-		std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
-		std::map<int, double>::iterator it;
-		if (loadType == LoadType::SWAT) {
-		    for (unsigned int i = 0; i < CVindex.size(); ++i){
-                int lucode = getLU(CVindex[i], 0);
-                it = scenario.LoadReductionMap.find(lucode);
-                if (it != scenario.LoadReductionMap.end()) {
-                    percReduction[i] = it->second;
-                }
-		    }
-		}
-
-		for (int i = 0; i < Nyears; i++) {
-			//std::cout << "i=" << i << " Y=" << i + startYear << std::endl;
-			if ((i >= istartReduction) && (i <= iendReduction))
-				adoptionCoeff = (static_cast<double>(i) - static_cast<double>(istartReduction)) / (static_cast<double>(iendReduction) - static_cast<double>(istartReduction));
-			else if (i > iendReduction)
-				adoptionCoeff = 1.0;
-
-			//std::cout << "a=" << adoptionCoeff;
-
-			if (loadType == LoadType::GNLM) {
-                double lf = 0;
-                if (CVindex.size() == 0){
-                    LF[i] = 0;
-                }
-                else{
-                    for (unsigned int j = 0; j < CVindex.size(); ++j){
-                        int lus = 0;
-                        int lue = 0;
-                        double prc = 0.0;
-                        double rs = 1.0;
-                        double re = 1.0;
-                        getLU(CVindex[j], i + startYear, lus, lue, prc);
-                        if (adoptionCoeff > 0) {
-                            rs = scenario.globalReduction;
-                            it = scenario.LoadReductionMap.find(lus);
-                            if (it != scenario.LoadReductionMap.end()) {
-                                rs = it->second;
-                                //std::cout << " rs=" << rs;
-                            }
-                            re = scenario.globalReduction;
-                            it = scenario.LoadReductionMap.find(lue);
-                            if (it != scenario.LoadReductionMap.end()) {
-                                re = it->second;
-                                //std::cout << " rs=" << rs;
-                            }
-                        }
-                        double N1 = 0, N2 = 0, u = 0;
-                        int nload_idx = Nidx[CVindex[j]];
-                        getNload(nload_idx, i + startYear, N1, N2, u);
-                        double Nbase = N1* (1 - u) + N2* u;
-                        if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
-                            double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
-                            //std::cout << " Nred=" << Nred;
-                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
-                        }
-                        else{
-                            lf += Nbase * mult;
-                        }
-                    }
-                    if (CVindex.size() > 1)
-                        LF[i] = lf/static_cast<double>(CVindex.size());
-                    else
-                        LF[i] = lf;
-                }
-			}
-			else if (loadType == LoadType::SWAT) {
-                double lf = 0;
-                for (unsigned int j = 0; j < CVindex.size(); ++j){
-                    int nload_idx = Nidx[CVindex[j]];
-                    double Nbase = getNload(nload_idx, i + startYear);
-                    double Nred = percReduction[i] * Nbase;
-                    lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
-                }
-                if (CVindex.size() > 1)
-                    LF[i] = lf/static_cast<double>(CVindex.size());
-                else
-                    LF[i] = lf;
-			}
-		}
-	}
 
 
 	/**
@@ -1019,20 +539,22 @@ namespace mantisServer {
 		mantisServer::options options;
 
 		/*!
-		 * CVraster is a 2D raster map that contains the indices of the linear vector.
+		 * CVrasterClass is a 2D raster map that contains the indices of the linear vector.
 		 * All the info that is formatted as 1D or 2D arrays with length 1 - Ncells
-		 * must use the CVraster indices to indentify the associated record.
-		 * For example LU[0][CVraster[col][row]].
-		 * Note however that CVraster contains negative numbers. which correspond to the
+		 * must use the CVrasterClass indices to indentify the associated record.
+		 * For example LU[0][CVrasterClass[col][row]].
+		 * Note however that CVrasterClass contains negative numbers. which correspond to the
 		 * cells that have no associated info. These are outside the study area.
 		 */
-		std::vector<std::vector<int>> CVraster;
+		//std::vector<std::vector<int>> CVraster;
+		CVrasterClass cvraster;
 
 		std::map<std::string, NLoad> NGWLoading;
 
 		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
-		std::map<std::string, int > UNSATscenarios;
-        std::vector<std::vector<double>> UNSATData;
+        UNSATdataClass unsat;
+		//std::map<std::string, int > UNSATscenarios;
+        //std::vector<std::vector<double>> UNSATData;
 		//! a list of background maps
 		std::map<std::string, std::map<std::string, Polyregion> > MAPList;
 		std::vector<std::string> backgroundMapNames;
@@ -1122,7 +644,7 @@ namespace mantisServer {
 		
 		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
 
-		void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
+		//void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
 
 	};
 
@@ -1184,8 +706,7 @@ namespace mantisServer {
 			return false;
 		}
 
-		std::map<std::string, int >::iterator unsatit = UNSATscenarios.find(scenario.unsatScenario);
-		if (unsatit == UNSATscenarios.end()) {
+		if (unsat.ScenarioIndex(scenario.unsatScenario) == -1) {
 			outmsg += "0 ERROR: There is no unsaturated scenario with name: ";
 			outmsg += scenario.unsatScenario;
 			return false;
@@ -1539,48 +1060,79 @@ namespace mantisServer {
 
 	bool Mantis::readURFs(std::string filename) {
         auto start = std::chrono::high_resolution_clock::now();
-        const std::string NamesNameSet("Names");
-        const std::string IntsNameSet("ESIJRiv");
-        const std::string FloatNameSet("MSWR");
 
-        hf::File HDFfile(filename, hf::File::ReadOnly);
+        //const std::string NamesNameSet("Names");
+        //const std::string IntsNameSet("ESIJRiv");
+        //const std::string FloatNameSet("MSWR");
 
-        hf::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
-        hf::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
-        hf::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
-        std::vector<std::string> names;
-        std::vector<std::vector<int>> IDS;
-        std::vector<std::vector<double>> DATA;
-        datasetNames.read(names);
-        datasetInts.read(IDS);
-        datasetFloat.read(DATA);
+        //hf::File HDFfile(filename, hf::File::ReadOnly);
 
-        URFTYPE urftype;
-        if (names[1].compare("LGNRM") == 0)
-            urftype = URFTYPE::LGNRM;
-        else if (names[1].compare("ADE") == 0)
-            urftype = URFTYPE::ADE;
-        else if (names[1].compare("BOTH") == 0)
-            urftype = URFTYPE::BOTH;
-        else{
-            std::cout << "The URF type " << names[1] << " is not valid" << std::endl;
-            return false;
-        }
+        //hf::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+        //hf::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
+        //hf::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
+        //std::vector<std::string> names;
+        //std::vector<std::vector<int>> IDS;
+        //std::vector<std::vector<double>> DATA;
+        //datasetNames.read(names);
+        //datasetInts.read(IDS);
+        //datasetFloat.read(DATA);
 
-        std::map<std::string, std::map<int, wellClass> >::iterator scenit;
-        scenit = Wellmap.find(names[0]);
-        if (scenit == Wellmap.end()) {
-            std::cout << "The URF Scenario " << names[0] << " is not defined for the wells" << std::endl;
+        std::ifstream ifile;
+        ifile.open(filename);
+        if (!ifile.is_open()){
+            std::cout << "Cant open file: " << filename << std::endl;
             return false;
         }
         else{
-            std::map<int, wellClass>::iterator wellmapit;
-            for (unsigned int i = 0; i < IDS[0].size(); ++i){
-                wellmapit = scenit->second.find(IDS[0][i]);
-                if (wellmapit != scenit->second.end()){
-                    wellmapit->second.addStreamline(IDS[1][i], IDS[2][i], IDS[3][i],
-                                                    DATA[2][i], DATA[3][i],urftype, IDS[4][i],
-                                                    DATA[0][i],DATA[1][i]);
+            std::cout << "Reading " << filename << std::endl;
+            std::string line;
+            int Nurfs;
+            URFTYPE urftype;
+            std::string name, type;
+            {// Read the header
+                getline(ifile, line);
+                std::istringstream inp(line.c_str());
+                inp >> Nurfs;
+                inp >> name;
+                inp >> type;
+
+                if (type.compare("LGNRM") == 0)
+                    urftype = URFTYPE::LGNRM;
+                else if (type.compare("ADE") == 0)
+                    urftype = URFTYPE::ADE;
+                else if (type.compare("BOTH") == 0)
+                    urftype = URFTYPE::BOTH;
+                else{
+                    std::cout << "The URF type " << type << " is not valid" << std::endl;
+                    return false;
+                }
+            }
+            std::map<std::string, std::map<int, wellClass> >::iterator scenit;
+            scenit = Wellmap.find(name);
+            if (scenit == Wellmap.end()) {
+                std::cout << "The URF Scenario " << name << " is not defined for the wells" << std::endl;
+                return false;
+            }
+            else{// Read the data
+                std::map<int, wellClass>::iterator wellmapit;
+                int eid, sid, r, c, riv;
+                double m, s, w, rch;
+                for (int i = 0; i < Nurfs; ++i){
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> eid;
+                    inp >> sid;
+                    inp >> r;
+                    inp >> c;
+                    inp >> riv;
+                    inp >> m;
+                    inp >> s;
+                    inp >> w;
+                    inp >> rch;
+                    wellmapit = scenit->second.find(eid);
+                    if (wellmapit != scenit->second.end()){
+                        wellmapit->second.addStreamline(sid,r,c,w,rch,urftype,riv,m,s);
+                    }
                 }
             }
         }
@@ -1591,6 +1143,7 @@ namespace mantisServer {
 		return true;
 	}
 
+	/*
 	void Mantis::identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds) {
 	    if (Npixels == 0){
 	        if (row >= 0 && row < CVraster[0].size() && col >= 0 && col < CVraster.size()){
@@ -1611,16 +1164,16 @@ namespace mantisServer {
             }
 	    }
 	}
-
+    */
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
 		bool out = false;
         std::vector<int> lin_idx_vec;
-        identifySurroundingPixel(scenario.PixelRadius, row, col, lin_idx_vec);
+        cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
         if (lin_idx_vec.empty()){
             return out;
         }
 
-	    int lin_idx = CVraster[col][row]; // This index spans from [1 - Ncells] e.g. 21,000,000
+	    int lin_idx = cvraster.IJ(row, col);// CVraster[col][row]; // This index spans from [1 - Ncells] e.g. 21,000,000
 
 		if (lin_idx == -9) {
 			// This streamline starts outside the active study area
@@ -1668,10 +1221,13 @@ namespace mantisServer {
 
 
 	bool Mantis::readCVraster() {
-        auto start = std::chrono::high_resolution_clock::now();
-        const std::string NameSet("Raster");
         if (!options.bAbsolutePaths)
             options.CVrasterFile = options.mainPath + options.CVrasterFile;
+        return cvraster.readData(options.CVrasterFile, options.Nrow, options.Ncol, options.Npixels);
+        /*
+	    auto start = std::chrono::high_resolution_clock::now();
+        const std::string NameSet("Raster");
+
 
         hf::File HDFfile(options.CVrasterFile, hf::File::ReadOnly);
         hf::DataSet dataset = HDFfile.getDataSet(NameSet);
@@ -1680,15 +1236,20 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read CV active raster in " << elapsed.count() << std::endl;
         return true;
+        */
 	}
 
+
 	bool Mantis::readUNSAT() {
+        if (!options.bAbsolutePaths)
+            options.UNSATfile = options.mainPath + options.UNSATfile;
+	    return unsat.readData(options.UNSATfile, options.Npixels);
+	    /*
         auto start = std::chrono::high_resolution_clock::now();
         const std::string NamesNameSet("Names");
         const std::string DataNameSet("Data");
 
-        if (!options.bAbsolutePaths)
-            options.UNSATfile = options.mainPath + options.UNSATfile;
+
 
         hf::File HDFfile(options.UNSATfile, hf::File::ReadOnly);
 
@@ -1704,6 +1265,7 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read Unsaturated Scenarios in " << elapsed.count() << std::endl;
         return true;
+        */
 	}
 
 	bool Mantis::readLU_NGW() {
@@ -1788,7 +1350,7 @@ namespace mantisServer {
 
 		std::map<std::string, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
-		std::map<std::string, int >::iterator unsatit = UNSATscenarios.find(scenario.unsatScenario);
+		int unsat_idx = unsat.ScenarioIndex(scenario.unsatScenario);
 
 		
 
@@ -1869,7 +1431,7 @@ namespace mantisServer {
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-								if (CVraster[strmlnit->second.col][strmlnit->second.row] == -1)
+								if ( cvraster.IJ(strmlnit->second.row, strmlnit->second.col) == -1)
 									continue; // If the source area is outside the domain skip it
 
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
@@ -1906,10 +1468,9 @@ namespace mantisServer {
 								if (isNotZero) {
 									// Find the travel time in the unsaturated zone
 									int intTau = 0;
-									if (unsatit != UNSATscenarios.end()) {
-										int iunsat_idx = unsatit->second;
-										int lin_idx = CVraster[strmlnit->second.col][strmlnit->second.row];
-										double tau = UNSATData[iunsat_idx][lin_idx];
+									if (unsat_idx != -1) {
+										int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
+										double tau = unsat.getTravelTime(unsat_idx,lin_idx);
 										tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
 										if (tau < 0)
 											tau = 0.0;
@@ -2005,3 +1566,5 @@ namespace mantisServer {
 		std::cout << nBTC << " BTCs will be sent" << std::endl;
 	}
 }
+
+#endif //MANTISSERVER_MANTISMAIN_H
