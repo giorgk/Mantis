@@ -1404,7 +1404,7 @@ namespace mantisServer {
 				wellit = wellscenNameit->second.find(wellid);
 
 				if (wellit != wellscenNameit->second.end()) {
-                    if (scenario.bNarrowSelection = true){
+                    if (scenario.bNarrowSelection == true){
                         if (scenario.useRadSelect){
                             if (!scenario.RadSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
                                 continue;
