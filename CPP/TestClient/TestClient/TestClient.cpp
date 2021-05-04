@@ -31,7 +31,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "Running version 1.5.00" << std::endl;
+	std::cout << "Running version 1.6.10" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;

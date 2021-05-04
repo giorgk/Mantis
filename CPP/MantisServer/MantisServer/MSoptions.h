@@ -151,7 +151,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.5.00 |" << std::endl;
+			std::cout << "| Version : 1.6.10 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;

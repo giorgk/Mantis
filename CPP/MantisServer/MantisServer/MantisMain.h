@@ -1167,18 +1167,16 @@ namespace mantisServer {
     */
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
 		bool out = false;
+		// If the central streamline starting cell is outside the study area return false
+		if (cvraster.IJ(row, col) < 0)
+		    return out;
+
         std::vector<int> lin_idx_vec;
         cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
         if (lin_idx_vec.empty()){
             return out;
         }
 
-	    int lin_idx = cvraster.IJ(row, col);// CVraster[col][row]; // This index spans from [1 - Ncells] e.g. 21,000,000
-
-		if (lin_idx == -9) {
-			// This streamline starts outside the active study area
-			return out;
-		}
 		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
 		switch (loadit->second.getLtype())
 		{
@@ -1196,27 +1194,24 @@ namespace mantisServer {
 			// NO3 * 1000000 / 10000 /  (RCH * 365000)
 			// NO3 * 100 /  (RCH * 365000)
 			// NO3 * (RCH * 3650)
+			double mult;
 			if (rch < scenario.minRecharge)
-				return out;
+				mult = 0.0;
+			else
+                mult = 1 / (rch*3650);
 
-			double mult = 1 / (rch*3650);
-			loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, mult);
-			out = true;
-
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, mult);
 			break;
 		}
 		case LoadType::SWAT:
 		{
-			loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, 1);
-			out = true;
-
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, 1);
 			break;
 		}
 		default:
 			break;
 		}
 		return out;
-
 	}
 
 
@@ -1361,6 +1356,7 @@ namespace mantisServer {
 		std::map<int, streamlineClass>::iterator strmlnit;
 		std::map<int, wellClass>::iterator wellit;
 		int cntBTC = 0;
+        int nWellsWithoutStreamlines = 0;
 		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
 			regit = mapit->second.find(scenario.regionIDs[irg]);
 			wellscenit = regit->second.wellids.find(scenario.flowScen);
@@ -1392,7 +1388,6 @@ namespace mantisServer {
 			}
 			
 			int NsimulationYears = scenario.endSimulationYear - 1945;
-			
 			
 
 			std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
@@ -1427,6 +1422,7 @@ namespace mantisServer {
 					std::vector<double> weightBTC(NsimulationYears, 0);
 					double sumW = 0;
 					int nStreamlines = 0;
+
 					if (wellit->second.streamlines.size() > 0) {
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
@@ -1437,58 +1433,66 @@ namespace mantisServer {
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 								std::vector<double> BTC(NsimulationYears, 0);
 								std::vector<double> LF(NsimulationYears, 0);
-								bool isNotZero = true;
 								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+                                    bool isLFValid = false;
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
 									urf.print_urf(urf_file);
-										
-									isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
-									if (scenario.printAdditionalInfo) {
+
+                                    isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
+									if (scenario.printAdditionalInfo && isLFValid) {
 										for (int ii = 0; ii < NsimulationYears; ++ii)
 											lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
 										lf_file << std::endl;
 									}
-									if (isNotZero) {
+									if (isLFValid) {
 										urf.convolute(LF, BTC);
 									}
-									if (scenario.printAdditionalInfo) {
+									if (scenario.printAdditionalInfo && isLFValid) {
 										for (int ii = 0; ii < NsimulationYears; ++ii)
 											btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
 										btc_file << std::endl;
 									}
 									//if (iw >= 7337 && iw < 7338)
 									//	printVector<double>(BTC, "BTC");
+
+                                    if (isLFValid) {
+                                        // Find the travel time in the unsaturated zone
+                                        int intTau = 0;
+                                        if (unsat_idx != -1) {
+                                            int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
+                                            double tau = unsat.getTravelTime(unsat_idx,lin_idx);
+                                            tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+                                            if (tau < 0)
+                                                tau = 0.0;
+                                            intTau = static_cast<int>(tau);
+                                            //std::cout << tau << std::endl;
+                                        }
+
+                                        if (intTau < NsimulationYears) {
+                                            int ibtc = 0;
+                                            for (int ii = intTau; ii < NsimulationYears; ++ii) {
+                                                //std::cout << ii << std::endl;
+                                                weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
+                                                ibtc++;
+                                            }
+                                        }
+                                        sumW += strmlnit->second.w;
+                                        nStreamlines++;
+                                    }
 								}
-								else if (strmlnit->second.type == URFTYPE::ADE){
-									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
+								else{// If the mean is very close to zero then the concentration will be zero
+								    // so the contribution if this streamline should be accounted
+								    // but we skip the loading building, the convolution and the unsat shift
+                                    sumW += strmlnit->second.w;
+                                    nStreamlines++;
+								}
+								//else if (strmlnit->second.type == URFTYPE::ADE){
+								//	URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
 							///		isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
-									urf.convolute(LF, BTC);
-								}
+								//	urf.convolute(LF, BTC);
+								//}
 
-								if (isNotZero) {
-									// Find the travel time in the unsaturated zone
-									int intTau = 0;
-									if (unsat_idx != -1) {
-										int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
-										double tau = unsat.getTravelTime(unsat_idx,lin_idx);
-										tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-										if (tau < 0)
-											tau = 0.0;
-										intTau = static_cast<int>(tau);
-										//std::cout << tau << std::endl;
-									}
 
-									if (intTau < NsimulationYears) {
-										int ibtc = 0;
-										for (int ii = intTau; ii < NsimulationYears; ++ii) {
-											//std::cout << ii << std::endl;
-											weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
-											ibtc++;
-										}
-									}
-								}
-								sumW += strmlnit->second.w;
-								nStreamlines++;
 							}
 							if (nStreamlines == 0) {
 								continue;
@@ -1500,7 +1504,7 @@ namespace mantisServer {
 								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
 								replymsg[id] += " ";
 							}
-							if (scenario.printAdditionalInfo) {
+							if (scenario.printAdditionalInfo && nStreamlines != 0) {
 								well_btc_file << wellit->first << " " << nStreamlines << " ";
 								for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
 									well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
@@ -1516,9 +1520,18 @@ namespace mantisServer {
 						}
 						cntBTC++;
 					}
+					else{
+                        nWellsWithoutStreamlines++;
+					    //std::cout << "Well " << wellid << " has no streamlines" << std::endl;
+					}
+				}
+				else{
+                    std::cout << "Well " << wellid << " was not found in the map" << std::endl;
 				}
 			}
 		}// loop through regions
+        std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
+        std::cout << " \tThread " << id << " found  " << nWellsWithoutStreamlines << " without streamlines" << std::endl;
 		replyLength[id] = cntBTC;
 
 		if (scenario.printAdditionalInfo) {

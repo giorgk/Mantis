@@ -84,7 +84,7 @@ namespace mantisServer{
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
          * For SWAT this must be 1
          */
-        void buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
+        bool buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
         LoadType getLtype() {
             return loadType;
         }
@@ -308,13 +308,17 @@ namespace mantisServer{
         */
     }
 
-    void NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
+    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
+        bool out = false;
         int startYear = 1945;
         int istartReduction = scenario.startReductionYear - startYear;
         int iendReduction = scenario.endReductionYear - startYear;
         int Nyears = endYear - startYear;
         double adoptionCoeff = 0;
         LF.resize(Nyears, 0.0);
+        if (mult < 0.00000000001)
+            return true;
+
         std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
         std::map<int, double>::iterator it;
         if (loadType == LoadType::SWAT) {
@@ -342,6 +346,7 @@ namespace mantisServer{
                     LF[i] = 0;
                 }
                 else{
+                    double NvalidCells = 0;
                     for (unsigned int j = 0; j < CVindex.size(); ++j){
                         int lus = 0;
                         int lue = 0;
@@ -365,6 +370,9 @@ namespace mantisServer{
                         }
                         double N1 = 0, N2 = 0, u = 0;
                         int nload_idx = Nidx[CVindex[j]];
+                        if (nload_idx < 0)
+                            continue;
+                        NvalidCells = NvalidCells + 1.0;
                         getNload(nload_idx, i + startYear, N1, N2, u);
                         double Nbase = N1* (1 - u) + N2* u;
                         if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
@@ -376,26 +384,45 @@ namespace mantisServer{
                             lf += Nbase * mult;
                         }
                     }
-                    if (CVindex.size() > 1)
-                        LF[i] = lf/static_cast<double>(CVindex.size());
-                    else
+
+                    if (NvalidCells == 0){
+                        out = false;
+                        return out;
+                    }
+                    else if (NvalidCells == 1){
                         LF[i] = lf;
+                    }
+                    else if (NvalidCells > 1){
+                        LF[i] = lf/NvalidCells;
+                    }
                 }
             }
             else if (loadType == LoadType::SWAT) {
                 double lf = 0;
+                double NvalidCells = 0;
                 for (unsigned int j = 0; j < CVindex.size(); ++j){
                     int nload_idx = Nidx[CVindex[j]];
+                    if (nload_idx < 0)
+                        continue;
+                    NvalidCells = NvalidCells + 1.0;
                     double Nbase = getNload(nload_idx, i + startYear);
                     double Nred = percReduction[i] * Nbase;
                     lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                 }
-                if (CVindex.size() > 1)
-                    LF[i] = lf/static_cast<double>(CVindex.size());
-                else
+
+                if (NvalidCells == 0){
+                    out = false;
+                    return out;
+                }
+                else if (NvalidCells == 1){
                     LF[i] = lf;
+                }
+                else if (NvalidCells > 1){
+                    LF[i] = lf/NvalidCells;
+                }
             }
         }
+        return true;
     }
 }
 

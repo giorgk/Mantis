@@ -142,8 +142,17 @@ For any other non valid option the Unsaturated travel is disabled
 6. _Subregions_: The C2Vsim subregions take their names by appending to the word `Subregion` the _IRGE_ field of the shapefile _C2Vsim_Subregions_3310_.
 
 * __Ncrops__ [integer, integer1 float1, integer2 float2,...,integerN floatN] The first integer is the number of crops to select for loading reduction. Then `Ncrops` pair of [int float] values which correspond to crop ids reduction percent. </br>
+`-9` is a special crop id, which means global crop reduction. For example, if the input line is
+```
+2 -9 0.5 303 0.8
+```
+then the loading for all crops, except the crop with id 303, will be multiplied by 0.5. The crop 303 will be multiplied by 0.8. 
+</br>
+The -9 crop id does not overide the crop reduction of the crop ids specified in the incoming message even if this is set at the end of the crop list. However if the same crop id is found twice then only the first occurance is considered.
+
+
 __VERY IMPORTANT NOTE:__ </br>
- >So far the percentage was interpreted as the amount of loading to keep. This was a bit confusing and could not address the option to increase the loading. So in the new version the percentage corresponds to reduction. If the loading of the base case is 30 mg/l and the reduction is 0.6, the final loading will be 30*0.6 e.g keep 40% of the base case.
+ >So far the percentage was interpreted as the amount of loading to keep. This was a bit confusing and could not address the option to increase the loading. So in the current version (>1.5) the percentage corresponds to reduction. If the loading of the base case is 30 mg/l and the reduction is 0.6, the final loading will be 30*0.6 e.g keep 40% of the base case.
 
  #### Codes for crops
  For the GNLM the list of crops is identical to the one used in the LanduseTable_2017_0515 file which can be found [here](https://github.com/thharter/GNLM/tree/master/Input_Data). The column DWR/CAMLCode is what the server expects to find.
@@ -152,7 +161,7 @@ __VERY IMPORTANT NOTE:__ </br>
 
  At some point the crops codes will be identical for all loading scenarios.
 
- * __PixelRadius__ [optional] This is an integer with default value equal to 0. Zero means that the loading function is taken directly from the pixel that intesects with the exit point of the streamline. Setting that to 1, the simulation will also use the average loading including the 8 surrounding pixels. Every increment of this value adds a layer of pixels. The simulation runc time increases exponentially with this number.     Each pixel is 0.25 ha. Setting this to 1 will use the loading from an area of 2.25 ha, while for 2 the contributing area becomes 6.25 ha 
+ * __PixelRadius__ [optional] This is an integer with default value equal to 0. Zero means that the loading function is taken directly from the pixel that intesects with the exit point of the streamline. Setting that to 1, the simulation will also use the average loading including the 8 surrounding pixels. Every increment of this value adds a layer of pixels. The simulation runtime increases exponentially with this number.     Each pixel is 0.25 ha. Setting this to 1 will use the loading from an area of 2.25 ha, while for 2 the contributing area becomes 6.25 ha 
 
 * __minRch__ [optional] The default value is 0.000027 which corresponds to 10 mm/year. </br>
 This has effect on GNLM loading only. During the conversion from kg/ha to mg/l if the recharge is less than this value the concentration is set to zero
@@ -173,17 +182,17 @@ This has effect on GNLM loading only. During the conversion from kg/ha to mg/l i
 #### Methods to narrow the simulation ranges
 The input message allows to narrow the simulation using any combination of the following methods:
 * __RadSelect__ After the keyword 3 floating numbers are expected </br>
-cx, cy, radius. The coordinates must be given in the 3310 coordinate system and the radius in m.
-The simulation will use only wells that are closer that radius from the center (cx, cy).
+`cx`, `cy`, `radius`. The coordinates must be given in the 3310 coordinate system and the radius in m.
+The simulation will use only wells that are closer than `radius` from the center (`cx`, `cy`).
 
 * __RectSelect__ After the keyword 4 floating numbers are expected. </br> 
-xmin, ymin, xmax, ymax. The simulation will include the wells that lei in the ractangle defined by the two points (xmin,ymin) and (xmax, ymax)
+`xmin`, `ymin`, `xmax`, `ymax`. The simulation will include the wells inside the rectangle defined by the two points (`xmin`,`ymin`) and (`xmax`, `ymax`)
 
 * __DepthRange__ After the keyword 2 floats are expected.</br>
-Dmin, Dmax. The simulation will include the wells that the depth is greater that Dmin and less that Dmax.
+`Dmin`, `Dmax`. The simulation will include the wells that the depth is greater that `Dmin` and less that `Dmax`.
 
 * __ScreenLenRange__ After the keyword 2 floats are expected.</br>
-SLmin, SLmax. The simulation will include the wells that their screen length is greater that SLmin and less that SLmax.
+`SLmin`, `SLmax`. The simulation will include the wells that their screen length is greater that `SLmin` and less that `SLmax`.
 
 
 
