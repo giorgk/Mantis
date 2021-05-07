@@ -331,11 +331,11 @@ namespace mantisServer{
             }
         }
 
-        for (int i = 0; i < Nyears; i++) {
+        for (int iyr = 0; iyr < Nyears; iyr++) {
             //std::cout << "i=" << i << " Y=" << i + startYear << std::endl;
-            if ((i >= istartReduction) && (i <= iendReduction))
-                adoptionCoeff = (static_cast<double>(i) - static_cast<double>(istartReduction)) / (static_cast<double>(iendReduction) - static_cast<double>(istartReduction));
-            else if (i > iendReduction)
+            if ((iyr >= istartReduction) && (iyr <= iendReduction))
+                adoptionCoeff = (static_cast<double>(iyr) - static_cast<double>(istartReduction)) / (static_cast<double>(iendReduction) - static_cast<double>(istartReduction));
+            else if (iyr > iendReduction)
                 adoptionCoeff = 1.0;
 
             //std::cout << "a=" << adoptionCoeff;
@@ -343,7 +343,7 @@ namespace mantisServer{
             if (loadType == LoadType::GNLM) {
                 double lf = 0;
                 if (CVindex.size() == 0){
-                    LF[i] = 0;
+                    LF[iyr] = 0;
                 }
                 else{
                     double NvalidCells = 0;
@@ -353,7 +353,7 @@ namespace mantisServer{
                         double prc = 0.0;
                         double rs = 1.0;
                         double re = 1.0;
-                        getLU(CVindex[j], i + startYear, lus, lue, prc);
+                        getLU(CVindex[j], iyr + startYear, lus, lue, prc);
                         if (adoptionCoeff > 0) {
                             rs = scenario.globalReduction;
                             it = scenario.LoadReductionMap.find(lus);
@@ -373,7 +373,7 @@ namespace mantisServer{
                         if (nload_idx < 0)
                             continue;
                         NvalidCells = NvalidCells + 1.0;
-                        getNload(nload_idx, i + startYear, N1, N2, u);
+                        getNload(nload_idx, iyr + startYear, N1, N2, u);
                         double Nbase = N1* (1 - u) + N2* u;
                         if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
                             double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
@@ -385,15 +385,15 @@ namespace mantisServer{
                         }
                     }
 
-                    if (NvalidCells == 0){
+                    if (NvalidCells < 0.00001){
                         out = false;
                         return out;
                     }
-                    else if (NvalidCells == 1){
-                        LF[i] = lf;
+                    else if (std::abs(NvalidCells - 1) < 0.000001){
+                        LF[iyr] = lf;
                     }
                     else if (NvalidCells > 1){
-                        LF[i] = lf/NvalidCells;
+                        LF[iyr] = lf/NvalidCells;
                     }
                 }
             }
@@ -405,20 +405,21 @@ namespace mantisServer{
                     if (nload_idx < 0)
                         continue;
                     NvalidCells = NvalidCells + 1.0;
-                    double Nbase = getNload(nload_idx, i + startYear);
-                    double Nred = percReduction[i] * Nbase;
+                    double Nbase = getNload(nload_idx, iyr + startYear);
+                    double Nred = percReduction[j] * Nbase;
                     lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                    std::cout << Nbase << ", " << Nred << std::endl;
                 }
 
-                if (NvalidCells == 0){
+                if (NvalidCells < 0.000001){
                     out = false;
                     return out;
                 }
-                else if (NvalidCells == 1){
-                    LF[i] = lf;
+                else if (std::abs(NvalidCells - 1) < 0.000001){
+                    LF[iyr] = lf;
                 }
                 else if (NvalidCells > 1){
-                    LF[i] = lf/NvalidCells;
+                    LF[iyr] = lf/NvalidCells;
                 }
             }
         }

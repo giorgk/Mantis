@@ -1436,7 +1436,8 @@ namespace mantisServer {
 								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
                                     bool isLFValid = false;
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
-									urf.print_urf(urf_file);
+									if (scenario.printAdditionalInfo)
+										urf.print_urf(urf_file);
 
                                     isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
 									if (scenario.printAdditionalInfo && isLFValid) {
