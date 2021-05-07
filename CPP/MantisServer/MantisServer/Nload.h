@@ -408,7 +408,7 @@ namespace mantisServer{
                     double Nbase = getNload(nload_idx, iyr + startYear);
                     double Nred = percReduction[j] * Nbase;
                     lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
-                    std::cout << Nbase << ", " << Nred << std::endl;
+                    //std::cout << Nbase << ", " << Nred << std::endl;
                 }
 
                 if (NvalidCells < 0.000001){
