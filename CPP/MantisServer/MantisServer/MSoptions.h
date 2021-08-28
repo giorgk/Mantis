@@ -77,6 +77,7 @@ namespace mantisServer {
 
 		std::string WELLfile;
 		std::string URFfile;
+		std::string RCHfile;
 
 		//int yearInterval;
 		//int startYear;
@@ -151,7 +152,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.6.10 |" << std::endl;
+			std::cout << "| Version : 1.7.01 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -164,14 +165,15 @@ namespace mantisServer {
             ("CV_Raster.Ncells", po::value<int>(), "Number of active pixels in background raster")
             ("CV_Raster.Nrows", po::value<int>(), "Number of rows of the background raster")
             ("CV_Raster.Ncols", po::value<int>(), "Number of columns of the background raster")
-            ("CV_Raster.Raster", "An hdf5 file with the raster indices that point to Nidx")
+            ("CV_Raster.Raster", "The file with the raster indices that point to Nidx")
 
             // Data
 			("Data.MAPS", "A List of the background maps with their subregions")
 			("Data.NO3", "A file with a list of files that contain the Nitrate loading base scenarios")
-            ("Data.UNSAT", "A file that containts the travel time for each LU pixel")
+            ("Data.UNSAT", "A file that contains the travel time for each LU pixel")
 			("Data.WELLS", "A list of files with the well info for each scenario")
 			("Data.URFS", "A list of files with the URF information")
+            ("Data.RCH", "A file that contains the recharge values for each LU pixel")
             ("Data.Path", "If this is not empty all data all data must be relative to DataPath.")
 
 			// ServerOptions
@@ -219,6 +221,7 @@ namespace mantisServer {
 			if (!get_option<std::string>("Data.UNSAT", vm_cfg, opt.UNSATfile)) return false;
 			if (!get_option<std::string>("Data.WELLS", vm_cfg, opt.WELLfile)) return false;
 			if (!get_option<std::string>("Data.URFS", vm_cfg, opt.URFfile)) return false;
+            if (!get_option<std::string>("Data.RCH", vm_cfg, opt.RCHfile)) return false;
 
             opt.mainPath = "";
 			if (vm_cfg.count("Data.Path")){

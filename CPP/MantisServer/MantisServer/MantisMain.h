@@ -434,7 +434,9 @@ namespace mantisServer {
 		double depth;
 		double screenLength;
 		double pumpingRate;
-		void setAdditionalData(double x, double y, double d, double s, double q);
+		double ratio;
+		double angle;
+		void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 	};
 
 	void wellClass::addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
@@ -442,12 +444,14 @@ namespace mantisServer {
 		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass( row_ind, col_ind, w, rch, type, riv, paramA, paramB, paramC, paramD)));
 	}
 
-	void wellClass::setAdditionalData(double x, double y, double d, double s, double q){
+	void wellClass::setAdditionalData(double x, double y, double d, double s, double q, double r, double a){
 	    xcoord = x;
 	    ycoord = y;
 	    depth = d;
 	    screenLength = s;
 	    pumpingRate = q;
+	    ratio = r;
+	    angle = a;
 	}
 
 
@@ -552,7 +556,10 @@ namespace mantisServer {
 		std::map<std::string, NLoad> NGWLoading;
 
 		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
-        UNSATdataClass unsat;
+        //UNSATdataClass unsat;
+        LinearData unsat;
+        LinearData rch;
+
 		//std::map<std::string, int > UNSATscenarios;
         //std::vector<std::vector<double>> UNSATData;
 		//! a list of background maps
@@ -639,6 +646,8 @@ namespace mantisServer {
 		bool readLU_NGW();
 
 		bool readUNSAT();
+
+		bool readRCH();
 
 		bool readCVraster();
 		
@@ -927,13 +936,20 @@ namespace mantisServer {
 	bool Mantis::readInputs() {
 
         bool tf = readCVraster();
+
+
         if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
 		tf = readBackgroundMaps();
 		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
 
         tf = readUNSAT();
-        if (!tf) { std::cout << "Error reading UNSAT" << std::endl; return false; }
+        if (!tf) { std::cout << "Error reading UNSAT data" << std::endl; return false; }
+
+        tf = readRCH();
+        std::cout << rch.getValue(0,0) << std::endl;
+        std::cout << rch.getValue(0,5231633) << std::endl;
+        if (!tf) { std::cout << "Error reading Recharge data" << std::endl; return false; }
 
         tf = readLU_NGW();
         if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
@@ -1005,7 +1021,7 @@ namespace mantisServer {
             std::istringstream inp(line.c_str());
 			inp >> Nwells;
 			inp >> setName;
-			double xw, yw, D, SL, Q;
+			double xw, yw, D, SL, Q, ratio, angle;
 			std::string regionCode;
 			for (int i = 0; i < Nwells; ++i) {
                 getline(Welldatafile, line);
@@ -1017,6 +1033,8 @@ namespace mantisServer {
 				inp1 >> D;
 				inp1 >> SL;
 				inp1 >> Q;
+				inp1 >> ratio;
+				inp1 >> angle;
 				for (unsigned int j = 0; j < backgroundMapNames.size(); ++j){
 				    inp1 >> regionCode;
                     mapIt = MAPList.find(backgroundMapNames[j]);
@@ -1040,14 +1058,10 @@ namespace mantisServer {
                     else{
                         std::cout << " Cannot find background map with name : " << backgroundMapNames[j] << std::endl;
                     }
-
-				    if (j == 0){
-
-				    }
 				}
 				//assign_point_in_sets(xw, yw, Eid, setName);
                 wellClass w;
-				w.setAdditionalData(xw, yw, D, SL, Q);
+				w.setAdditionalData(xw, yw, D, SL, Q, ratio, angle);
 				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, w));
 			}
 		}
@@ -1238,6 +1252,7 @@ namespace mantisServer {
 	bool Mantis::readUNSAT() {
         if (!options.bAbsolutePaths)
             options.UNSATfile = options.mainPath + options.UNSATfile;
+        unsat.setNoDataValue(0.0);
 	    return unsat.readData(options.UNSATfile, options.Npixels);
 	    /*
         auto start = std::chrono::high_resolution_clock::now();
@@ -1261,6 +1276,13 @@ namespace mantisServer {
         std::cout << "Read Unsaturated Scenarios in " << elapsed.count() << std::endl;
         return true;
         */
+	}
+
+	bool Mantis::readRCH() {
+        if (!options.bAbsolutePaths)
+            options.RCHfile = options.mainPath + options.RCHfile;
+        rch.setNoDataValue(0.0);
+        return rch.readData(options.RCHfile, options.Npixels);
 	}
 
 	bool Mantis::readLU_NGW() {
@@ -1461,7 +1483,7 @@ namespace mantisServer {
                                         int intTau = 0;
                                         if (unsat_idx != -1) {
                                             int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
-                                            double tau = unsat.getTravelTime(unsat_idx,lin_idx);
+                                            double tau = unsat.getValue(unsat_idx,lin_idx);
                                             tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
                                             if (tau < 0)
                                                 tau = 0.0;

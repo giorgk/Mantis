@@ -4,8 +4,27 @@
 #define MANTISSERVER_MSHELPER_H
 
 #include <fstream>
+#include <iostream>
+
+#if _USEHF > 0
+#include <highfive/H5DataSet.hpp>
+#include <highfive/H5DataSpace.hpp>
+#include <highfive/H5File.hpp>
+#endif
 
 namespace mantisServer {
+
+    std::string getExtension(std::string filename){
+        // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
+        // Solution 1.3: stepping away from the iterators
+        std::vector<std::string> tokens;
+        std::string token;
+        std::istringstream tokenStream(filename);
+        while (std::getline(tokenStream, token, '.')){
+            tokens.push_back(token);
+        }
+        return tokens.back();
+    }
 
     class numericRange{
     public:
@@ -198,12 +217,37 @@ namespace mantisServer {
         int Nrows;
         int Ncols;
         std::vector<std::vector<int>> raster;
+        bool bHFread;
     };
 
     bool CVrasterClass::readData(std::string filename, int Nr, int Nc, int Ncells) {
+
         auto start = std::chrono::high_resolution_clock::now();
         Nrows = Nr;
         Ncols = Nc;
+
+#if _USEHF>0
+            std::string ext = getExtension(filename);
+            if (ext.compare("h5") == 0){
+                const std::string NameSet("Raster");
+                HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+                HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
+                dataset.read(raster);
+                if (raster.size() != Ncols){
+                    std::cout << "The number of columns of the raster (" << raster.size() << ") is not equal to Ncols: " << Ncols << std::endl;
+                }
+                if (raster[0].size() != Nrows){
+                    std::cout << "The number of rows of the raster (" << raster[0].size() << ") is not equal to Nrows: " << Nrows << std::endl;
+                }
+                bHFread = true;
+                auto finish = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsed = finish - start;
+                std::cout << "Read CV raster in " << elapsed.count() << " sec" << std::endl;
+                return true;
+            }
+#endif
+
+        bHFread = false;
         std::ifstream ifile;
         raster.clear();
         raster.resize(Nrows,std::vector<int>(Ncols,-1));
@@ -232,15 +276,22 @@ namespace mantisServer {
 
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
-        std::cout << "Read CVraster in " << elapsed.count() << std::endl;
+        std::cout << "Read CV raster in " << elapsed.count() << " sec" << std::endl;
         return true;
     }
 
     int CVrasterClass::IJ(int row, int col) {
-        if (row >=0 && col >=0 && row < Nrows && col < Ncols)
-            return raster[row][col];
+
+        if (row >=0 && col >=0 && row < Nrows && col < Ncols) {
+            if (bHFread)
+                return raster[col][row];
+            else
+                return raster[row][col];
+        }
         else
             return -1;
+
+
     }
 
     void CVrasterClass::getSurroundingPixels(int row, int col, int Ndepth, std::vector<int> &lin_inds) {
@@ -264,41 +315,84 @@ namespace mantisServer {
         }
     }
 
-    class UNSATdataClass{
+    class LinearData{
     public:
-        UNSATdataClass(){}
-        bool readData(std::string filename, int Ncells);
+        LinearData(){}
+        bool readData(std::string filename, int Nr);
         int ScenarioIndex(std::string scenario);
-        double getTravelTime(int scenID, int lin_idx);
+        double getValue(int scenID, int lin_idx);
+        void setNoDataValue(double v);
     private:
-        std::map<std::string, int > UNSATscenarios;
-        std::vector<std::vector<double>> UNSATData;
+        std::map<std::string, int > ScenarioMap;
+        std::vector<std::vector<double>> Data;
+        int Nrows;
+        int Nscenarios;
+        double NoDataValue;
+        bool bDataValueSet = false;
+        bool bHFread;
     };
 
-    int UNSATdataClass::ScenarioIndex(std::string scenario) {
-        std::map<std::string, int >::iterator it = UNSATscenarios.find(scenario);
-        if (it == UNSATscenarios.end())
+    int LinearData::ScenarioIndex(std::string scenario) {
+        std::map<std::string, int >::iterator it = ScenarioMap.find(scenario);
+        if (it == ScenarioMap.end())
             return -1;
         else
-            return it ->second;
+            return it->second;
     }
 
-    double UNSATdataClass::getTravelTime(int scenID, int lin_idx) {
-        if (scenID >= 0 && scenID < UNSATData.size()){
-            if (lin_idx >= 0 && lin_idx < UNSATData[scenID].size()){
-                return UNSATData[scenID][lin_idx];
+    double LinearData::getValue(int scenID, int lin_idx) {
+        if (scenID >=0 && scenID < Nscenarios){
+            if (lin_idx >=0 && lin_idx < Nrows){
+                //if (bHFread)
+                //    return Data[lin_idx][scenID];
+                //else
+                return Data[scenID][lin_idx];
             }
-            else{
-                return 0.0;
+            else {
+                return NoDataValue;
             }
         }
         else{
-            return 0.0;
+            return  NoDataValue;
         }
     }
 
-    bool UNSATdataClass::readData(std::string filename, int Ncells) {
+    void LinearData::setNoDataValue(double v) {
+        NoDataValue = v;
+        bDataValueSet = true;
+    }
+
+    bool LinearData::readData(std::string filename, int Nr) {
+        if (!bDataValueSet){
+            std::cout << "You must set up a no-data value before reading the file" << filename << std::endl;
+            return false;
+        }
+        Nrows = Nr;
         auto start = std::chrono::high_resolution_clock::now();
+
+#if _USEHF>0
+        std::string ext = getExtension(filename);
+        if (ext.compare("h5") == 0){
+            const std::string NamesNameSet("Names");
+            const std::string DataNameSet("Data");
+            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+            HighFive::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
+
+            std::vector<std::string> names;
+            datasetNames.read(names);
+            datasetData.read(Data);
+            for (unsigned int i = 0; i < names.size(); ++i){
+                ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
+            }
+            Nscenarios = ScenarioMap.size();
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            std::cout << "Read Unsaturated Scenarios in " << elapsed.count() << std::endl;
+            bHFread = true;
+            return true;
+        }
+#endif
 
         std::ifstream ifile;
         ifile.open(filename);
@@ -309,40 +403,39 @@ namespace mantisServer {
         else{
             std::cout << "Reading " << filename << std::endl;
             std::string line;
-            int N;
             { //Get the number of Unsaturated scenarios
                 getline(ifile, line);
                 std::istringstream inp(line.c_str());
-                inp >> N;
-                UNSATData.clear();
-                UNSATData.resize(N, std::vector<double>(Ncells,0.0));
+                inp >> Nscenarios;
+                Data.clear();
+                Data.resize(Nscenarios, std::vector<double>(Nr,NoDataValue));
             }
             {// Get the scenario names
                 std::string name;
-                for (int i = 0; i < N; ++i){
+                for (int i = 0; i < Nscenarios; ++i){
                     getline(ifile, line);
                     std::istringstream inp(line.c_str());
                     inp >> name;
-                    UNSATscenarios.insert(std::pair<std::string, int>(name, i));
+                    ScenarioMap.insert(std::pair<std::string, int>(name, i));
                 }
             }
             {// Read the values
-                for (int i = 0; i < Ncells; ++i){
+                for (int i = 0; i < Nrows; ++i){
                     getline(ifile, line);
                     std::istringstream inp(line.c_str());
                     double v;
-                    for (int j = 0; j < N; ++j){
+                    for (int j = 0; j < Nscenarios; ++j){
                         inp >> v;
-                        UNSATData[j][i] = v;
+                        Data[j][i] = v;
                     }
                 }
             }
             ifile.close();
         }
-
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
-        std::cout << "Read Unsat data in " << elapsed.count() << std::endl;
+        std::cout << "Read " << filename << " data in " << elapsed.count() << " sec" << std::endl;
+        bHFread = false;
         return true;
     }
 }

@@ -4,6 +4,7 @@
 #include "pch.h"
 //#endif
 
+//#define _USEHF 1
 
 #include <iostream>
 
@@ -31,6 +32,13 @@ size_t read_complete(char * buff, const boost::system::error_code & err, size_t 
 
 int main(int argc, char *argv[])
 {
+    if (_USEHF>0){
+        std::cout << "USE HDF5" << std::endl;
+    }
+    else{
+        std::cout << "DONT USE HDF" << std::endl;
+     }
+
 	mantisServer::options msOptions;
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
 	if (!tf)
