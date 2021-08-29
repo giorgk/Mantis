@@ -315,6 +315,9 @@ namespace mantisServer {
 
 
 
+
+
+
 	/**
 	 * @brief Stores data for each streamline. 
 	 * 
@@ -334,7 +337,7 @@ namespace mantisServer {
 		\param paramC if the type is both this is mean, while A and B are length and velocity
 		\param paramD if the type is both this is standard deviation
 		*/
-		streamlineClass(int row_ind, int col_ind, double w_in, double rch_in, URFTYPE type_in, int Riv,
+		streamlineClass(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                   double paramA, double paramB, double paramC = 0, double paramD = 0);
 		
 		//! the row number of the pixel where this streamline starts from near the land surface.
@@ -359,22 +362,26 @@ namespace mantisServer {
 		double vel;
 
 		//! This is the groundwater recharge according to the flow model
-		double gwrch;
+		//double gwrch;
 
-		//! THis is true for the streamlines that start from rivers
+		//! This is true for the streamlines that start from rivers
 		bool inRiver;
 
 		//! The type of streamline
 		URFTYPE type;
 
+		int Npxl;
+
+		std::vector<cell> SourceArea;
+
 
 	};
-	streamlineClass::streamlineClass(int row_ind, int col_ind, double w_in, double rch_in, URFTYPE type_in, int Riv,
+	streamlineClass::streamlineClass(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                                   double paramA, double paramB, double paramC, double paramD) {
 		row = row_ind;
 		col = col_ind;
 		w = w_in;
-		gwrch = rch_in;
+		Npxl = npxl_in;
 		type = type_in;
 		inRiver = Riv == 1;
 		switch (type)
@@ -654,6 +661,7 @@ namespace mantisServer {
 		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
 
 		//void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
+		void CalculateSourceArea();
 
 	};
 
@@ -947,19 +955,20 @@ namespace mantisServer {
         if (!tf) { std::cout << "Error reading UNSAT data" << std::endl; return false; }
 
         tf = readRCH();
-        std::cout << rch.getValue(0,0) << std::endl;
-        std::cout << rch.getValue(0,5231633) << std::endl;
         if (!tf) { std::cout << "Error reading Recharge data" << std::endl; return false; }
-
-        tf = readLU_NGW();
-        if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
 
         tf = readMultipleSets(options.WELLfile, true);
         if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
 
-		tf = readMultipleSets(options.URFfile, false);
-		if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
-		return tf;
+        tf = readMultipleSets(options.URFfile, false);
+        if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
+
+        CalculateSourceArea();
+
+        tf = readLU_NGW();
+        if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+
+        return tf;
 	}
 
 	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
@@ -1129,8 +1138,8 @@ namespace mantisServer {
             }
             else{// Read the data
                 std::map<int, wellClass>::iterator wellmapit;
-                int eid, sid, r, c, riv;
-                double m, s, w, rch;
+                int eid, sid, r, c, riv, npxl;
+                double m, s, w;
                 for (int i = 0; i < Nurfs; ++i){
                     getline(ifile, line);
                     std::istringstream inp(line.c_str());
@@ -1142,10 +1151,10 @@ namespace mantisServer {
                     inp >> m;
                     inp >> s;
                     inp >> w;
-                    inp >> rch;
+                    inp >> npxl;
                     wellmapit = scenit->second.find(eid);
                     if (wellmapit != scenit->second.end()){
-                        wellmapit->second.addStreamline(sid,r,c,w,rch,urftype,riv,m,s);
+                        wellmapit->second.addStreamline(sid,r,c,w,npxl,urftype,riv,m,s);
                     }
                 }
             }
@@ -1282,7 +1291,11 @@ namespace mantisServer {
         if (!options.bAbsolutePaths)
             options.RCHfile = options.mainPath + options.RCHfile;
         rch.setNoDataValue(0.0);
-        return rch.readData(options.RCHfile, options.Npixels);
+        bool tf = rch.readData(options.RCHfile, options.Npixels);
+        if (tf){
+            rch.multiply(1.0/365000.0);
+        }
+        return tf;
 	}
 
 	bool Mantis::readLU_NGW() {
@@ -1461,7 +1474,7 @@ namespace mantisServer {
 									if (scenario.printAdditionalInfo)
 										urf.print_urf(urf_file);
 
-                                    isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
+                                    //isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
 									if (scenario.printAdditionalInfo && isLFValid) {
 										for (int ii = 0; ii < NsimulationYears; ++ii)
 											lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
@@ -1600,6 +1613,143 @@ namespace mantisServer {
 
 		//std::cout << outmsg << std::endl;
 		std::cout << nBTC << " BTCs will be sent" << std::endl;
+	}
+
+	void Mantis::CalculateSourceArea() {
+        auto start = std::chrono::high_resolution_clock::now();
+        std::cout << "Calculating source area ..." << std::endl;
+
+        std::map<std::string, std::map<int, wellClass> >::iterator it1;
+        std::map<int, wellClass>::iterator it2;
+        std::map<int, streamlineClass>::iterator it3;
+        std::map< int, cell>::iterator it4, it5;
+        int lin_ind;
+        double Qtmp, npxl, Qtarget;
+        double cosd, sind, radAngl, side1, side2;
+        double SAxmin, SAxmax, SAymin, SAymax;
+        double x1, x2, x3, x4, y1, y2, y3, y4;
+        double xtmp, ytmp;
+        double xs, ys; // x y streamline
+        double t1, t2, t3, det;
+        int rs, cs, rn, cn; // r c streamline r c next
+        int scenCnt = 0;
+        bool tf;
+        std::vector<cell> sp = SearchPattern();
+        for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
+            for (it2 = it1->second.begin(); it2 != it1->second.end(); ++it2){
+                std::cout << it2->first << std::endl;
+                radAngl = it2->second.angle * pi /180.0;
+                cosd = std::cos(radAngl);
+                sind = std::sin(radAngl);
+                for(it3 = it2->second.streamlines.begin(); it3 != it2->second.streamlines.end(); ++it3){
+                    if (it3->second.mu < 0.000001){
+                        continue;
+                    }
+                    std::cout << it3->first << " (" << it3->second.row << "," << it3->second.col << ") " << std::endl;
+                    rs = it3->second.row;
+                    cs = it3->second.col;
+                    xs = -223275.0 + 50.0*(cs);
+                    ys =  298525.0 - 50.0*(rs);
+                    npxl = static_cast<double>(it3->second.Npxl);
+                    side1 = 50.0 + 50.0 * npxl;
+                    side2 = std::max(25.0, side1/it2->second.ratio/2.0);
+                    SAxmin = -side2 - 25;
+                    SAxmax =  side2 + 25;
+                    SAymin = -side1/2 - 25;
+                    SAymax =  side1/2 + 25;
+
+                    x1 = (cosd * SAxmin + sind * SAymin) + xs;
+                    y1 = (-sind * SAxmin + cosd * SAymin) + ys;
+
+                    x2 = (cosd * SAxmin + sind * SAymax) + xs;
+                    y2 = (-sind * SAxmin + cosd * SAymax) + ys;
+
+                    x3 = (cosd * SAxmax + sind * SAymax) + xs;
+                    y3 = (-sind * SAxmax + cosd * SAymax) + ys;
+
+                    x4 = (cosd * SAxmax + sind * SAymin) + xs;
+                    y4 = (-sind * SAxmax + cosd * SAymin) + ys;
+                    std::cout << "[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; " << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
+
+                    std::map< int, cell> for_test;
+                    std::map< int, cell> tested;
+                    std::map< int, cell> next_round;
+                    lin_ind = options.Nrow * cs + rs;
+                    for_test.insert(std::pair<int, cell>(lin_ind, cell(rs,cs)));
+                    if (cvraster.IJ(rs,cs) == -1){
+                        // The first pixel is outside of the study area.
+                        // We will assume zero loading
+                        it3->second.mu = 0.0;
+                        it3->second.std = 0.0;
+                        continue;
+                    }
+
+                    Qtmp = 0.0;
+                    Qtarget = it2->second.pumpingRate * it3->second.w;
+                    bool sourceFound = false;
+                    std::cout << "Q target = " << Qtarget << std::endl;
+
+                    while (true){
+                        for (it4 = for_test.begin(); it4 != for_test.end(); ++it4){
+                            tested.insert(std::pair<int,cell>(it4->first, it4->second));
+                            xtmp = -223275.0 + 50.0*(it4->second.col);
+                            ytmp =  298525.0 - 50.0*(it4->second.row);
+                            // Check if the point is in the source area by testing the barycentric coordinates
+                            tf = isInTriangle(x1,y1,x2,y2,x3,y3,xtmp, ytmp);
+                            if (!tf){
+                                tf = isInTriangle(x1,y1,x3,y3,x4,y4,xtmp, ytmp);
+                            }
+                            if (!tf){
+                                continue;
+                            }
+
+                            lin_ind = cvraster.IJ(it4->second.row, it4->second.col);
+                            if (lin_ind != -1){
+                                Qtmp += rch.getValue(scenCnt,lin_ind)*2500;
+                                it3->second.SourceArea.push_back(it4->second);
+                                if (Qtmp >= Qtarget){
+                                    sourceFound = true;
+                                    std::cout << "Source Area pixels: " << it3->second.SourceArea.size() << std::endl;
+                                    break;
+                                }
+                                next_round.insert(std::pair<int,cell>(it4->first, it4->second));
+                            }
+                        }
+
+                        if (sourceFound){
+                            break;
+                        }
+                        else{
+                            if (next_round.empty()){
+                                std::cout << it3->second.SourceArea.size() << std::endl;
+                                break;
+                            }
+
+                            for_test.clear();
+                            for (it4 = next_round.begin(); it4 != next_round.end(); ++it4){
+                                for (unsigned int i = 0; i < sp.size(); ++i){
+                                    rn = it4->second.row - sp[i].row;
+                                    cn = it4->second.col - sp[i].col;
+                                    if (cvraster.IJ(rn, cn) == -1)
+                                        continue;
+
+                                    lin_ind = options.Nrow * cn + rn;
+                                    it5 = tested.find(lin_ind);
+                                    if (it5 == tested.end()){
+                                        for_test.insert(std::pair<int,cell>(lin_ind, cell(rn,cn)));
+                                    }
+                                }
+                            }
+                            next_round.clear();
+                        }
+                    }
+                }
+            }
+            scenCnt++;
+        }
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        std::cout << "Source area calculated in " << elapsed.count() << std::endl;
 	}
 }
 

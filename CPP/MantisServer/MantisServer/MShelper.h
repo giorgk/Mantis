@@ -14,6 +14,32 @@
 
 namespace mantisServer {
 
+    struct cell{
+        cell(){
+            row = -1;
+            col = -1;
+        }
+        cell(int r, int c){
+            row = r;
+            col = c;
+        }
+        int row;
+        int col;
+    };
+
+    std::vector<cell> SearchPattern(){
+        std::vector<cell> c;
+        c.push_back(cell(-1,-1));
+        c.push_back(cell(-1,0));
+        c.push_back(cell(-1,1));
+        c.push_back(cell(0,-1));
+        c.push_back(cell(0,1));
+        c.push_back(cell(1,-1));
+        c.push_back(cell(1,0));
+        c.push_back(cell(1,1));
+        return c;
+    }
+
     std::string getExtension(std::string filename){
         // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
         // Solution 1.3: stepping away from the iterators
@@ -24,6 +50,22 @@ namespace mantisServer {
             tokens.push_back(token);
         }
         return tokens.back();
+    }
+
+    bool isInTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double x, double y){
+        double det = (y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3);
+        if (std::abs(det) < 0.0000000001){
+            return false;
+        }
+        double bc1 = (y2 - y3)*(x - x3) + (x3 - x2)*(y - y3);
+        double bc2 = (y3 - y1)*(x - x3) + (x1 - x3)*(y - y3);
+        bc1 = bc1/det;
+        bc2 = bc2/det;
+        double bc3 = 1 - bc1 - bc2;
+        if (bc1 >= 0 && bc1 <= 1 && bc2 >= 0 && bc2 <= 1 && bc3 >= 0 && bc3 <= 1)
+            return true;
+        else
+            return false;
     }
 
     class numericRange{
@@ -322,6 +364,7 @@ namespace mantisServer {
         int ScenarioIndex(std::string scenario);
         double getValue(int scenID, int lin_idx);
         void setNoDataValue(double v);
+        void multiply(double mult);
     private:
         std::map<std::string, int > ScenarioMap;
         std::vector<std::vector<double>> Data;
@@ -338,6 +381,14 @@ namespace mantisServer {
             return -1;
         else
             return it->second;
+    }
+
+    void LinearData::multiply(double mult) {
+        for (unsigned int i = 0; i < Data.size(); ++i){
+            for (unsigned int j = 0; j < Data[i].size(); ++j){
+                Data[i][j] = Data[i][j]*mult;
+            }
+        }
     }
 
     double LinearData::getValue(int scenID, int lin_idx) {
@@ -388,7 +439,7 @@ namespace mantisServer {
             Nscenarios = ScenarioMap.size();
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
-            std::cout << "Read Unsaturated Scenarios in " << elapsed.count() << std::endl;
+            std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
             bHFread = true;
             return true;
         }

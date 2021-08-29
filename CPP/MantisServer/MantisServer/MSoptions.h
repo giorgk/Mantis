@@ -173,7 +173,7 @@ namespace mantisServer {
             ("Data.UNSAT", "A file that contains the travel time for each LU pixel")
 			("Data.WELLS", "A list of files with the well info for each scenario")
 			("Data.URFS", "A list of files with the URF information")
-            ("Data.RCH", "A file that contains the recharge values for each LU pixel")
+            ("Data.RCH", "A file that contains the recharge values in mm/year for each LU pixel")
             ("Data.Path", "If this is not empty all data all data must be relative to DataPath.")
 
 			// ServerOptions
