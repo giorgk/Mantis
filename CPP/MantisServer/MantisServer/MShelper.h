@@ -144,6 +144,51 @@ namespace mantisServer {
         r = 0.0;
     }
 
+    class sourceArea{
+    public:
+        sourceArea(){};
+        int getNpixels(int listSize);
+        void setParameters(int nPix, int minPix, int maxPix, double percPix);
+    private:
+        int nPixels;
+        int minPixels;
+        int maxPixels;
+        double percArea;
+    };
+
+    void sourceArea::setParameters(int nPix, int minPix, int maxPix, double percPix) {
+        nPixels = nPix;
+        minPixels = minPix;
+        if (minPixels <=0)
+            minPixels = 1;
+        maxPix = maxPixels;
+        percArea = percPix;
+    }
+
+    int sourceArea::getNpixels(int listSize) {
+        int out = listSize;
+        int tmp1 = -9;
+
+        if (percArea > 0){
+            out = std::ceil(static_cast<double>(listSize)*percArea);
+        }
+        if (nPixels > 0 && nPixels < out){
+            out = nPixels;
+        }
+        if (out < minPixels){
+            out = minPixels;
+        }
+        if (maxPixels < 0){
+            return out;
+        }
+
+        if (out > maxPixels){
+            out = maxPixels;
+        }
+        return out;
+    }
+
+
     /**
 	 * @brief Scenario is a struct variable that contains all the information needed for each simulation scenario.
 	 *
@@ -155,9 +200,11 @@ namespace mantisServer {
 
         //! flowScen is the code name of the selected flow scenario.
         std::string flowScen;
+        int flowRchID;
 
         //! The loading scenario
         std::string loadScen;
+        int loadScenID;
 
         //! regionIDs is a list of regions to compute the breakthrough curves
         std::vector<std::string> regionIDs;
@@ -179,8 +226,9 @@ namespace mantisServer {
         //! This is the number of years to simulate starting from 1945
         int endSimulationYear;
 
-        //! THis is the name of the unsaturated flow scenario
+        //! This is the name of the unsaturated flow scenario
         std::string unsatScenario;
+        int unsatScenarioID;
 
         //! This is the unsaturated zone mobile water content (m3/m3)
         //! Typical values are 0.05,0.1 ,0.15 and 0.20
@@ -220,6 +268,8 @@ namespace mantisServer {
         bool useDepthRange;
         bool useScreenLenghtRange;
         bool bNarrowSelection;
+
+        sourceArea SourceArea;
 
 
         /**

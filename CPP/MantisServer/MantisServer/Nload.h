@@ -84,7 +84,7 @@ namespace mantisServer{
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
          * For SWAT this must be 1
          */
-        bool buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, double mult);
+        bool buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, std::vector<double> rch);
         LoadType getLtype() {
             return loadType;
         }
@@ -110,7 +110,7 @@ namespace mantisServer{
 
     int NLoad::getLU(int index, int iyr) {
         if (iyr >=0 && iyr < static_cast<int>(LU[0].size()) && index >=0 && index < static_cast<int>(LU.size()))
-            return LU[index][iyr];
+            return LU[iyr][index];
         return 0;
     }
     void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
@@ -154,13 +154,13 @@ namespace mantisServer{
             {
                 //std::cout << " index=" << index << " iyr=" << iyr;
                 if (iyr < 1945) {
-                    N1 = Ndata[index][0];
-                    N2 = Ndata[index][0];
+                    N1 = Ndata[0][index];
+                    N2 = Ndata[0][index];
                     u = 1.0;
                 }
                 else if (iyr >= 2050) {
-                    N1 = Ndata[index][7];
-                    N2 = Ndata[index][7];
+                    N1 = Ndata[7][index];
+                    N2 = Ndata[7][index];
                     u = 0.0;
                 }
                 else {
@@ -169,8 +169,8 @@ namespace mantisServer{
                     int ieN = isN + 1; // index of starting year
                     //std::cout << " isN=" << isN << " ieN=" << ieN;
                     u = static_cast<double>((iyr - 1945) % 15) / 15.f;
-                    N1 = Ndata[index][isN];
-                    N2 = Ndata[index][ieN];
+                    N1 = Ndata[isN][index];
+                    N2 = Ndata[ieN][index];
                     //std::cout << " u=" << u;
                     //std::cout << " N1=" << N1 << " N2=" << N2;
                 }
@@ -198,7 +198,8 @@ namespace mantisServer{
             case mantisServer::LoadType::SWAT:
             {
                 int load_index = (iyr - 1940) % 25;
-                value = Ndata[index][load_index];
+                //value = Ndata[index][load_index];
+                value = Ndata[load_index][index];
                 break;
             }
             default:
@@ -328,7 +329,7 @@ namespace mantisServer{
         */
     }
 
-    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, double mult) {
+    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, std::vector<double> rch) {
         bool out = false;
         int startYear = 1945;
         int istartReduction = scenario.startReductionYear - startYear;
@@ -336,8 +337,6 @@ namespace mantisServer{
         int Nyears = endYear - startYear;
         double adoptionCoeff = 0;
         LF.resize(Nyears, 0.0);
-        if (mult < 0.00000000001)
-            return true;
 
         std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
         std::map<int, double>::iterator it;
@@ -398,10 +397,10 @@ namespace mantisServer{
                         if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
                             double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
                             //std::cout << " Nred=" << Nred;
-                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * mult;
+                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * rch[j];
                         }
                         else{
-                            lf += Nbase * mult;
+                            lf += Nbase * rch[j];
                         }
                     }
 

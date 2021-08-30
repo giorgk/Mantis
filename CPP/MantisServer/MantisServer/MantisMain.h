@@ -30,6 +30,7 @@ namespace mantisServer {
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
     const double pi = std::atan(1)*4;
+    const std::vector<double> dummyVector(1,0);
 
     /*!
      * num2Padstr converts an integer to string with padding zeros
@@ -658,7 +659,8 @@ namespace mantisServer {
 
 		bool readCVraster();
 		
-		bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
+		//bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
+        bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, std::vector<cell> cells);
 
 		//void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
 		void CalculateSourceArea();
@@ -723,11 +725,26 @@ namespace mantisServer {
 			return false;
 		}
 
+
 		if (unsat.ScenarioIndex(scenario.unsatScenario) == -1) {
 			outmsg += "0 ERROR: There is no unsaturated scenario with name: ";
 			outmsg += scenario.unsatScenario;
 			return false;
 		}
+        else{
+            scenario.unsatScenarioID = unsat.ScenarioIndex(scenario.unsatScenario);
+        }
+
+        int rchid = rch.ScenarioIndex(scenario.flowScen);
+        if (rchid != -1 ){
+            scenario.flowRchID = rchid;
+        }
+        else{
+            outmsg += "0 ERROR: There is no recharge map for flow scenario with name: ";
+            outmsg += scenario.flowScen;
+            return false;
+        }
+
 		if (scenario.unsatZoneMobileWaterContent <= 0) {
 			scenario.unsatZoneMobileWaterContent = 0.0;
 		}
@@ -850,6 +867,18 @@ namespace mantisServer {
 			    scenario.ScreenLengthRange.setData(slmin, slmax);
 			    continue;
 			}
+
+            if (test == "SourceArea"){
+                int nPix, minPix, maxPix;
+                double percPix;
+                ss >> nPix;
+                ss >> minPix;
+                ss >> maxPix;
+                ss >> percPix;
+                scenario.SourceArea.setParameters(nPix, minPix,maxPix, percPix);
+                continue;
+            }
+
 
 			// The incoming messages express the reduction in loading
 			// If the reduction is 0.2 then the Nloading 80% less compared to base case
@@ -1245,14 +1274,17 @@ namespace mantisServer {
 	    }
 	}
     */
-	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch) {
+	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, std::vector<cell> cells) {
 		bool out = false;
-		// If the central streamline starting cell is outside the study area return false
-		if (cvraster.IJ(row, col) < 0)
-		    return out;
-
+        int nCells = scenario.SourceArea.getNpixels(cells.size());
         std::vector<int> lin_idx_vec;
-        cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
+
+		// If the central streamline starting cell is outside the study area return false
+		//if (cvraster.IJ(row, col) < 0)
+		//    return out;
+
+        //
+        //cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
         if (lin_idx_vec.empty()){
             return out;
         }
@@ -1275,17 +1307,24 @@ namespace mantisServer {
 			// NO3 * 100 /  (RCH * 365000)
 			// NO3 * (RCH * 3650)
 			double mult;
-			if (rch < scenario.minRecharge)
-				mult = 0.0;
-			else
-                mult = 1 / (rch*3650);
+			//if (rch < scenario.minRecharge)
+			//	mult = 0.0;
+			//else
+            //    mult = 1 / (rch*3650);
+            //TODO THis is where the codes selects how large the source area is
+            std::vector<double> rch_val;
+            for (int i = 0; i < nCells; ++i){
+                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
+                rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+            }
 
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, mult);
+
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, rch_val);
 			break;
 		}
 		case LoadType::SWAT:
 		{
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, 1);
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, dummyVector);
 			break;
 		}
 		default:
@@ -1455,8 +1494,8 @@ namespace mantisServer {
 		std::map<int, wellClass>::iterator wellit;
 		int cntBTC = 0;
         int nWellsWithoutStreamlines = 0;
-		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) {
-			regit = mapit->second.find(scenario.regionIDs[irg]);
+		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) { //---------LOOP THROUGH the regions ---------
+            regit = mapit->second.find(scenario.regionIDs[irg]);
 			wellscenit = regit->second.wellids.find(scenario.flowScen);
 			if (wellscenit == regit->second.wellids.end()) {
 				continue;
@@ -1491,7 +1530,7 @@ namespace mantisServer {
 			std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
 			int wellid;
 			
-			for (int iw = startWell; iw < endWell; ++iw) {
+			for (int iw = startWell; iw < endWell; ++iw) { //---------LOOP THROUGH the wells of the region------
 				wellid = wellscenit->second[iw];
 				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.find(wellid);
@@ -1521,7 +1560,7 @@ namespace mantisServer {
 					double sumW = 0;
 					int nStreamlines = 0;
 
-					if (wellit->second.streamlines.size() > 0) {
+					if (wellit->second.streamlines.size() > 0) { //---------LOOP THROUGH the streamlines of the well
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
@@ -1537,7 +1576,7 @@ namespace mantisServer {
 									if (scenario.printAdditionalInfo)
 										urf.print_urf(urf_file);
 
-                                    //isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.row, strmlnit->second.col, strmlnit->second.gwrch);
+                                    isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.SourceArea);
 									if (scenario.printAdditionalInfo && isLFValid) {
 										for (int ii = 0; ii < NsimulationYears; ++ii)
 											lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
