@@ -210,6 +210,25 @@ namespace mantisServer{
     bool NLoad::readData(std::string filename, LoadType ltype) {
         loadType = ltype;
         auto start = std::chrono::high_resolution_clock::now();
+#if _USEHF>0
+        std::string ext = getExtension(filename);
+        if (ext.compare("h5") == 0){
+            const std::string LUNameSet("LU");
+            const std::string NidxNameSet("Nidx");
+            const std::string NloadNameSet("NLoad");
+            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);
+            HighFive::DataSet datasetNidx = HDFNfile.getDataSet(NidxNameSet);
+            HighFive::DataSet datasetNLoad = HDFNfile.getDataSet(NloadNameSet);
+            datasetLU.read(LU);
+            datasetNidx.read(Nidx);
+            datasetNLoad.read(Ndata);
+            loadType = ltype;
+            return true;
+        }
+#endif
+
+
         {// First read the indices
             std::string idxlufile = filename + ".idxlu";
             std::ifstream ifile;
@@ -230,7 +249,10 @@ namespace mantisServer{
                     Nidx.clear();
                     Nidx.resize(Nr,0);
                     LU.clear();
-                    LU.resize(Nr, std::vector<int>(Nc-1,0));
+                    std::vector<int> tmp(Nr,0);
+                    for (int i = 0; i < Nc-1; ++i){
+                        LU.push_back(tmp);
+                    }
                 }
                 {// Read the data
                     for (int i = 0; i < Nr; ++i){
@@ -291,9 +313,7 @@ namespace mantisServer{
         std::cout << "Read Nload from " << filename << " in " << elapsed.count() << std::endl;
         return true;
         /*
-        const std::string LUNameSet("LU");
-        const std::string NidxNameSet("Nidx");
-        const std::string NloadNameSet("NLoad");
+
 
         hf::File HDFNfile(filename, hf::File::ReadOnly);
         hf::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);

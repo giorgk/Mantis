@@ -423,7 +423,7 @@ namespace mantisServer {
 		 * @param gnlm_ind see streamlineClass::streamlineClass for the rest of the parameters
 		 * @param swat_ind 
 		 * @param w 
-		 * @param rch
+		 * @param npxl
 		 * @param type
 		 * @param riv
 		 * @param paramA 
@@ -431,7 +431,7 @@ namespace mantisServer {
 		 * @param paramC 
 		 * @param paramD 
 		 */
-		void addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
+		void addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
 			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
 		//! streamlines is a map where the key is the streamline id and the value is an object of type streamlineClass::streamlineClass.
@@ -446,9 +446,9 @@ namespace mantisServer {
 		void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 	};
 
-	void wellClass::addStreamline(int Sid, int row_ind, int col_ind, double w, double rch, URFTYPE type, int riv,
+	void wellClass::addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
 		double paramA, double paramB, double paramC, double paramD) {
-		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass( row_ind, col_ind, w, rch, type, riv, paramA, paramB, paramC, paramD)));
+		streamlines.insert(std::pair<int, streamlineClass>(Sid, streamlineClass( row_ind, col_ind, w, npxl, type, riv, paramA, paramB, paramC, paramD)));
 	}
 
 	void wellClass::setAdditionalData(double x, double y, double d, double s, double q, double r, double a){
@@ -944,8 +944,6 @@ namespace mantisServer {
 	bool Mantis::readInputs() {
 
         bool tf = readCVraster();
-
-
         if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
 		tf = readBackgroundMaps();
@@ -963,10 +961,10 @@ namespace mantisServer {
         tf = readMultipleSets(options.URFfile, false);
         if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
 
-        CalculateSourceArea();
-
         tf = readLU_NGW();
         if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+
+        CalculateSourceArea();
 
         return tf;
 	}
@@ -1084,21 +1082,80 @@ namespace mantisServer {
 	bool Mantis::readURFs(std::string filename) {
         auto start = std::chrono::high_resolution_clock::now();
 
-        //const std::string NamesNameSet("Names");
-        //const std::string IntsNameSet("ESIJRiv");
-        //const std::string FloatNameSet("MSWR");
+#if _USEHF>0
+        std::string ext = getExtension(filename);
+        if (ext.compare("h5") == 0){
+            const std::string NamesNameSet("Names");
+            const std::string IntsNameSet("ESIJRN");
+            const std::string FloatNameSet("MSW");
+            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+            HighFive::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
+            HighFive::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
+            std::vector<std::string> names;
+            std::vector<std::vector<int>> IDS;
+            std::vector<std::vector<double>> DATA;
+            datasetNames.read(names);
+            datasetInts.read(IDS);
+            datasetFloat.read(DATA);
+            if (names.size() != 2){
+                std::cout << "2 names are needed for the URFset. " << names.size() << " provided" << std::endl;
+                return false;
+            }
+            if (IDS[0].size() != DATA[0].size()){
+                std::cout << "The rows of integer and float data do not match" << std::endl;
+                return false;
+            }
+            if (IDS.size() != 6 || DATA.size() != 3){
+                std::cout << "Incorrect number of columns" << std::endl;
+                std::cout << "The size of integers must be 6 and for the floats 3" << std::endl;
+            }
 
-        //hf::File HDFfile(filename, hf::File::ReadOnly);
+            URFTYPE urftype;
+            if (names[1].compare("LGNRM") == 0)
+                urftype = URFTYPE::LGNRM;
+            else if (names[1].compare("ADE") == 0)
+                urftype = URFTYPE::ADE;
+            else if (names[1].compare("BOTH") == 0)
+                urftype = URFTYPE::BOTH;
+            else{
+                std::cout << "The URF type " << names[1] << " is not valid" << std::endl;
+                return false;
+            }
 
-        //hf::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
-        //hf::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
-        //hf::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
-        //std::vector<std::string> names;
-        //std::vector<std::vector<int>> IDS;
-        //std::vector<std::vector<double>> DATA;
-        //datasetNames.read(names);
-        //datasetInts.read(IDS);
-        //datasetFloat.read(DATA);
+            std::map<std::string, std::map<int, wellClass> >::iterator scenit;
+            scenit = Wellmap.find(names[0]);
+            if (scenit == Wellmap.end()) {
+                std::cout << "The URF Scenario " << names[0] << " is not defined for the wells" << std::endl;
+                return false;
+            }
+            else{
+                std::map<int, wellClass>::iterator wellmapit;
+                int eid, sid, r, c, riv, npxl;
+                double m, s, w;
+                for (unsigned int i = 0; i < IDS[0].size(); ++i){
+                    wellmapit = scenit->second.find(IDS[0][i]);
+                    if (wellmapit != scenit->second.end()){
+                        wellmapit->second.addStreamline(IDS[1][i],
+                                                        IDS[2][i],
+                                                        IDS[3][i],
+                                                        DATA[2][i],
+                                                        IDS[5][i],
+                                                        urftype,
+                                                        IDS[4][i],
+                                                        DATA[0][i],
+                                                        DATA[1][i]);
+                    }
+                }
+
+            }
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            std::cout << "Read URFS in " << elapsed.count() << std::endl;
+            return true;
+        }
+
+#endif
 
         std::ifstream ifile;
         ifile.open(filename);
@@ -1333,13 +1390,19 @@ namespace mantisServer {
 				if (Ltype.compare("GNLM") == 0) {
 					NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
-                    NGWLoading[Lname].readData(Lfile, LoadType::GNLM);
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::GNLM);
+                    if (!tf){
+                        return false;
+                    }
 
 				}
 				else if (Ltype.compare("SWAT") == 0) {
 					NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
-                    NGWLoading[Lname].readData(Lfile, LoadType::SWAT);
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::SWAT);
+                    if (!tf){
+                        return false;
+                    }
 				}
 				else {
 					std::cout << "Unknown loading type " << Ltype << std::endl;
@@ -1630,27 +1693,36 @@ namespace mantisServer {
         double x1, x2, x3, x4, y1, y2, y3, y4;
         double xtmp, ytmp;
         double xs, ys; // x y streamline
-        double t1, t2, t3, det;
+        double rch_v;
         int rs, cs, rn, cn; // r c streamline r c next
         int scenCnt = 0;
         bool tf;
+        bool debug_this = false;
+        int tmpNpxl = 0;
         std::vector<cell> sp = SearchPattern();
         for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
             for (it2 = it1->second.begin(); it2 != it1->second.end(); ++it2){
-                std::cout << it2->first << std::endl;
+                if ((it2->first % 1000) == 0)
+                    std::cout << "----" << it2->first << "----" << std::endl;
+                //std::cout << it2->first << std::endl;
                 radAngl = it2->second.angle * pi /180.0;
                 cosd = std::cos(radAngl);
                 sind = std::sin(radAngl);
                 for(it3 = it2->second.streamlines.begin(); it3 != it2->second.streamlines.end(); ++it3){
+                    //if (it2->first == 157 && it3->first == 66){
+                    //    debug_this = true;
+                    //}
+                    if (it3->second.inRiver)
+                        continue;
                     if (it3->second.mu < 0.000001){
                         continue;
                     }
-                    std::cout << it3->first << " (" << it3->second.row << "," << it3->second.col << ") " << std::endl;
+                    //std::cout << it3->first << " (" << it3->second.row << "," << it3->second.col << ") " << std::endl;
                     rs = it3->second.row;
                     cs = it3->second.col;
                     xs = -223275.0 + 50.0*(cs);
                     ys =  298525.0 - 50.0*(rs);
-                    npxl = static_cast<double>(it3->second.Npxl);
+                    npxl = static_cast<double>(it3->second.Npxl)+2;
                     side1 = 50.0 + 50.0 * npxl;
                     side2 = std::max(25.0, side1/it2->second.ratio/2.0);
                     SAxmin = -side2 - 25;
@@ -1669,7 +1741,8 @@ namespace mantisServer {
 
                     x4 = (cosd * SAxmax + sind * SAymin) + xs;
                     y4 = (-sind * SAxmax + cosd * SAymin) + ys;
-                    std::cout << "[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; " << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
+                    if (debug_this)
+                        std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; " << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
 
                     std::map< int, cell> for_test;
                     std::map< int, cell> tested;
@@ -1679,6 +1752,8 @@ namespace mantisServer {
                     if (cvraster.IJ(rs,cs) == -1){
                         // The first pixel is outside of the study area.
                         // We will assume zero loading
+                        //std::cout << it2->first << std::endl;
+                        //std::cout << it3->first << " (" << it3->second.row << "," << it3->second.col << ") " << std::endl;
                         it3->second.mu = 0.0;
                         it3->second.std = 0.0;
                         continue;
@@ -1687,10 +1762,12 @@ namespace mantisServer {
                     Qtmp = 0.0;
                     Qtarget = it2->second.pumpingRate * it3->second.w;
                     bool sourceFound = false;
-                    std::cout << "Q target = " << Qtarget << std::endl;
+                    if (debug_this)
+                        std::cout << "Q target = " << Qtarget << std::endl;
 
                     while (true){
                         for (it4 = for_test.begin(); it4 != for_test.end(); ++it4){
+                            //std::cout << it4->second.row << "," << it4->second.col << std::endl;
                             tested.insert(std::pair<int,cell>(it4->first, it4->second));
                             xtmp = -223275.0 + 50.0*(it4->second.col);
                             ytmp =  298525.0 - 50.0*(it4->second.row);
@@ -1700,16 +1777,29 @@ namespace mantisServer {
                                 tf = isInTriangle(x1,y1,x3,y3,x4,y4,xtmp, ytmp);
                             }
                             if (!tf){
+                                if (debug_this)
+                                    std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
                                 continue;
                             }
 
                             lin_ind = cvraster.IJ(it4->second.row, it4->second.col);
                             if (lin_ind != -1){
-                                Qtmp += rch.getValue(scenCnt,lin_ind)*2500;
-                                it3->second.SourceArea.push_back(it4->second);
+                                if (debug_this)
+                                    std::cout << "plot(" << xtmp << "," << ytmp << ",'xr');" << std::endl;
+                                rch_v = rch.getValue(scenCnt,lin_ind);
+                                if (rch_v > 0.00000001){
+                                    it3->second.SourceArea.push_back(it4->second);
+                                }
+                                Qtmp += rch_v*2500;
+
                                 if (Qtmp >= Qtarget){
                                     sourceFound = true;
-                                    std::cout << "Source Area pixels: " << it3->second.SourceArea.size() << std::endl;
+                                    if (tmpNpxl < it3->second.SourceArea.size()){
+                                        tmpNpxl = it3->second.SourceArea.size();
+                                        std::cout << it2->first << "," << it3->first << std::endl;
+                                        std::cout << tmpNpxl << std::endl;
+                                    }
+                                    //std::cout << "Source Area pixels: " << it3->second.SourceArea.size() << std::endl;
                                     break;
                                 }
                                 next_round.insert(std::pair<int,cell>(it4->first, it4->second));
@@ -1721,17 +1811,29 @@ namespace mantisServer {
                         }
                         else{
                             if (next_round.empty()){
-                                std::cout << it3->second.SourceArea.size() << std::endl;
+                                //std::cout << it2->first << std::endl;
+                                //std::cout << it3->first << " (" << it3->second.row << "," << it3->second.col << ") " << std::endl;
+                                //std::cout << Qtmp << " - " << Qtarget << std::endl;
+                                //std::cout << it3->second.SourceArea.size() << std::endl;
+                                //debug_this = false;
+                                if (tmpNpxl < it3->second.SourceArea.size()){
+                                    tmpNpxl = it3->second.SourceArea.size();
+                                    std::cout << it2->first << "," << it3->first << std::endl;
+                                    std::cout << tmpNpxl << std::endl;
+                                }
                                 break;
                             }
-
+                            //std::cout << Qtmp << " - " << Qtarget << std::endl;
                             for_test.clear();
                             for (it4 = next_round.begin(); it4 != next_round.end(); ++it4){
+                                //std::cout << it4->second.row << "," << it4->second.col << std::endl;
                                 for (unsigned int i = 0; i < sp.size(); ++i){
-                                    rn = it4->second.row - sp[i].row;
-                                    cn = it4->second.col - sp[i].col;
+                                    rn = it4->second.row + sp[i].row;
+                                    cn = it4->second.col + sp[i].col;
                                     if (cvraster.IJ(rn, cn) == -1)
                                         continue;
+
+                                    //std::cout << "\t" << rn << "," << cn << std::endl;
 
                                     lin_ind = options.Nrow * cn + rn;
                                     it5 = tested.find(lin_ind);
@@ -1740,6 +1842,7 @@ namespace mantisServer {
                                     }
                                 }
                             }
+                            //std::cout << for_test.size() << std::endl;
                             next_round.clear();
                         }
                     }
