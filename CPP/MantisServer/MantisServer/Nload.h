@@ -402,10 +402,10 @@ namespace mantisServer{
                         if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
                             double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
                             //std::cout << " Nred=" << Nred;
-                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) * rch[j];
+                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) / (rch[j]*3650);
                         }
                         else{
-                            lf += Nbase * rch[j];
+                            lf += Nbase / (rch[j]*3650);
                         }
                     }
 

@@ -99,9 +99,9 @@ int main(int argc, char* argv[])
 			// Default message
 			msg = "endSimYear 2100";
             msg += " startRed 2020";
-            msg += " endRed 2025";
+            msg += " endRed 2030";
             msg += " flowScen C2VsimRun01Ref6";
-            msg += " loadScen SWAT1";
+            msg += " loadScen GNLM";
             msg += " unsatScen C2VSIM_SPRING_2000";
             msg += " unsatWC 0.0";
             msg += " bMap Subregions";
@@ -125,7 +125,7 @@ int main(int argc, char* argv[])
 			//msg += " 1460 0.5501";
 			//msg += " 212910 0.102";
 			//msg += " 10003 0.458";
-            msg += " -9 1";
+            msg += " -9 0.7";
             //msg += " PixelRadius 0";
 			//msg += " DebugID test21";
 			msg += " ENDofMSG\n";
