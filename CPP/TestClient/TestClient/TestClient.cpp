@@ -31,7 +31,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "Running version 1.6.10" << std::endl;
+	std::cout << "Running version 1.7.01" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
@@ -98,14 +98,19 @@ int main(int argc, char* argv[])
 		else {
 			// Default message
 			msg = "endSimYear 2100";
-            msg += " loadScen GNLM";
-			msg += " startRed 2020";
+            msg += " startRed 2020";
+            msg += " endRed 2025";
+            msg += " flowScen C2VsimRun01Ref6";
+            msg += " loadScen SWAT1";
             msg += " unsatScen C2VSIM_SPRING_2000";
-			msg += " endRed 2025"; 
-			msg += " flowScen C2VsimRun01Ref6";
-			msg += " unsatWC 0.0";
-			msg += " bMap CentralValley";
-			msg += " Nregions 1 CentralValley";
+            msg += " unsatWC 0.0";
+            msg += " bMap Subregions";
+            msg += " Nregions 1 Subregion11";
+            msg += " RadSelect -91791 -33506 10000"; // X Y radius
+            //msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0"; // Xmin Ymin Xmax Ymax
+            //msg += " DepthRange 0 100"; // min max
+            //msg += " ScreenLenRange 10 70"; // min max
+            //msg += " SourceArea 1 -9 -9 -9 "; Npixels minPixels maxPixels percPixels
 			msg += " Ncrops 1";
 			//msg += " Ncrops 13";
 			//msg += " 301 0.5";
@@ -121,9 +126,7 @@ int main(int argc, char* argv[])
 			//msg += " 212910 0.102";
 			//msg += " 10003 0.458";
             msg += " -9 1";
-            msg += " PixelRadius 0";
-            //msg += " RadSelect -67151.0 -58185.0 15000 ";
-            msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0 ";
+            //msg += " PixelRadius 0";
 			//msg += " DebugID test21";
 			msg += " ENDofMSG\n";
 		}

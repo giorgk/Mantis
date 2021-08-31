@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
 	mantisServer::options msOptions;
 	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
 	if (!tf)
-		return 0;
+        return 0;
 
 	
 	static mantisServer::Mantis M(msOptions);

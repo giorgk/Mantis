@@ -745,6 +745,13 @@ namespace mantisServer {
             return false;
         }
 
+        std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
+        if (loadit == NGWLoading.end()) {
+            outmsg += "0 ERROR: There is no loading scenario with name: ";
+            outmsg += scenario.loadScen;
+            return false;
+        }
+
 		if (scenario.unsatZoneMobileWaterContent <= 0) {
 			scenario.unsatZoneMobileWaterContent = 0.0;
 		}
@@ -764,69 +771,59 @@ namespace mantisServer {
 			std::string test;
 			counter++;
 			ss >> test;
+
 			if (test == "endSimYear") {
 				ss >> scenario.endSimulationYear;
 				continue;
 			}
+
 			if (test == "startRed" ) {
 				ss >> scenario.startReductionYear;
 				continue;
 			}
+
 			if (test == "endRed") {
 				ss >> scenario.endReductionYear;
 				continue;
 			}
+
 			if (test == "flowScen") {
 				ss >> scenario.flowScen;
 				continue;
 			}
+
 			if (test == "loadScen") {
 				ss >> scenario.loadScen;
 				continue;
 			}
+
 			if (test == "unsatScen") {
 				ss >> scenario.unsatScenario;
 				continue;
 			}
+
 			if (test == "unsatWC") {
 				ss >> scenario.unsatZoneMobileWaterContent;
 				continue;
 			}
+
 			if (test == "bMap") {
 				ss >> scenario.mapID;
 				continue;
 			}
 
-			if (test == "minRch") {
-				ss >> scenario.minRecharge;
-				continue;
-			}
-
 			if (test == "Nregions") {
-				int Nregions;
-				ss >> Nregions;
-				for (int i = 0; i < Nregions; i++) {
-					ss >> test;
-					scenario.regionIDs.push_back(test);
-				}
-				continue;
-			}
-
-			//PixelRadius
-            if (test ==  "PixelRadius") {
-                ss >> scenario.PixelRadius;
+                int Nregions;
+                ss >> Nregions;
+                for (int i = 0; i < Nregions; i++) {
+                    ss >> test;
+                    scenario.regionIDs.push_back(test);
+                }
                 continue;
             }
 
-			if (test ==  "DebugID") {
-				ss >> scenario.debugID;
-				if (!scenario.debugID.empty())
-					scenario.printAdditionalInfo = true;
-				continue;
-			}
-
 			if (test == "RadSelect"){
-			    scenario.bNarrowSelection = true;
+                scenario.bNarrowSelection = true;
                 scenario.useRadSelect = true;
                 double cx, cy, r;
                 ss >> cx;
@@ -834,39 +831,39 @@ namespace mantisServer {
                 ss >> r;
                 scenario.RadSelect.setData(cx,cy,r);
                 continue;
-			}
+            }
 
-			if (test == "RectSelect"){
+            if (test == "RectSelect"){
                 scenario.bNarrowSelection = true;
-			    scenario.useRectSelect = true;
-			    double xmin, ymin, xmax, ymax;
-			    ss >> xmin;
-			    ss >> ymin;
-			    ss >> xmax;
-			    ss >> ymax;
-			    scenario.RectSelect.setData(xmin, ymin, xmax, ymax);
-			    continue;
-			}
+                scenario.useRectSelect = true;
+                double xmin, ymin, xmax, ymax;
+                ss >> xmin;
+                ss >> ymin;
+                ss >> xmax;
+                ss >> ymax;
+                scenario.RectSelect.setData(xmin, ymin, xmax, ymax);
+                continue;
+            }
 
-			if (test == "DepthRange"){
+            if (test == "DepthRange"){
                 scenario.bNarrowSelection = true;
-			    scenario.useDepthRange = true;
-			    double dmin, dmax;
-			    ss >> dmin;
-			    ss >> dmax;
-			    scenario.DepthRange.setData(dmin, dmax);
-			    continue;
-			}
+                scenario.useDepthRange = true;
+                double dmin, dmax;
+                ss >> dmin;
+                ss >> dmax;
+                scenario.DepthRange.setData(dmin, dmax);
+                continue;
+            }
 
-			if (test == "ScreenLenRange"){
+            if (test == "ScreenLenRange"){
                 scenario.bNarrowSelection = true;
-			    scenario.useScreenLenghtRange = true;
-			    double slmin, slmax;
-			    ss >> slmin;
-			    ss >> slmax;
-			    scenario.ScreenLengthRange.setData(slmin, slmax);
-			    continue;
-			}
+                scenario.useScreenLenghtRange = true;
+                double slmin, slmax;
+                ss >> slmin;
+                ss >> slmax;
+                scenario.ScreenLengthRange.setData(slmin, slmax);
+                continue;
+            }
 
             if (test == "SourceArea"){
                 int nPix, minPix, maxPix;
@@ -879,9 +876,6 @@ namespace mantisServer {
                 continue;
             }
 
-
-			// The incoming messages express the reduction in loading
-			// If the reduction is 0.2 then the Nloading 80% less compared to base case
 			if (test == "Ncrops") {
 				int Ncrops, cropid;
 				double perc;
@@ -898,6 +892,24 @@ namespace mantisServer {
 				}
 				continue;
 			}
+
+            if (test ==  "DebugID") {
+                ss >> scenario.debugID;
+                if (!scenario.debugID.empty())
+                    scenario.printAdditionalInfo = true;
+                continue;
+            }
+
+            if (test == "minRch") {
+                ss >> scenario.minRecharge;
+                continue;
+            }
+
+            if (test ==  "PixelRadius") {
+                ss >> scenario.PixelRadius;
+                continue;
+            }
+
 			if (test == "ENDofMSG") {
 				out = true;
 				break;
@@ -1285,9 +1297,7 @@ namespace mantisServer {
 
         //
         //cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
-        if (lin_idx_vec.empty()){
-            return out;
-        }
+
 
 		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
 		switch (loadit->second.getLtype())
@@ -1317,6 +1327,9 @@ namespace mantisServer {
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
                 rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
             }
+            if (lin_idx_vec.empty()){
+                return out;
+            }
 
 
 			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, rch_val);
@@ -1324,6 +1337,12 @@ namespace mantisServer {
 		}
 		case LoadType::SWAT:
 		{
+            for (int i = 0; i < nCells; ++i){
+                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
+            }
+            if (lin_idx_vec.empty()){
+                return out;
+            }
 			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, dummyVector);
 			break;
 		}
@@ -1561,16 +1580,43 @@ namespace mantisServer {
 					int nStreamlines = 0;
 
 					if (wellit->second.streamlines.size() > 0) { //---------LOOP THROUGH the streamlines of the well
+					    std::cout << wellit->first << std::endl;
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-								if ( cvraster.IJ(strmlnit->second.row, strmlnit->second.col) == -1)
-									continue; // If the source area is outside the domain skip it
+							    if (wellit->first == 9858){
+                                    std::cout << strmlnit->first << " : " << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
+							    }
+							    //std::cout << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
+								//if ( cvraster.IJ(strmlnit->second.row, strmlnit->second.col) == -1) {
+								//    std::cout << strmlnit->second.mu << "," << strmlnit->second.std << std::endl;
+                                //    continue; // If the source area is outside the domain skip it
+                                //}
 
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 								std::vector<double> BTC(NsimulationYears, 0);
 								std::vector<double> LF(NsimulationYears, 0);
-								if (std::abs(strmlnit->second.mu - 0) > 0.00000001) {
+								if (strmlnit->second.mu > 0.00000001 && !strmlnit->second.inRiver) {
+                                    // Find the travel time in the unsaturated zone
+                                    int intTau = 0;
+                                    if (unsat_idx != -1) {
+                                        int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
+                                        double tau = unsat.getValue(unsat_idx,lin_idx);
+                                        tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+                                        if (tau < 0)
+                                            tau = 0.0;
+                                        intTau = static_cast<int>(tau);
+                                        //std::cout << tau << std::endl;
+                                    }
+                                    if (intTau >= NsimulationYears){
+                                        // If the unsaturated travel time is greater than the simulation time then we
+                                        // dont need to convolute because the contribution will be shifted by more that NsimulationYears
+                                        sumW += strmlnit->second.w;
+                                        nStreamlines++;
+                                        continue;
+                                    }
+
+
                                     bool isLFValid = false;
 									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
 									if (scenario.printAdditionalInfo)
@@ -1594,26 +1640,13 @@ namespace mantisServer {
 									//	printVector<double>(BTC, "BTC");
 
                                     if (isLFValid) {
-                                        // Find the travel time in the unsaturated zone
-                                        int intTau = 0;
-                                        if (unsat_idx != -1) {
-                                            int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
-                                            double tau = unsat.getValue(unsat_idx,lin_idx);
-                                            tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-                                            if (tau < 0)
-                                                tau = 0.0;
-                                            intTau = static_cast<int>(tau);
-                                            //std::cout << tau << std::endl;
+                                        int ibtc = 0;
+                                        for (int ii = intTau; ii < NsimulationYears; ++ii) {
+                                            //std::cout << ii << std::endl;
+                                            weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
+                                            ibtc++;
                                         }
 
-                                        if (intTau < NsimulationYears) {
-                                            int ibtc = 0;
-                                            for (int ii = intTau; ii < NsimulationYears; ++ii) {
-                                                //std::cout << ii << std::endl;
-                                                weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
-                                                ibtc++;
-                                            }
-                                        }
                                         sumW += strmlnit->second.w;
                                         nStreamlines++;
                                     }
@@ -1741,6 +1774,8 @@ namespace mantisServer {
         std::vector<cell> sp = SearchPattern();
         for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
             for (it2 = it1->second.begin(); it2 != it1->second.end(); ++it2){
+                if (it2->first < 8456 || it2->first > 9400)
+                    continue;
                 if ((it2->first % 1000) == 0)
                     std::cout << "----" << it2->first << "----" << std::endl;
                 //std::cout << it2->first << std::endl;

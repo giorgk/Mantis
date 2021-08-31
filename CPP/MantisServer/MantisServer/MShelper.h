@@ -149,6 +149,7 @@ namespace mantisServer {
         sourceArea(){};
         int getNpixels(int listSize);
         void setParameters(int nPix, int minPix, int maxPix, double percPix);
+        void clear();
     private:
         int nPixels;
         int minPixels;
@@ -165,7 +166,17 @@ namespace mantisServer {
         percArea = percPix;
     }
 
+    void sourceArea::clear() {
+        nPixels = -9;
+        minPixels = 1;
+        maxPixels = -9;
+        percArea = -9.0;
+    }
+
     int sourceArea::getNpixels(int listSize) {
+        if (listSize == 0){
+            return 0;
+        }
         int out = listSize;
         int tmp1 = -9;
 
@@ -183,7 +194,7 @@ namespace mantisServer {
         }
 
         if (out > maxPixels){
-            out = maxPixels;
+            out = std::min(maxPixels, listSize);
         }
         return out;
     }
@@ -296,6 +307,7 @@ namespace mantisServer {
             useDepthRange = false;
             useScreenLenghtRange = false;
             bNarrowSelection = false;
+            SourceArea.clear();
         }
     };
 

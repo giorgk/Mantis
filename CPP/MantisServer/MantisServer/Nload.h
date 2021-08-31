@@ -99,6 +99,9 @@ namespace mantisServer{
         std::vector<std::vector<int> > LU;
         //! A map between the CV active pixels and the Ndata
         std::vector<int> Nidx;
+        int nRows;
+        int nLU;
+        int nN;
     };
 
     bool NLoad::isValidIndex(int index) {
@@ -109,7 +112,7 @@ namespace mantisServer{
     }
 
     int NLoad::getLU(int index, int iyr) {
-        if (iyr >=0 && iyr < static_cast<int>(LU[0].size()) && index >=0 && index < static_cast<int>(LU.size()))
+        if (iyr >=0 && iyr < nLU && index >=0 && index < nRows)
             return LU[iyr][index];
         return 0;
     }
@@ -224,7 +227,9 @@ namespace mantisServer{
             datasetLU.read(LU);
             datasetNidx.read(Nidx);
             datasetNLoad.read(Ndata);
-            loadType = ltype;
+            nRows = LU[0].size();
+            nN = Ndata.size();
+            nLU = LU.size();
             return true;
         }
 #endif
