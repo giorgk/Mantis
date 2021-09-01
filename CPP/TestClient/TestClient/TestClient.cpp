@@ -101,7 +101,7 @@ int main(int argc, char* argv[])
             msg += " startRed 2020";
             msg += " endRed 2030";
             msg += " flowScen C2VsimRun01Ref6";
-            msg += " loadScen GNLM";
+            msg += " loadScen SWAT1";
             msg += " unsatScen C2VSIM_SPRING_2000";
             msg += " unsatWC 0.0";
             msg += " bMap Subregions";
@@ -164,16 +164,18 @@ int main(int argc, char* argv[])
 		int ii = 0;
 		//ss << data;
 		int tf = std::atoi(str1[ii].c_str()); ii++;
-		
+
+        std::ofstream outstream;
+        outstream.open(outfile.c_str());
 		//ss >> tf;
 		if (tf == 1) {
 			int Nbtc = std::atoi(str1[ii].c_str()); ii++;
 			int NsimYears = std::atoi(str1[ii].c_str()); ii++;
 			std::cout << "Data size: " << Nbtc << " x " << NsimYears << std::endl;
 			//ss >> Nbtc;
-			std::ofstream outstream;
+
 			std::cout << "Printing Results..." << std::endl;
-			outstream.open(outfile.c_str());
+
 			double dd;
 			outstream << Nbtc << " " << NsimYears << std::endl;
 			for (int i = 0; i < Nbtc; ++i) {
@@ -184,11 +186,14 @@ int main(int argc, char* argv[])
 				}
 				outstream << std::endl;
 			}
-			outstream.close();
 		}
 		else {
+            outstream << 0 << " " << 0 << std::endl;
+            outstream << data << std::endl;
 			std::cout << data << std::endl;
 		}
+
+        outstream.close();
 	}
 	return 0;
 }
