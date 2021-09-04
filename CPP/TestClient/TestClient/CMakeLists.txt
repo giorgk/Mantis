@@ -7,7 +7,7 @@ endif(UNIX)
 ##set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_BUILD_TYPE Debug)
 
-project(TestClient)
+project(MantisClient)
 
 find_package (Threads REQUIRED)
 
