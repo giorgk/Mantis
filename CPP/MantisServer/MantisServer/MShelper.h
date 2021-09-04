@@ -162,7 +162,7 @@ namespace mantisServer {
         minPixels = minPix;
         if (minPixels <=0)
             minPixels = 1;
-        maxPix = maxPixels;
+        maxPixels = maxPix;
         percArea = percPix;
     }
 
@@ -186,8 +186,9 @@ namespace mantisServer {
         if (nPixels > 0 && nPixels < out){
             out = nPixels;
         }
-        if (out < minPixels){
-            out = minPixels;
+        if (minPixels > 0){
+            if (out < minPixels && listSize >= minPixels)
+                out = minPixels;
         }
         if (maxPixels < 0){
             return out;

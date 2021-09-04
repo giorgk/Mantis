@@ -872,7 +872,7 @@ namespace mantisServer {
                 ss >> minPix;
                 ss >> maxPix;
                 ss >> percPix;
-                scenario.SourceArea.setParameters(nPix, minPix,maxPix, percPix);
+                scenario.SourceArea.setParameters(nPix, minPix, maxPix, percPix);
                 continue;
             }
 
@@ -1317,11 +1317,7 @@ namespace mantisServer {
 			// NO3 * 100 /  (RCH * 365000)
 			// NO3 * (RCH * 3650)
 			double mult;
-			//if (rch < scenario.minRecharge)
-			//	mult = 0.0;
-			//else
-            //    mult = 1 / (rch*3650);
-            //TODO THis is where the codes selects how large the source area is
+
             std::vector<double> rch_val;
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
@@ -1580,13 +1576,13 @@ namespace mantisServer {
 					int nStreamlines = 0;
 
 					if (wellit->second.streamlines.size() > 0) { //---------LOOP THROUGH the streamlines of the well
-					    std::cout << wellit->first << std::endl;
+					    //std::cout << wellit->first << std::endl;
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-							    if (wellit->first == 9858){
-                                    std::cout << strmlnit->first << " : " << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
-							    }
+							    //if (wellit->first == 9858){
+                                //    std::cout << strmlnit->first << " : " << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
+							    //}
 							    //std::cout << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
 								//if ( cvraster.IJ(strmlnit->second.row, strmlnit->second.col) == -1) {
 								//    std::cout << strmlnit->second.mu << "," << strmlnit->second.std << std::endl;
@@ -1774,8 +1770,8 @@ namespace mantisServer {
         std::vector<cell> sp = SearchPattern();
         for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
             for (it2 = it1->second.begin(); it2 != it1->second.end(); ++it2){
-                if (it2->first < 8456 || it2->first > 9400)
-                    continue;
+                //if (it2->first < 8456 || it2->first > 9400)
+                //    continue;
                 if ((it2->first % 1000) == 0)
                     std::cout << "----" << it2->first << "----" << std::endl;
                 //std::cout << it2->first << std::endl;
@@ -1868,11 +1864,11 @@ namespace mantisServer {
 
                                 if (Qtmp >= Qtarget){
                                     sourceFound = true;
-                                    if (tmpNpxl < it3->second.SourceArea.size()){
-                                        tmpNpxl = it3->second.SourceArea.size();
-                                        std::cout << it2->first << "," << it3->first << std::endl;
-                                        std::cout << tmpNpxl << std::endl;
-                                    }
+                                    //if (tmpNpxl < it3->second.SourceArea.size()){
+                                    //    tmpNpxl = it3->second.SourceArea.size();
+                                    //    std::cout << it2->first << "," << it3->first << std::endl;
+                                    //    std::cout << tmpNpxl << std::endl;
+                                    //}
                                     //std::cout << "Source Area pixels: " << it3->second.SourceArea.size() << std::endl;
                                     break;
                                 }
@@ -1890,11 +1886,11 @@ namespace mantisServer {
                                 //std::cout << Qtmp << " - " << Qtarget << std::endl;
                                 //std::cout << it3->second.SourceArea.size() << std::endl;
                                 //debug_this = false;
-                                if (tmpNpxl < it3->second.SourceArea.size()){
-                                    tmpNpxl = it3->second.SourceArea.size();
-                                    std::cout << it2->first << "," << it3->first << std::endl;
-                                    std::cout << tmpNpxl << std::endl;
-                                }
+                                //if (tmpNpxl < it3->second.SourceArea.size()){
+                                //    tmpNpxl = it3->second.SourceArea.size();
+                                //    std::cout << it2->first << "," << it3->first << std::endl;
+                                //    std::cout << tmpNpxl << std::endl;
+                                //}
                                 break;
                             }
                             //std::cout << Qtmp << " - " << Qtarget << std::endl;
