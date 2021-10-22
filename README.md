@@ -1,5 +1,5 @@
 # Mantis
-Mantis is a server application that simulates within seconds multicentury goundwater contaminant transport from diffuse pollution sources. 
+Mantis is a server application that simulates within seconds multicentury groundwater contaminant transport from diffuse pollution sources. 
 
 A detailed discussion about the concepts of Mantis and our Non Point Source Assessment Toolbox (NPSAT) can be found on the paper
 
