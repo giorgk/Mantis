@@ -14,7 +14,13 @@ namespace mantisServer{
 	 */
     enum class LoadType {
         GNLM,
-        SWAT
+        SWAT,
+        RASTER
+    };
+
+    enum class RasterOperation{
+        Multiply,
+        Replace
     };
 
     /**
@@ -38,6 +44,8 @@ namespace mantisServer{
          * @return
          */
         bool readData(std::string filename, LoadType ltype);
+
+        bool readData(std::string filename, LoadType ltype, int Npixels);
         /**
          * This returns the N load value. This version must be used for SWAT only
          * @param index is the loading id
@@ -84,10 +92,14 @@ namespace mantisServer{
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
          * For SWAT this must be 1
          */
-        bool buildLoadingFunction(std::vector<int>& index, int endYear, std::vector<double>& LF, Scenario& scenario, std::vector<double> rch);
+        bool buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
+                                  Scenario& scenario, std::vector<double> &rch);
+        bool buildLoadingFromRaster(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
+                                    Scenario& scenario, std::vector<double> &rch);
         LoadType getLtype() {
             return loadType;
         }
+        int getScenarioID(std::string subScen);
         //! checks if the index is not out of range
         bool isValidIndex(int index);
     private:
@@ -99,6 +111,7 @@ namespace mantisServer{
         std::vector<std::vector<int> > LU;
         //! A map between the CV active pixels and the Ndata
         std::vector<int> Nidx;
+        LinearData RasterLoading;
         int nRows;
         int nLU;
         int nN;
@@ -109,6 +122,13 @@ namespace mantisServer{
             return true;
         else
             return false;
+    }
+
+    int NLoad::getScenarioID(std::string subScen) {
+        if (loadType != LoadType::RASTER){
+           return -1;
+        }
+        return RasterLoading.ScenarioIndex(subScen);
     }
 
     int NLoad::getLU(int index, int iyr) {
@@ -211,11 +231,26 @@ namespace mantisServer{
         return value;
     }
 
+    bool NLoad::readData(std::string filename, LoadType ltype, int Npixels) {
+        loadType = ltype;
+        auto start = std::chrono::high_resolution_clock::now();
+        if (ltype == LoadType::RASTER){
+            RasterLoading.setNoDataValue(0.0);
+            RasterLoading.readData(filename, Npixels);
+            return true;
+        }
+        else{
+            std::cout << "This method is used only for RASTER loading type" << std::endl;
+            return false;
+        }
+    }
+
     bool NLoad::readData(std::string filename, LoadType ltype) {
         loadType = ltype;
         auto start = std::chrono::high_resolution_clock::now();
 #if _USEHF>0
         std::string ext = getExtension(filename);
+
         if (ext.compare("h5") == 0){
             const std::string LUNameSet("LU");
             const std::string NidxNameSet("Nidx");
@@ -334,7 +369,35 @@ namespace mantisServer{
         */
     }
 
-    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF, Scenario& scenario, std::vector<double> rch) {
+    bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int endYear, std::vector<double> &LF,
+                                       Scenario &scenario, std::vector<double> &rch) {
+        bool isloadConc = true;
+        if (rch.size() == CVindex.size()){
+            isloadConc = false;
+        }
+        double load_value = 0.0f;
+        for (unsigned int j = 0; j < CVindex.size(); ++j){
+            double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
+            if (!isloadConc){
+                user_value = user_value / rch[j];
+            }
+            if (scenario.modReplace == 1){
+                load_value = load_value + user_value;
+            }
+            else{
+                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
+                load_value = load_value + scen_value * user_value;
+            }
+        }
+        int startYear = 1945;
+        int Nyears = endYear - startYear;
+        LF.clear();
+        LF.resize(Nyears, load_value);
+        return true;
+    }
+
+    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
+                                     Scenario& scenario, std::vector<double> &rch) {
         bool out = false;
         int startYear = 1945;
         int istartReduction = scenario.startReductionYear - startYear;

@@ -30,7 +30,7 @@ namespace mantisServer {
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
     const double pi = std::atan(1)*4;
-    const std::vector<double> dummyVector(1,0);
+    std::vector<double> dummyVector(1,0);
 
     /*!
      * num2Padstr converts an integer to string with padding zeros
@@ -751,9 +751,57 @@ namespace mantisServer {
             outmsg += scenario.loadScen;
             return false;
         }
+        else{
+            if (loadit->second.getLtype() == LoadType::RASTER){
+                bool testforSubScen = false;
+                if (!scenario.modifierName.empty()){
+                    scenario.userRasterLoad.setNoDataValue(0.0);
+                    bool tf = scenario.userRasterLoad.readData(scenario.modifierName, options.Npixels);
+                    if (!tf){
+                        outmsg += "0 ERROR: While reading ";
+                        outmsg += scenario.modifierName;
+                        return false;
+                    }
+                    if (scenario.modifierType.compare("Multiply") == 0){
+                        testforSubScen = true;
+                    }
+                    else if (scenario.modifierType.compare("Replace") == 0){
+                        testforSubScen = false;
+                    }
+                    else{
+                        outmsg += "0 ERROR: The modifier type ";
+                        outmsg += scenario.modifierType;
+                        outmsg += " is UNKNOWN. Valid options are (Replace or Multiply)";
+                    }
+                }
+                else{
+                    testforSubScen = true;
+                }
+
+                if (testforSubScen){
+                    scenario.loadSubScenID = loadit->second.getScenarioID(scenario.loadSubScen);
+                    if (scenario.loadSubScenID == -1){
+                        outmsg += "0 ERROR: The subScenario: (";
+                        outmsg += scenario.loadSubScen;
+                        outmsg += ") is not a valid option for the loading scenario ";
+                        outmsg += scenario.loadScen;
+                        return false;
+                    }
+                }
+            }
+        }
 
 		if (scenario.unsatZoneMobileWaterContent <= 0) {
 			scenario.unsatZoneMobileWaterContent = 0.0;
+		}
+
+		if (scenario.isLoadConc == 0){
+		    scenario.rchScenID = rch.ScenarioIndex(scenario.rchScen);
+		    if (scenario.rchScenID == -1){
+                outmsg += "0 ERROR: If the loading is not concentration a valid recharge must be specified: (";
+                outmsg += scenario.rchScen;
+                outmsg += ") is not valid option";
+		    }
 		}
 
 		return true;
@@ -797,6 +845,26 @@ namespace mantisServer {
 				continue;
 			}
 
+            if (test == "loadSubScen") {
+                ss >> scenario.loadSubScen;
+                continue;
+            }
+
+            if (test == "modifierName") {
+                ss >> scenario.modifierName;
+                continue;
+            }
+
+            if (test == "modifierType") {
+                ss >> scenario.modifierType;
+                continue;
+            }
+
+            if (test == "isLoadConc") {
+                ss >> scenario.isLoadConc;
+                continue;
+            }
+
 			if (test == "unsatScen") {
 				ss >> scenario.unsatScenario;
 				continue;
@@ -806,6 +874,11 @@ namespace mantisServer {
 				ss >> scenario.unsatZoneMobileWaterContent;
 				continue;
 			}
+
+            if (test == "rchScen") {
+                ss >> scenario.rchScen;
+                continue;
+            }
 
 			if (test == "bMap") {
 				ss >> scenario.mapID;
@@ -1328,7 +1401,8 @@ namespace mantisServer {
             }
 
 
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, rch_val);
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
+                                                      LF, scenario, rch_val);
 			break;
 		}
 		case LoadType::SWAT:
@@ -1339,9 +1413,28 @@ namespace mantisServer {
             if (lin_idx_vec.empty()){
                 return out;
             }
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear, LF, scenario, dummyVector);
+			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
+                                                      LF, scenario, dummyVector);
 			break;
 		}
+        case LoadType::RASTER:
+        {
+            std::vector<double> rch_val;
+            for (int i = 0; i < nCells; ++i){
+                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
+                if (scenario.isLoadConc == 0){
+                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                }
+            }
+            if (lin_idx_vec.empty()){
+                return out;
+            }
+            out = loadit->second.buildLoadingFromRaster(lin_idx_vec,
+                                                        scenario.endSimulationYear,
+                                                        LF, scenario, rch_val);
+
+            break;
+        }
 		default:
 			break;
 		}
@@ -1454,6 +1547,14 @@ namespace mantisServer {
 					NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
                     bool tf = NGWLoading[Lname].readData(Lfile, LoadType::SWAT);
+                    if (!tf){
+                        return false;
+                    }
+				}
+				else if (Ltype.compare("RASTER") == 0){
+                    NLoad NL;
+                    NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::RASTER, options.Npixels);
                     if (!tf){
                         return false;
                     }
@@ -1830,7 +1931,10 @@ namespace mantisServer {
                     }
 
                     Qtmp = 0.0;
-                    Qtarget = it2->second.pumpingRate * it3->second.w;
+                    //TODO Uncomment the next line and remove the next to the line below
+                    //Qtarget = it2->second.pumpingRate * it3->second.w;
+                    Qtarget = 0.01;
+
                     bool sourceFound = false;
                     if (debug_this)
                         std::cout << "Q target = " << Qtarget << std::endl;

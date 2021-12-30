@@ -101,12 +101,14 @@ int main(int argc, char* argv[])
             msg += " startRed 2020";
             msg += " endRed 2030";
             msg += " flowScen C2VsimRun01Ref6";
-            msg += " loadScen SWAT1";
+            msg += " loadScen TEST01";
+            msg += " loadSubScen test100";
             msg += " unsatScen C2VSIM_SPRING_2000";
             msg += " unsatWC 0.0";
             msg += " bMap Subregions";
             msg += " Nregions 1 Subregion11";
-            msg += " RadSelect -91791 -33506 10000"; // X Y radius
+            msg += " isLoadConc 1";
+            //msg += " RadSelect -91791 -33506 10000"; // X Y radius
             //msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0"; // Xmin Ymin Xmax Ymax
             //msg += " DepthRange 0 100"; // min max
             //msg += " ScreenLenRange 10 70"; // min max

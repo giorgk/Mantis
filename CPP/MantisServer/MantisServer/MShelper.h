@@ -200,6 +200,149 @@ namespace mantisServer {
         return out;
     }
 
+    class LinearData{
+    public:
+        LinearData(){}
+        bool readData(std::string filename, int Nr);
+        int ScenarioIndex(std::string scenario);
+        double getValue(int scenID, int lin_idx);
+        void setNoDataValue(double v);
+        void multiply(double mult);
+        void clear();
+    private:
+        std::map<std::string, int > ScenarioMap;
+        std::vector<std::vector<double>> Data;
+        int Nrows;
+        int Nscenarios;
+        double NoDataValue;
+        bool bDataValueSet = false;
+        bool bHFread;
+    };
+
+    void LinearData::clear() {
+        Nrows = 0;
+        Nscenarios = 0;
+        NoDataValue = 0;
+        bDataValueSet = false;
+        Data.clear();
+        ScenarioMap.clear();
+    }
+
+    int LinearData::ScenarioIndex(std::string scenario) {
+        std::map<std::string, int >::iterator it = ScenarioMap.find(scenario);
+        if (it == ScenarioMap.end())
+            return -1;
+        else
+            return it->second;
+    }
+
+    void LinearData::multiply(double mult) {
+        for (unsigned int i = 0; i < Data.size(); ++i){
+            for (unsigned int j = 0; j < Data[i].size(); ++j){
+                Data[i][j] = Data[i][j]*mult;
+            }
+        }
+    }
+
+    double LinearData::getValue(int scenID, int lin_idx) {
+        if (scenID >=0 && scenID < Nscenarios){
+            if (lin_idx >=0 && lin_idx < Nrows){
+                //if (bHFread)
+                //    return Data[lin_idx][scenID];
+                //else
+                return Data[scenID][lin_idx];
+            }
+            else {
+                return NoDataValue;
+            }
+        }
+        else{
+            return  NoDataValue;
+        }
+    }
+
+    void LinearData::setNoDataValue(double v) {
+        NoDataValue = v;
+        bDataValueSet = true;
+    }
+
+    bool LinearData::readData(std::string filename, int Nr) {
+        if (!bDataValueSet){
+            std::cout << "You must set up a no-data value before reading the file" << filename << std::endl;
+            return false;
+        }
+        Nrows = Nr;
+        auto start = std::chrono::high_resolution_clock::now();
+
+#if _USEHF>0
+        std::string ext = getExtension(filename);
+        if (ext.compare("h5") == 0){
+            const std::string NamesNameSet("Names");
+            const std::string DataNameSet("Data");
+            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+            HighFive::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
+
+            std::vector<std::string> names;
+            datasetNames.read(names);
+            datasetData.read(Data);
+            for (unsigned int i = 0; i < names.size(); ++i){
+                ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
+            }
+            Nscenarios = ScenarioMap.size();
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
+            bHFread = true;
+            return true;
+        }
+#endif
+
+        std::ifstream ifile;
+        ifile.open(filename);
+        if (!ifile.is_open()){
+            std::cout << "Cant open file: " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::cout << "Reading " << filename << std::endl;
+            std::string line;
+            { //Get the number of Unsaturated scenarios
+                getline(ifile, line);
+                std::istringstream inp(line.c_str());
+                inp >> Nscenarios;
+                Data.clear();
+                Data.resize(Nscenarios, std::vector<double>(Nr,NoDataValue));
+            }
+            {// Get the scenario names
+                std::string name;
+                for (int i = 0; i < Nscenarios; ++i){
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> name;
+                    ScenarioMap.insert(std::pair<std::string, int>(name, i));
+                }
+            }
+            {// Read the values
+                for (int i = 0; i < Nrows; ++i){
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    double v;
+                    for (int j = 0; j < Nscenarios; ++j){
+                        inp >> v;
+                        Data[j][i] = v;
+                    }
+                }
+            }
+            ifile.close();
+        }
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        std::cout << "Read " << filename << " data in " << elapsed.count() << " sec" << std::endl;
+        bHFread = false;
+        return true;
+    }
+
 
     /**
 	 * @brief Scenario is a struct variable that contains all the information needed for each simulation scenario.
@@ -214,9 +357,25 @@ namespace mantisServer {
         std::string flowScen;
         int flowRchID;
 
-        //! The loading scenario
+        //! The loading scenario from the list of initialization data
         std::string loadScen;
         int loadScenID;
+
+        // Options for Raster loading type
+        //! The name of Scenario Subset
+        std::string loadSubScen;
+        int loadSubScenID;
+
+        //! The filename with the uploaded raster loading
+        std::string modifierName;
+        //! The operation type with respect to Scenario subscenario load option
+        std::string modifierType;
+        int modReplace;
+
+        LinearData userRasterLoad;
+
+        int isLoadConc;
+
 
         //! regionIDs is a list of regions to compute the breakthrough curves
         std::vector<std::string> regionIDs;
@@ -268,6 +427,9 @@ namespace mantisServer {
          */
         double minRecharge;
 
+        std::string rchScen;
+        int rchScenID;
+
         int PixelRadius;
 
         radialSelection RadSelect;
@@ -292,6 +454,10 @@ namespace mantisServer {
             mapID = "";
             flowScen = "";
             loadScen = "";
+            loadSubScen = "";
+            modifierName = "";
+            modifierType = "";
+            userRasterLoad.clear();
             regionIDs.clear();
             LoadReductionMap.clear();
             printAdditionalInfo = false;
@@ -420,138 +586,7 @@ namespace mantisServer {
         }
     }
 
-    class LinearData{
-    public:
-        LinearData(){}
-        bool readData(std::string filename, int Nr);
-        int ScenarioIndex(std::string scenario);
-        double getValue(int scenID, int lin_idx);
-        void setNoDataValue(double v);
-        void multiply(double mult);
-    private:
-        std::map<std::string, int > ScenarioMap;
-        std::vector<std::vector<double>> Data;
-        int Nrows;
-        int Nscenarios;
-        double NoDataValue;
-        bool bDataValueSet = false;
-        bool bHFread;
-    };
 
-    int LinearData::ScenarioIndex(std::string scenario) {
-        std::map<std::string, int >::iterator it = ScenarioMap.find(scenario);
-        if (it == ScenarioMap.end())
-            return -1;
-        else
-            return it->second;
-    }
-
-    void LinearData::multiply(double mult) {
-        for (unsigned int i = 0; i < Data.size(); ++i){
-            for (unsigned int j = 0; j < Data[i].size(); ++j){
-                Data[i][j] = Data[i][j]*mult;
-            }
-        }
-    }
-
-    double LinearData::getValue(int scenID, int lin_idx) {
-        if (scenID >=0 && scenID < Nscenarios){
-            if (lin_idx >=0 && lin_idx < Nrows){
-                //if (bHFread)
-                //    return Data[lin_idx][scenID];
-                //else
-                return Data[scenID][lin_idx];
-            }
-            else {
-                return NoDataValue;
-            }
-        }
-        else{
-            return  NoDataValue;
-        }
-    }
-
-    void LinearData::setNoDataValue(double v) {
-        NoDataValue = v;
-        bDataValueSet = true;
-    }
-
-    bool LinearData::readData(std::string filename, int Nr) {
-        if (!bDataValueSet){
-            std::cout << "You must set up a no-data value before reading the file" << filename << std::endl;
-            return false;
-        }
-        Nrows = Nr;
-        auto start = std::chrono::high_resolution_clock::now();
-
-#if _USEHF>0
-        std::string ext = getExtension(filename);
-        if (ext.compare("h5") == 0){
-            const std::string NamesNameSet("Names");
-            const std::string DataNameSet("Data");
-            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
-            HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
-            HighFive::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
-
-            std::vector<std::string> names;
-            datasetNames.read(names);
-            datasetData.read(Data);
-            for (unsigned int i = 0; i < names.size(); ++i){
-                ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
-            }
-            Nscenarios = ScenarioMap.size();
-            auto finish = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> elapsed = finish - start;
-            std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
-            bHFread = true;
-            return true;
-        }
-#endif
-
-        std::ifstream ifile;
-        ifile.open(filename);
-        if (!ifile.is_open()){
-            std::cout << "Cant open file: " << filename << std::endl;
-            return false;
-        }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            std::string line;
-            { //Get the number of Unsaturated scenarios
-                getline(ifile, line);
-                std::istringstream inp(line.c_str());
-                inp >> Nscenarios;
-                Data.clear();
-                Data.resize(Nscenarios, std::vector<double>(Nr,NoDataValue));
-            }
-            {// Get the scenario names
-                std::string name;
-                for (int i = 0; i < Nscenarios; ++i){
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> name;
-                    ScenarioMap.insert(std::pair<std::string, int>(name, i));
-                }
-            }
-            {// Read the values
-                for (int i = 0; i < Nrows; ++i){
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    double v;
-                    for (int j = 0; j < Nscenarios; ++j){
-                        inp >> v;
-                        Data[j][i] = v;
-                    }
-                }
-            }
-            ifile.close();
-        }
-        auto finish = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = finish - start;
-        std::cout << "Read " << filename << " data in " << elapsed.count() << " sec" << std::endl;
-        bHFread = false;
-        return true;
-    }
 }
 
 #endif //MANTISSERVER_MSHELPER_H
