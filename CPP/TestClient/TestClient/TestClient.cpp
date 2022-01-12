@@ -31,7 +31,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "Running version 1.7.01" << std::endl;
+	std::cout << "Running version 1.8.01" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
@@ -100,7 +100,8 @@ int main(int argc, char* argv[])
 			msg = "endSimYear 2100";
             msg += " startRed 2020";
             msg += " endRed 2030";
-            msg += " flowScen C2VsimRun01Ref6";
+            msg += " flowScen C2VSIM_II_01";
+            msg += " wellType VI";
             msg += " loadScen TEST01";
             msg += " loadSubScen test100";
             msg += " unsatScen C2VSIM_SPRING_2000";

@@ -23,6 +23,21 @@ namespace mantisServer{
         Replace
     };
 
+    enum class LoadUnits{
+        CONC,
+        MASS,
+        UNKNOWN
+    };
+
+    LoadUnits string2LoadUnits(std::string str){
+        if (str.compare("CONC") == 0)
+            return LoadUnits::CONC;
+        else if (str.compare("MASS") == 0)
+            return LoadUnits::MASS;
+        else
+            return LoadUnits::UNKNOWN;
+    }
+
     /**
 	 * Nload is a container for each nitrate loading scenario.
 	 *
@@ -43,9 +58,9 @@ namespace mantisServer{
          * @param ltype is the loading type. Currently this must be either GNLM or SWAT
          * @return
          */
-        bool readData(std::string filename, LoadType ltype);
+        bool readData(std::string filename, LoadType ltype, LoadUnits lunit);
 
-        bool readData(std::string filename, LoadType ltype, int Npixels);
+        bool readData(std::string filename, LoadType ltype, LoadUnits lunit, int Npixels);
         /**
          * This returns the N load value. This version must be used for SWAT only
          * @param index is the loading id
@@ -99,12 +114,19 @@ namespace mantisServer{
         LoadType getLtype() {
             return loadType;
         }
+
+        LoadUnits getLunit(){
+            return loadUnits;
+        }
+
         int getScenarioID(std::string subScen);
         //! checks if the index is not out of range
         bool isValidIndex(int index);
     private:
         //! The type of loading function GNLM or SWAT
         LoadType loadType;
+
+        LoadUnits loadUnits;
         //! Container for the data
         std::vector<std::vector<double> > Ndata;
         //! Container for the Land use data
@@ -231,7 +253,7 @@ namespace mantisServer{
         return value;
     }
 
-    bool NLoad::readData(std::string filename, LoadType ltype, int Npixels) {
+    bool NLoad::readData(std::string filename, LoadType ltype, LoadUnits lunit, int Npixels) {
         loadType = ltype;
         auto start = std::chrono::high_resolution_clock::now();
         if (ltype == LoadType::RASTER){
@@ -245,8 +267,9 @@ namespace mantisServer{
         }
     }
 
-    bool NLoad::readData(std::string filename, LoadType ltype) {
+    bool NLoad::readData(std::string filename, LoadType ltype, LoadUnits lunit) {
         loadType = ltype;
+        loadUnits = lunit;
         auto start = std::chrono::high_resolution_clock::now();
 #if _USEHF>0
         std::string ext = getExtension(filename);
@@ -371,24 +394,33 @@ namespace mantisServer{
 
     bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int endYear, std::vector<double> &LF,
                                        Scenario &scenario, std::vector<double> &rch) {
-        bool isloadConc = true;
-        if (rch.size() == CVindex.size()){
-            isloadConc = false;
-        }
+
         double load_value = 0.0f;
         for (unsigned int j = 0; j < CVindex.size(); ++j){
-            double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
-            if (!isloadConc){
-                user_value = user_value / rch[j];
-            }
-            if (scenario.modReplace == 1){
-                load_value = load_value + user_value;
-            }
-            else{
+            if (scenario.modReplace == 0){// Use the scenario from the Initialization Raster
                 double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
-                load_value = load_value + scen_value * user_value;
+                if (loadUnits == LoadUnits::MASS){
+                    scen_value = scen_value / rch[j];
+                }
+                load_value += scen_value;
+            }
+            else if (scenario.modReplace == 1){// Replace the value with the user data
+                double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
+                if (scenario.isLoadConc == 0){
+                    user_value = user_value / rch[j];
+                }
+                load_value += user_value;
+            }
+            else if (scenario.modReplace == 2){// Multiply the user value with the initialization scenario Raster
+                double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
+                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
+                if (loadUnits == LoadUnits::MASS){
+                    scen_value = scen_value / rch[j];
+                }
+                load_value += scen_value*user_value;
             }
         }
+        load_value = load_value/static_cast<double>(CVindex.size());
         int startYear = 1945;
         int Nyears = endYear - startYear;
         LF.clear();
@@ -465,10 +497,17 @@ namespace mantisServer{
                         if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
                             double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
                             //std::cout << " Nred=" << Nred;
-                            lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff) / (rch[j]*3650);
+                            double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                            if (loadUnits == LoadUnits::MASS){
+                                tmpLoad = tmpLoad/(rch[j]*3650);
+                            }
+                            lf += tmpLoad;
                         }
                         else{
-                            lf += Nbase / (rch[j]*3650);
+                            if (loadUnits == LoadUnits::MASS){
+                                Nbase = Nbase / (rch[j]*3650);
+                            }
+                            lf += Nbase;
                         }
                     }
 
@@ -494,7 +533,11 @@ namespace mantisServer{
                     NvalidCells = NvalidCells + 1.0;
                     double Nbase = getNload(nload_idx, iyr + startYear);
                     double Nred = percReduction[j] * Nbase;
-                    lf += (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                    double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                    if (loadUnits == LoadUnits::MASS){
+                        tmpLoad = tmpLoad/(rch[j]*3650);
+                    }
+                    lf += tmpLoad;
                     //std::cout << Nbase << ", " << Nred << std::endl;
                 }
 

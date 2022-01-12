@@ -357,6 +357,11 @@ namespace mantisServer {
         std::string flowScen;
         int flowRchID;
 
+        //! This is a combination of Flow scenario and Welltype
+        std::string flowWellScen;
+
+        std::string wellType;
+
         //! The loading scenario from the list of initialization data
         std::string loadScen;
         int loadScenID;
@@ -371,10 +376,9 @@ namespace mantisServer {
         //! The operation type with respect to Scenario subscenario load option
         std::string modifierType;
         int modReplace;
-
         LinearData userRasterLoad;
-
         int isLoadConc;
+        bool buserRasterSupplied;
 
 
         //! regionIDs is a list of regions to compute the breakthrough curves
@@ -455,8 +459,11 @@ namespace mantisServer {
             flowScen = "";
             loadScen = "";
             loadSubScen = "";
+            wellType = "";
+            flowWellScen = "";
             modifierName = "";
             modifierType = "";
+            modReplace = -9;
             userRasterLoad.clear();
             regionIDs.clear();
             LoadReductionMap.clear();

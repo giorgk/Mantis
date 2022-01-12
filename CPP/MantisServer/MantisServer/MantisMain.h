@@ -30,7 +30,7 @@ namespace mantisServer {
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
     const double pi = std::atan(1)*4;
-    std::vector<double> dummyVector(1,0);
+    //std::vector<double> dummyVector(1,0);
 
     /*!
      * num2Padstr converts an integer to string with padding zeros
@@ -675,9 +675,9 @@ namespace mantisServer {
 	{}
 
 	bool Mantis::validate_msg(std::string& outmsg) {
-		if ((scenario.endSimulationYear <= 1990) || (scenario.endSimulationYear > 2500))
-			scenario.endSimulationYear = 2500;
-		if (scenario.startReductionYear < 1945)
+		if ((scenario.endSimulationYear <= 2020) || (scenario.endSimulationYear > 2500))
+			scenario.endSimulationYear = 2100;
+		if (scenario.startReductionYear < 1945 || scenario.startReductionYear > scenario.endSimulationYear)
 			scenario.startReductionYear = 2020;
 		if (scenario.startReductionYear >= scenario.endReductionYear)
             scenario.endReductionYear = scenario.startReductionYear + 1;
@@ -691,6 +691,14 @@ namespace mantisServer {
 			outmsg += "] could not be found";
 			return false;
 		}
+
+		if (scenario.wellType.compare("VM") == 0 && scenario.mapID.compare("Townships") !=0 ){
+            outmsg += "0 ERROR: You can simulate VIRTUAL Monitoring wells only with Townships";
+            return false;
+		}
+
+		scenario.flowWellScen = scenario.flowScen + '_' + scenario.wellType;
+
 
 		int Nwells = 0;
 		std::map<std::string, Polyregion>::iterator regit;
@@ -706,29 +714,35 @@ namespace mantisServer {
 				return false;
 			}
 
-			wellscenit = regit->second.wellids.find(scenario.flowScen);
+			wellscenit = regit->second.wellids.find(scenario.flowWellScen);
 			if (wellscenit != regit->second.wellids.end()) {
 				Nwells = wellscenit->second.size();
 			}
 		}
 		if (Nwells == 0) {
-			outmsg += "0 ERROR: There no wells in the selected regions for the flow scenario[";
+			outmsg += "0 ERROR: There no wells in the selected regions for the combination of flow scenario [";
 			outmsg += scenario.flowScen;
-			outmsg += "]";
+			outmsg += "] and well type [";
+			outmsg += scenario.wellType;
+            outmsg += "]";
 			return false;
 		}
 
-		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowScen);
+		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
 		if (wellscenNameit == Wellmap.end()) {
-			outmsg += "0 ERROR: There are no wells and urfs for the scenario with name: ";
+			outmsg += "0 ERROR: There are no wells and urfs for the combination of flow scenario [";
 			outmsg += scenario.flowScen;
+            outmsg += "] and well type [";
+            outmsg += scenario.wellType;
+            outmsg += "]";
 			return false;
 		}
 
 
 		if (unsat.ScenarioIndex(scenario.unsatScenario) == -1) {
-			outmsg += "0 ERROR: There is no unsaturated scenario with name: ";
+			outmsg += "0 ERROR: There is no unsaturated scenario with name: [";
 			outmsg += scenario.unsatScenario;
+            outmsg += "]";
 			return false;
 		}
         else{
@@ -740,15 +754,17 @@ namespace mantisServer {
             scenario.flowRchID = rchid;
         }
         else{
-            outmsg += "0 ERROR: There is no recharge map for flow scenario with name: ";
+            outmsg += "0 ERROR: There is no recharge map for flow scenario with name: [";
             outmsg += scenario.flowScen;
+            outmsg += "]";
             return false;
         }
 
         std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
         if (loadit == NGWLoading.end()) {
-            outmsg += "0 ERROR: There is no loading scenario with name: ";
+            outmsg += "0 ERROR: There is no loading scenario with name: [";
             outmsg += scenario.loadScen;
+            outmsg += "]";
             return false;
         }
         else{
@@ -758,24 +774,28 @@ namespace mantisServer {
                     scenario.userRasterLoad.setNoDataValue(0.0);
                     bool tf = scenario.userRasterLoad.readData(scenario.modifierName, options.Npixels);
                     if (!tf){
-                        outmsg += "0 ERROR: While reading ";
+                        outmsg += "0 ERROR: While reading loading [";
                         outmsg += scenario.modifierName;
+                        outmsg += "]";
                         return false;
                     }
                     if (scenario.modifierType.compare("Multiply") == 0){
+                        scenario.modReplace = 0;
                         testforSubScen = true;
                     }
                     else if (scenario.modifierType.compare("Replace") == 0){
+                        scenario.modReplace = 1;
                         testforSubScen = false;
                     }
                     else{
-                        outmsg += "0 ERROR: The modifier type ";
+                        outmsg += "0 ERROR: The modifier type [";
                         outmsg += scenario.modifierType;
-                        outmsg += " is UNKNOWN. Valid options are (Replace or Multiply)";
+                        outmsg += "] is UNKNOWN. Valid options are (Replace or Multiply)";
                     }
                 }
                 else{
                     testforSubScen = true;
+                    scenario.modReplace = 0;
                 }
 
                 if (testforSubScen){
@@ -798,9 +818,7 @@ namespace mantisServer {
 		if (scenario.isLoadConc == 0){
 		    scenario.rchScenID = rch.ScenarioIndex(scenario.rchScen);
 		    if (scenario.rchScenID == -1){
-                outmsg += "0 ERROR: If the loading is not concentration a valid recharge must be specified: (";
-                outmsg += scenario.rchScen;
-                outmsg += ") is not valid option";
+                scenario.rchScenID = rch.ScenarioIndex(scenario.flowScen);
 		    }
 		}
 
@@ -838,6 +856,11 @@ namespace mantisServer {
 			if (test == "flowScen") {
 				ss >> scenario.flowScen;
 				continue;
+			}
+
+			if (test == "wellType"){
+			    ss >> scenario.wellType;
+			    continue;
 			}
 
 			if (test == "loadScen") {
@@ -1195,7 +1218,7 @@ namespace mantisServer {
 
 	bool Mantis::readURFs(std::string filename) {
         auto start = std::chrono::high_resolution_clock::now();
-
+        std::cout << "Reading " << filename << std::endl;
 #if _USEHF>0
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
@@ -1223,6 +1246,7 @@ namespace mantisServer {
             if (IDS.size() != 6 || DATA.size() != 3){
                 std::cout << "Incorrect number of columns" << std::endl;
                 std::cout << "The size of integers must be 6 and for the floats 3" << std::endl;
+                return false;
             }
 
             URFTYPE urftype;
@@ -1373,6 +1397,8 @@ namespace mantisServer {
 
 
 		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
+        bool needRch = loadit->second.getLunit() == LoadUnits::MASS;
+        std::vector<double> rch_val;
 		switch (loadit->second.getLtype())
 		{
 		case LoadType::GNLM:
@@ -1390,16 +1416,16 @@ namespace mantisServer {
 			// NO3 * 100 /  (RCH * 365000)
 			// NO3 * (RCH * 3650)
 			double mult;
-
-            std::vector<double> rch_val;
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                if (needRch)
+                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                else
+                    rch_val.push_back(1.0);
             }
             if (lin_idx_vec.empty()){
                 return out;
             }
-
 
 			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
                                                       LF, scenario, rch_val);
@@ -1409,20 +1435,23 @@ namespace mantisServer {
 		{
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
+                if (needRch)
+                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                else
+                    rch_val.push_back(1.0);
             }
             if (lin_idx_vec.empty()){
                 return out;
             }
 			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
-                                                      LF, scenario, dummyVector);
+                                                      LF, scenario, rch_val);
 			break;
 		}
         case LoadType::RASTER:
         {
-            std::vector<double> rch_val;
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (scenario.isLoadConc == 0){
+                if (needRch){
                     rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
                 }
             }
@@ -1518,7 +1547,8 @@ namespace mantisServer {
 		else {
 			std::string line;
 			while (getline(no3MainFile, line)) {
-				std::string Ltype, Lname, Lfile;
+				std::string Ltype, Lname, Lfile, Lunit;
+				LoadUnits loadunit;
 				std::istringstream inp(line.c_str());
                 inp >> Ltype;
 
@@ -1529,7 +1559,17 @@ namespace mantisServer {
                     continue;
 
 				inp >> Lname;
+				inp >> Lunit;
+                loadunit = string2LoadUnits(Lunit);
+                if (loadunit == LoadUnits::UNKNOWN){
+                    std::cout << Lunit << " is not recognized loading Unit" << std::endl;
+                    return false;
+                }
+
+
 				inp >> Lfile;
+
+
 
                 if (!options.bAbsolutePaths)
                     Lfile = options.mainPath + Lfile;
@@ -1537,7 +1577,7 @@ namespace mantisServer {
 				if (Ltype.compare("GNLM") == 0) {
 					NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
-                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::GNLM);
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::GNLM, loadunit);
                     if (!tf){
                         return false;
                     }
@@ -1546,7 +1586,7 @@ namespace mantisServer {
 				else if (Ltype.compare("SWAT") == 0) {
 					NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
-                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::SWAT);
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::SWAT, loadunit);
                     if (!tf){
                         return false;
                     }
@@ -1554,7 +1594,7 @@ namespace mantisServer {
 				else if (Ltype.compare("RASTER") == 0){
                     NLoad NL;
                     NGWLoading.insert(std::pair<std::string, NLoad>(Lname, NL));
-                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::RASTER, options.Npixels);
+                    bool tf = NGWLoading[Lname].readData(Lfile, LoadType::RASTER, loadunit, options.Npixels);
                     if (!tf){
                         return false;
                     }
@@ -1594,7 +1634,7 @@ namespace mantisServer {
 		// Get an iterator to the selected map
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		// Get an iterator to the list of wells for the selected scenario
-		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowScen);
+		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
 
 		std::map<std::string, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
@@ -1612,7 +1652,7 @@ namespace mantisServer {
         int nWellsWithoutStreamlines = 0;
 		for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg) { //---------LOOP THROUGH the regions ---------
             regit = mapit->second.find(scenario.regionIDs[irg]);
-			wellscenit = regit->second.wellids.find(scenario.flowScen);
+			wellscenit = regit->second.wellids.find(scenario.flowWellScen);
 			if (wellscenit == regit->second.wellids.end()) {
 				continue;
 			}
