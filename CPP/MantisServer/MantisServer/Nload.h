@@ -18,25 +18,11 @@ namespace mantisServer{
         RASTER
     };
 
-    enum class RasterOperation{
-        Multiply,
-        Replace
-    };
 
-    enum class LoadUnits{
-        CONC,
-        MASS,
-        UNKNOWN
-    };
 
-    LoadUnits string2LoadUnits(std::string str){
-        if (str.compare("CONC") == 0)
-            return LoadUnits::CONC;
-        else if (str.compare("MASS") == 0)
-            return LoadUnits::MASS;
-        else
-            return LoadUnits::UNKNOWN;
-    }
+
+
+
 
     /**
 	 * Nload is a container for each nitrate loading scenario.
@@ -397,25 +383,25 @@ namespace mantisServer{
 
         double load_value = 0.0f;
         for (unsigned int j = 0; j < CVindex.size(); ++j){
-            if (scenario.modReplace == 0){// Use the scenario from the Initialization Raster
+            if (scenario.modifierType == RasterOperation::DONTUSE){// Use the scenario from the Raster Initialization Data
                 double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
                 if (loadUnits == LoadUnits::MASS){
-                    scen_value = scen_value / rch[j];
+                    scen_value = scen_value*100 / rch[j];
                 }
                 load_value += scen_value;
             }
-            else if (scenario.modReplace == 1){// Replace the value with the user data
+            else if (scenario.modifierType == RasterOperation::Replace){// Replace the value with the user data
                 double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
-                if (scenario.isLoadConc == 0){
-                    user_value = user_value / rch[j];
+                if (scenario.modifierUnit == LoadUnits::MASS){
+                    user_value = user_value*100 / rch[j];
                 }
                 load_value += user_value;
             }
-            else if (scenario.modReplace == 2){// Multiply the user value with the initialization scenario Raster
+            else if (scenario.modifierType == RasterOperation::Multiply){// Multiply the user value with the initialization scenario Raster
                 double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
                 double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
                 if (loadUnits == LoadUnits::MASS){
-                    scen_value = scen_value / rch[j];
+                    scen_value = scen_value*100 / rch[j];
                 }
                 load_value += scen_value*user_value;
             }
@@ -499,13 +485,13 @@ namespace mantisServer{
                             //std::cout << " Nred=" << Nred;
                             double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                             if (loadUnits == LoadUnits::MASS){
-                                tmpLoad = tmpLoad/(rch[j]*3650);
+                                tmpLoad = tmpLoad*100 / rch[j];
                             }
                             lf += tmpLoad;
                         }
                         else{
                             if (loadUnits == LoadUnits::MASS){
-                                Nbase = Nbase / (rch[j]*3650);
+                                Nbase = Nbase*100 / rch[j];
                             }
                             lf += Nbase;
                         }
@@ -535,7 +521,7 @@ namespace mantisServer{
                     double Nred = percReduction[j] * Nbase;
                     double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                     if (loadUnits == LoadUnits::MASS){
-                        tmpLoad = tmpLoad/(rch[j]*3650);
+                        tmpLoad = tmpLoad*100 / rch[j];
                     }
                     lf += tmpLoad;
                     //std::cout << Nbase << ", " << Nred << std::endl;

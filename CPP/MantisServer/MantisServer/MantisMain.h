@@ -462,6 +462,23 @@ namespace mantisServer {
 	    angle = a;
 	}
 
+	class wellCollection{
+	public:
+        wellCollection::wellCollection(){}
+        wellCollection::wellCollection(std::string name, bool tf)
+            :
+            Name(name),
+            calcSourceArea(tf)
+            {}
+
+	    std::string Name;
+	    std::map<int, wellClass> Wells;
+	    bool calcSourceArea = false;
+	    void addWell(int Eid, wellClass w){
+            Wells.insert(std::pair<int, wellClass>(Eid, w));
+	    }
+	};
+
 
 
 
@@ -563,9 +580,10 @@ namespace mantisServer {
 
 		std::map<std::string, NLoad> NGWLoading;
 
-		//! UNSAT is a 2D array of Nrow x Ncol. If we decide to include more than one travel time map then this should be a 3D array
+		//! UNSAT is a linear data structure that holds the depth/recharge values
         //UNSATdataClass unsat;
         LinearData unsat;
+        //! rch is a linear data structure that holds the groundwater recharge in mm/year
         LinearData rch;
 
 		//std::map<std::string, int > UNSATscenarios;
@@ -575,7 +593,7 @@ namespace mantisServer {
 		std::vector<std::string> backgroundMapNames;
 
 		//! A map of well ids and wellClass
-		std::map<std::string, std::map<int, wellClass> > Wellmap;
+		std::map<std::string, wellCollection > Wellmap;
 
 		Scenario scenario;
 
@@ -728,7 +746,7 @@ namespace mantisServer {
 			return false;
 		}
 
-		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
+		std::map<std::string, wellCollection >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
 		if (wellscenNameit == Wellmap.end()) {
 			outmsg += "0 ERROR: There are no wells and urfs for the combination of flow scenario [";
 			outmsg += scenario.flowScen;
@@ -747,17 +765,6 @@ namespace mantisServer {
 		}
         else{
             scenario.unsatScenarioID = unsat.ScenarioIndex(scenario.unsatScenario);
-        }
-
-        int rchid = rch.ScenarioIndex(scenario.flowScen);
-        if (rchid != -1 ){
-            scenario.flowRchID = rchid;
-        }
-        else{
-            outmsg += "0 ERROR: There is no recharge map for flow scenario with name: [";
-            outmsg += scenario.flowScen;
-            outmsg += "]";
-            return false;
         }
 
         std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
@@ -779,23 +786,19 @@ namespace mantisServer {
                         outmsg += "]";
                         return false;
                     }
-                    if (scenario.modifierType.compare("Multiply") == 0){
-                        scenario.modReplace = 0;
+                    if (scenario.modifierType == RasterOperation::Multiply){
                         testforSubScen = true;
                     }
-                    else if (scenario.modifierType.compare("Replace") == 0){
-                        scenario.modReplace = 1;
+                    else if (scenario.modifierType == RasterOperation::Replace){
                         testforSubScen = false;
                     }
                     else{
-                        outmsg += "0 ERROR: The modifier type [";
-                        outmsg += scenario.modifierType;
-                        outmsg += "] is UNKNOWN. Valid options are (Replace or Multiply)";
+                        outmsg += "0 ERROR: The modifier type is UNKNOWN. Valid options are (Replace or Multiply)";
                     }
                 }
                 else{
                     testforSubScen = true;
-                    scenario.modReplace = 0;
+                    scenario.modifierType = RasterOperation::DONTUSE;
                 }
 
                 if (testforSubScen){
@@ -815,12 +818,13 @@ namespace mantisServer {
 			scenario.unsatZoneMobileWaterContent = 0.0;
 		}
 
-		if (scenario.isLoadConc == 0){
-		    scenario.rchScenID = rch.ScenarioIndex(scenario.rchScen);
-		    if (scenario.rchScenID == -1){
-                scenario.rchScenID = rch.ScenarioIndex(scenario.flowScen);
-		    }
-		}
+        scenario.rchScenID = rch.ScenarioIndex(scenario.flowScen);
+        if (scenario.rchScenID == -1){
+            outmsg += "0 ERROR: Cannot find the Recharge map for the flow scenario: [";
+            outmsg += scenario.flowScen;
+            outmsg += "]";
+            return false;
+        }
 
 		return true;
 	}
@@ -834,7 +838,7 @@ namespace mantisServer {
 		
 		int counter = 0;
 		while (true) {
-			std::string test;
+			std::string test, tmp;
 			counter++;
 			ss >> test;
 
@@ -879,12 +883,14 @@ namespace mantisServer {
             }
 
             if (test == "modifierType") {
-                ss >> scenario.modifierType;
+                ss >> tmp;
+                scenario.modifierType = string2RasterOperation(tmp);
                 continue;
             }
 
-            if (test == "isLoadConc") {
-                ss >> scenario.isLoadConc;
+            if (test == "modifierUnit") {
+                ss >> tmp;
+                scenario.modifierUnit = string2LoadUnits(tmp);
                 continue;
             }
 
@@ -898,10 +904,6 @@ namespace mantisServer {
 				continue;
 			}
 
-            if (test == "rchScen") {
-                ss >> scenario.rchScen;
-                continue;
-            }
 
 			if (test == "bMap") {
 				ss >> scenario.mapID;
@@ -1021,6 +1023,10 @@ namespace mantisServer {
 				out = false;
 				break;
 			}
+
+            outmsg += "0 ERROR: UNKNOWN option [" + test + "]\n";
+            out = false;
+            break;
 		}
 		return out;
 	}
@@ -1161,10 +1167,14 @@ namespace mantisServer {
 			std::cout << "Reading " << filename << std::endl;
 			int Nwells, Eid;
 			std::string setName, line;
+			int calcSource;
             getline(Welldatafile, line);
             std::istringstream inp(line.c_str());
 			inp >> Nwells;
 			inp >> setName;
+			inp >> calcSource;
+			wellCollection wCollection(setName, calcSource == 1);
+            Wellmap.insert(std::pair<std::string, wellCollection>(setName,wCollection));
 			double xw, yw, D, SL, Q, ratio, angle;
 			std::string regionCode;
 			for (int i = 0; i < Nwells; ++i) {
@@ -1206,7 +1216,7 @@ namespace mantisServer {
 				//assign_point_in_sets(xw, yw, Eid, setName);
                 wellClass w;
 				w.setAdditionalData(xw, yw, D, SL, Q, ratio, angle);
-				Wellmap[setName].insert(std::pair<int, wellClass>(Eid, w));
+				Wellmap[setName].addWell(Eid, w);
 			}
 		}
 		Welldatafile.close();
@@ -1261,7 +1271,7 @@ namespace mantisServer {
                 return false;
             }
 
-            std::map<std::string, std::map<int, wellClass> >::iterator scenit;
+            std::map<std::string, wellCollection >::iterator scenit;
             scenit = Wellmap.find(names[0]);
             if (scenit == Wellmap.end()) {
                 std::cout << "The URF Scenario " << names[0] << " is not defined for the wells" << std::endl;
@@ -1272,8 +1282,8 @@ namespace mantisServer {
                 int eid, sid, r, c, riv, npxl;
                 double m, s, w;
                 for (unsigned int i = 0; i < IDS[0].size(); ++i){
-                    wellmapit = scenit->second.find(IDS[0][i]);
-                    if (wellmapit != scenit->second.end()){
+                    wellmapit = scenit->second.Wells.find(IDS[0][i]);
+                    if (wellmapit != scenit->second.Wells.end()){
                         wellmapit->second.addStreamline(IDS[1][i],
                                                         IDS[2][i],
                                                         IDS[3][i],
@@ -1325,7 +1335,7 @@ namespace mantisServer {
                     return false;
                 }
             }
-            std::map<std::string, std::map<int, wellClass> >::iterator scenit;
+            std::map<std::string, wellCollection >::iterator scenit;
             scenit = Wellmap.find(name);
             if (scenit == Wellmap.end()) {
                 std::cout << "The URF Scenario " << name << " is not defined for the wells" << std::endl;
@@ -1347,8 +1357,8 @@ namespace mantisServer {
                     inp >> s;
                     inp >> w;
                     inp >> npxl;
-                    wellmapit = scenit->second.find(eid);
-                    if (wellmapit != scenit->second.end()){
+                    wellmapit = scenit->second.Wells.find(eid);
+                    if (wellmapit != scenit->second.Wells.end()){
                         wellmapit->second.addStreamline(sid,r,c,w,npxl,urftype,riv,m,s);
                     }
                 }
@@ -1418,8 +1428,12 @@ namespace mantisServer {
 			double mult;
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (needRch)
-                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                if (needRch){
+                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
+                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
+                    rch_val.push_back(rtmp);
+                }
+
                 else
                     rch_val.push_back(1.0);
             }
@@ -1435,8 +1449,11 @@ namespace mantisServer {
 		{
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (needRch)
-                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                if (needRch) {
+                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
+                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
+                    rch_val.push_back(rtmp);
+                }
                 else
                     rch_val.push_back(1.0);
             }
@@ -1449,10 +1466,15 @@ namespace mantisServer {
 		}
         case LoadType::RASTER:
         {
+            if (scenario.modifierType == RasterOperation::Replace && scenario.modifierUnit == LoadUnits::MASS){
+                needRch = true;
+            }
             for (int i = 0; i < nCells; ++i){
                 lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
                 if (needRch){
-                    rch_val.push_back(rch.getValue(scenario.flowRchID,lin_idx_vec.back()));
+                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
+                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
+                    rch_val.push_back(rtmp);
                 }
             }
             if (lin_idx_vec.empty()){
@@ -1525,9 +1547,9 @@ namespace mantisServer {
             options.RCHfile = options.mainPath + options.RCHfile;
         rch.setNoDataValue(0.0);
         bool tf = rch.readData(options.RCHfile, options.Npixels);
-        if (tf){
-            rch.multiply(1.0/365000.0);
-        }
+        //if (tf){
+        //    rch.multiply(1.0/365000.0);
+        //}
         return tf;
 	}
 
@@ -1634,7 +1656,7 @@ namespace mantisServer {
 		// Get an iterator to the selected map
 		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		// Get an iterator to the list of wells for the selected scenario
-		std::map<std::string, std::map<int, wellClass> >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
+		std::map<std::string, wellCollection >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
 
 		std::map<std::string, Polyregion>::iterator regit;
 		std::map<std::string, std::vector<int> >::iterator wellscenit;
@@ -1689,9 +1711,9 @@ namespace mantisServer {
 			for (int iw = startWell; iw < endWell; ++iw) { //---------LOOP THROUGH the wells of the region------
 				wellid = wellscenit->second[iw];
 				//std::cout << wellid << std::endl;
-				wellit = wellscenNameit->second.find(wellid);
+				wellit = wellscenNameit->second.Wells.find(wellid);
 
-				if (wellit != wellscenNameit->second.end()) {
+				if (wellit != wellscenNameit->second.Wells.end()) {
                     if (scenario.bNarrowSelection == true){
                         if (scenario.useRadSelect){
                             if (!scenario.RadSelect.isPointIn(wellit->second.xcoord, wellit->second.ycoord))
@@ -1755,10 +1777,6 @@ namespace mantisServer {
 
 
                                     bool isLFValid = false;
-									URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
-									if (scenario.printAdditionalInfo)
-										urf.print_urf(urf_file);
-
                                     isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.SourceArea);
 									if (scenario.printAdditionalInfo && isLFValid) {
 										for (int ii = 0; ii < NsimulationYears; ++ii)
@@ -1766,6 +1784,9 @@ namespace mantisServer {
 										lf_file << std::endl;
 									}
 									if (isLFValid) {
+                                        URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
+                                        if (scenario.printAdditionalInfo)
+                                            urf.print_urf(urf_file);
 										urf.convolute(LF, BTC);
 									}
 									if (scenario.printAdditionalInfo && isLFValid) {
@@ -1891,7 +1912,7 @@ namespace mantisServer {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Calculating source area ..." << std::endl;
 
-        std::map<std::string, std::map<int, wellClass> >::iterator it1;
+        std::map<std::string, wellCollection >::iterator it1;
         std::map<int, wellClass>::iterator it2;
         std::map<int, streamlineClass>::iterator it3;
         std::map< int, cell>::iterator it4, it5;
@@ -1910,7 +1931,7 @@ namespace mantisServer {
         int tmpNpxl = 0;
         std::vector<cell> sp = SearchPattern();
         for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
-            for (it2 = it1->second.begin(); it2 != it1->second.end(); ++it2){
+            for (it2 = it1->second.Wells.begin(); it2 != it1->second.Wells.end(); ++it2){
                 //if (it2->first < 8456 || it2->first > 9400)
                 //    continue;
                 if ((it2->first % 1000) == 0)
@@ -1920,6 +1941,12 @@ namespace mantisServer {
                 cosd = std::cos(radAngl);
                 sind = std::sin(radAngl);
                 for(it3 = it2->second.streamlines.begin(); it3 != it2->second.streamlines.end(); ++it3){
+                    if (!it1->second.calcSourceArea){
+                        lin_ind = cvraster.IJ(it3->second.row, it3->second.col);
+                        if (lin_ind != -1)
+                            it3->second.SourceArea.push_back(cell(it3->second.row, it3->second.col));
+                        continue;
+                    }
                     //if (it2->first == 157 && it3->first == 66){
                     //    debug_this = true;
                     //}

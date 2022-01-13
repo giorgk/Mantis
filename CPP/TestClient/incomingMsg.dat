@@ -1,11 +1,24 @@
 endSimYear 2100
 startRed 2020
 endRed 2030
-flowScen C2VsimRun01Ref6
-loadScen GNLM
+flowScen C2VSIM_II_01
+wellType VD
+loadScen TEST01
+loadSubScen test50
+modifierName ../../../C2Vsim_NPSAT/MantisPredictions/ReplaceLoad.h5
+modifierType Replace
+modifierUnit MASS
 unsatScen C2VSIM_SPRING_2000
-unsatWC 0
-bMap Subregions
-Nregions 1 Subregion1
+unsatWC 0.01
+bMap Townships
+Nregions 1 16M18S22E
+# RadSelect
+# RectSelect
+# DepthRange
+# ScreenLenRange
+# SourceArea
 Ncrops 1
 -9 1.0
+# DebugID
+# minRch
+# PixelRadius

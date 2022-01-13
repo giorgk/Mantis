@@ -12,7 +12,38 @@
 #include <highfive/H5File.hpp>
 #endif
 
+
 namespace mantisServer {
+
+    enum class LoadUnits{
+        CONC,
+        MASS,
+        UNKNOWN
+    };
+
+    LoadUnits string2LoadUnits(std::string str){
+        if (str.compare("CONC") == 0)
+            return LoadUnits::CONC;
+        else if (str.compare("MASS") == 0)
+            return LoadUnits::MASS;
+        else
+            return LoadUnits::UNKNOWN;
+    }
+
+    enum class RasterOperation{
+        Multiply,
+        Replace,
+        DONTUSE,
+        UNKNOWN
+    };
+    RasterOperation string2RasterOperation(std::string str){
+        if (str.compare("Multiply") == 0)
+            return RasterOperation::Multiply;
+        else if (str.compare("Replace") == 0)
+            return RasterOperation::Replace;
+        else
+            return RasterOperation::UNKNOWN;
+    }
 
     struct cell{
         cell(){
@@ -355,7 +386,6 @@ namespace mantisServer {
 
         //! flowScen is the code name of the selected flow scenario.
         std::string flowScen;
-        int flowRchID;
 
         //! This is a combination of Flow scenario and Welltype
         std::string flowWellScen;
@@ -374,12 +404,10 @@ namespace mantisServer {
         //! The filename with the uploaded raster loading
         std::string modifierName;
         //! The operation type with respect to Scenario subscenario load option
-        std::string modifierType;
-        int modReplace;
+        RasterOperation modifierType;
+        //int modReplace;
         LinearData userRasterLoad;
-        int isLoadConc;
-        bool buserRasterSupplied;
-
+        LoadUnits modifierUnit;
 
         //! regionIDs is a list of regions to compute the breakthrough curves
         std::vector<std::string> regionIDs;
@@ -431,7 +459,6 @@ namespace mantisServer {
          */
         double minRecharge;
 
-        std::string rchScen;
         int rchScenID;
 
         int PixelRadius;
@@ -462,8 +489,7 @@ namespace mantisServer {
             wellType = "";
             flowWellScen = "";
             modifierName = "";
-            modifierType = "";
-            modReplace = -9;
+            modifierType = RasterOperation::UNKNOWN;
             userRasterLoad.clear();
             regionIDs.clear();
             LoadReductionMap.clear();
