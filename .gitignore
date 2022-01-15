@@ -21,6 +21,14 @@
 !/Local/*.sh
 !/Local/SWAT_LULC.csv
 
+# "un-ignore the R API folder =========R API========
+!/RmantisAPI
+#Now ignore all the content of the folder R API
+/RmantisAPI/*
+#Un-ignore the source code
+!*.R
+!*.Rproj
+
 # "un-ignore the URFSprep folder =========URFSprep========
 !/URFSprep
 #Now ignore all the content of the folder Local
@@ -74,3 +82,4 @@
 !/CPP/BIN/*.dll
 
 
+.Rproj.user
