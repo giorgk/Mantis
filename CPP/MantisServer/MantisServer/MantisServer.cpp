@@ -71,7 +71,14 @@ int main(int argc, char *argv[])
 				socket.close();
 				break;
 			}
-				
+
+			if (msg.compare("ping\n") == 0){
+                std::cout << "Received a ping" << std::endl;
+                outmsg = "0 pong";
+                socket.write_some(ba::buffer(outmsg));
+                socket.close();
+                continue;
+			}
 
 			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
 			if (bvalidMsg) {

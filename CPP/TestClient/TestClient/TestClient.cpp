@@ -43,11 +43,16 @@ int main(int argc, char* argv[])
 	//}
 
 	bool quit = false;
+	bool ping = false;
 	std::string infile, outfile;
 	if (argc > 1) {
 		infile = argv[1];
-		if (infile.compare("quit") == 0)
-			quit = true;
+		if (infile.compare("quit") == 0) {
+            quit = true;
+        }
+		else if (infile.compare("ping") == 0){
+		    ping = true;
+		}
 	}
 
 	if (argc > 2) {
@@ -60,6 +65,9 @@ int main(int argc, char* argv[])
 	std::string msg;
 	if (quit) {
 		msg = "quit\n";
+	}
+	else if (ping){
+        msg = "ping\n";
 	}
 	else {
 		if (argc > 1) {
@@ -144,7 +152,7 @@ int main(int argc, char* argv[])
 	boost::asio::write(socket, boost::asio::buffer(msg), error);
 
 	if (!error) {
-		std::cout << "Client sent hello message" << std::endl;
+		std::cout << "Client sent a message" << std::endl;
 	}
 	else {
 		std::cout << "sent failed" << std::endl;
@@ -193,7 +201,7 @@ int main(int argc, char* argv[])
 		else {
             outstream << 0 << " " << 0 << std::endl;
             outstream << data << std::endl;
-			std::cout << data << std::endl;
+			//std::cout << data << std::endl;
 		}
 
         outstream.close();

@@ -6,20 +6,28 @@ library(gwtools)
 #------------- Setup server and path -------------------------------------
 # First launch the server.
 # Open a terminal and run MantisServer.exe -c config.ini
-#
-# Next setup the path for the Mantis client program
-client_prog <- "../CPP/TestClient/TestClient/cmake-build-release/MantisClient.exe"
 
 # ----------Configure the scenario options ----------------------------
 # The following command creates a list with all available options to configure a scenario
 scenario <- mantis.ScenarioOptions()
 
-# First configure the input file name. This is the file where all the options will be written.
+# First setup the path for the Mantis client program
+scenario$client <- "../CPP/TestClient/TestClient/cmake-build-release/MantisClient.exe"
+
+# -----------Quit Server ------------------
+res <- mantis.Quit(scenario)
+
+# Configure the input file name. This is the file where all the options will be written.
 # This file name will be used as input to the Mantis client program.
 scenario$infile <- 'inputMessage.dat'
 
 # We need to setup a file name for the output file where the Mantis client will print the results
 scenario$outfile <- 'BTCresults.dat'
+
+# -------- Test the connection ----------------
+res <- mantis.Ping(scenario)
+
+
 
 # Optionally we can add an one line short description of the scenario.
 # This is printed in the input file and it is not used.
@@ -62,10 +70,19 @@ scenario$wellType <- 'VI'
 # 4 The server will run the simulation ans send the results to client
 # 5 The client will read the results and return them to the R workspace
 # All this sequence is executed with one go as follows
-btc <- mantis.Run(scenario = scenario, client_prog = client_prog)
+btc <- mantis.Run(scenario)
 
+# Switch to domestic wells and repeat the simulation
+scenario$wellType <- 'VD'
+btc1 <- mantis.Run(scenario)
 
+# To calculate percentiles we an use the package matrixStats
+library(matrixStats)
+btc_prc <- colQuantiles(as.matrix(btc), probs = c(.25, .5, .75, 0.85, 0.95))
+btc_prc1 <- colQuantiles(as.matrix(btc1), probs = c(.25, .5, .75, 0.85, 0.95))
 
+# For the plot I use plotly which makes nice interactive plots
+library(plotly)
 
 
 
