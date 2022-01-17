@@ -3,18 +3,20 @@
 # Here I'll load the package
 library(gwtools)
 
-#------------- Setup server and path -------------------------------------
+# Setup server and path -------------------------------------
 # First launch the server.
 # Open a terminal and run MantisServer.exe -c config.ini
+# From the MantisData/v1_8 directory run:
+#..\..\CPP\MantisServer\MantisServer\cmake-build-release\MantisServer.exe -c .\mantisConfig.ini
 
-# ----------Configure the scenario options ----------------------------
+# Configure the scenario options ----------------------------
 # The following command creates a list with all available options to configure a scenario
 scenario <- mantis.ScenarioOptions()
 
 # First setup the path for the Mantis client program
 scenario$client <- "../CPP/TestClient/TestClient/cmake-build-release/MantisClient.exe"
 
-# -----------Quit Server ------------------
+# Quit Server -------------------------
 res <- mantis.Quit(scenario)
 
 # Configure the input file name. This is the file where all the options will be written.
@@ -24,7 +26,7 @@ scenario$infile <- 'inputMessage.dat'
 # We need to setup a file name for the output file where the Mantis client will print the results
 scenario$outfile <- 'BTCresults.dat'
 
-# -------- Test the connection ----------------
+# Test the connection ----------------
 res <- mantis.Ping(scenario)
 
 
@@ -42,10 +44,10 @@ scenario$endSimYear <- 2150
 # First we should choose a background map which defines how the Central Valley is divided.
 # The available options are given in the table https://github.com/giorgk/Mantis/wiki/Runtime-Data#background-maps
 # Let's select a county level
-scenario$bMap <- 'Counties'
+scenario$bMap <- 'B118'
 
 # Then we can choose which counties we want to include in the simulation. Here we will choose only one
-scenario$Regions <- c('Merced')
+scenario$Regions <- c('5_22_13')
 
 # Select Nitrate Loading -------------------------------
 # The table provides the available options https://github.com/giorgk/Mantis/wiki/Runtime-Data#nitrate-loading-scenarios
@@ -53,7 +55,8 @@ scenario$Regions <- c('Merced')
 scenario$loadScen <- 'GNLM'
 
 # Using the GNLM and SWAT loading type we can modify the Nitrate loading by selecting crop types and reduction rates
-# However here we will run the base loading by setting to all crops (id = -9) a reduction of 1
+# Crop variable is a nx2 matrix where the first column is the crop id and the second a multiplier to loading
+# Here we will run the base loading by setting to all crops (id = -9) a reduction of 1
 scenario$Crops <- matrix(c(-9, 1),nrow = 1, ncol = 2)
 
 # Select well type ------------
@@ -70,19 +73,106 @@ scenario$wellType <- 'VI'
 # 4 The server will run the simulation ans send the results to client
 # 5 The client will read the results and return them to the R workspace
 # All this sequence is executed with one go as follows
-btc <- mantis.Run(scenario)
+btc.VI <- mantis.Run(scenario)
 
 # Switch to domestic wells and repeat the simulation
 scenario$wellType <- 'VD'
-btc1 <- mantis.Run(scenario)
+btc.VD <- mantis.Run(scenario)
 
-# To calculate percentiles we an use the package matrixStats
+# Calculate percentiles -----------------
+# To calculate percentiles we can use the package matrixStats
 library(matrixStats)
-btc_prc <- colQuantiles(as.matrix(btc), probs = c(.25, .5, .75, 0.85, 0.95))
-btc_prc1 <- colQuantiles(as.matrix(btc1), probs = c(.25, .5, .75, 0.85, 0.95))
+btc_prc.VI <- colQuantiles(as.matrix(btc.VI), probs = c(.25, .5, .75, 0.85, 0.95))
+btc_prc.VD <- colQuantiles(as.matrix(btc.VD), probs = c(.25, .5, .75, 0.85, 0.95))
 
-# For the plot I use plotly which makes nice interactive plots
+# Plot ---------------------
+# For the plot my preference is the plotly library which makes nice interactive plots
 library(plotly)
+{ # Plot percentiles
+  tm <- seq.Date(from = as.Date(paste0(1946,"/",1,"/1")),to = as.Date(paste0(2150,"/",1,"/1")),by = "year")
+  plotDF <- data.frame("Time" = tm)
+  plotDF$VIp50 <- btc_prc.VI[,2]
+  plotDF$VIp75 <- btc_prc.VI[,3]
+  plotDF$VIp85 <- btc_prc.VI[,4]
+  plotDF$VIp95 <- btc_prc.VI[,5]
+  plotDF$VDp50 <- btc_prc.VD[,2]
+  plotDF$VDp75 <- btc_prc.VD[,3]
+  plotDF$VDp85 <- btc_prc.VD[,4]
+  plotDF$VDp95 <- btc_prc.VD[,5]
+  p <- plot_ly(plotDF)
+  clr <- c('#e41a1c','#377eb8')
+  cc <- clr[1]
+  for (i in 2:(dim(plotDF)[2])) {
+    if (i > 5){
+      cc <- clr[2]
+    }
+    p <- add_trace(p, x = ~Time, y = plotDF[,i],  type = 'scatter', mode = 'lines',
+                   name = names(plotDF)[i], line = list(color = cc, width = 4, dash = 'solid'))
+  }
+  p %>%
+    layout(title = "Percentiles BTC" , #and 1% from Delta"
+           xaxis = list(title = "Time"),
+           yaxis = list(title = "[mg/l]"))
+}
 
+# Simulate for swat SWAT1 --------------
+scenario$loadScen <- 'SWAT1'
+scenario$wellType <- 'VI'
+btc.VI <- mantis.Run(scenario)
+scenario$wellType <- 'VD'
+btc.VD <- mantis.Run(scenario)
+btc_prc.VI <- colQuantiles(as.matrix(btc.VI), probs = c(.25, .5, .75, 0.85, 0.95))
+btc_prc.VD <- colQuantiles(as.matrix(btc.VD), probs = c(.25, .5, .75, 0.85, 0.95))
 
+# RASTER LOADING type --------------------------
+# For the raster loading we need to know the background raster
+library(hdf5r)
 
+cvraster <- H5File$new("../MantisData/v1_8/CVraster.h5",mode = "r")
+CVR <- cvraster[["Raster"]]
+CVR_D <- CVR[,]
+IJ <- which(CVR_D != -1, arr.ind = T)
+cvraster$close_all()
+
+# For Raster loading we have to specify the load scenario name
+scenario$loadScen <- 'TEST01'
+# and the subscenario name
+scenario$loadSubScen <- 'test50'
+scenario$wellType <- 'VI'
+btc.VI <- mantis.Run(scenario)
+scenario$wellType <- 'VD'
+btc.VD <- mantis.Run(scenario)
+
+# Set RASTER loading at Runtime ------------------
+
+# Create new Raster Loading
+user_load <- matrix(runif(dim(IJ)[1], min = 50, max = 200), nrow = dim(IJ)[1], ncol = 1)
+userld.h5 <- H5File$new("userLoading.h5", mode = "w")
+userld.h5[["Data"]] <- user_load
+userld.h5[["Names"]] <- 'userload'
+userld.h5$close_all()
+
+scenario$modifierName <-'../../RmantisAPI/userLoading.h5'
+scenario$modifierType <- 'Replace'
+scenario$modifierUnit <- 'CONC'
+scenario$wellType <- 'VI'
+
+btc.VI <- mantis.Run(scenario)
+scenario$wellType <- 'VD'
+btc.VD <- mantis.Run(scenario)
+
+# Create a multiplier Raster
+mult_load <- matrix(runif(dim(IJ)[1], min = 0, max = 1), nrow = dim(IJ)[1], ncol = 1)
+mult.h5 <- H5File$new("userMult.h5", mode = "w")
+mult.h5$create_dataset(mult_load, name = "Data", dtype = h5types$H5T_NATIVE_FLOAT)
+mult.h5[["Names"]] <- 'multload'
+mult.h5$close_all()
+
+scenario$modifierName <-'../../RmantisAPI/userMult.h5'
+scenario$modifierType <- 'Multiply'
+scenario$modifierUnit <- 'CONC'
+scenario$wellType <- 'VI'
+btc.VI <- mantis.Run(scenario)
+
+scenario$wellType <- 'VD'
+btc.VD <- mantis.Run(scenario)
