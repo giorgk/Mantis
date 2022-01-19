@@ -6,7 +6,7 @@ library(gwtools)
 # Setup server and path -------------------------------------
 # First launch the server.
 # Open a terminal and run MantisServer.exe -c config.ini
-# The following is valid only from my PC
+# The following is valid only for my PC
 # From the MantisData/v1_8 directory run:
 #..\..\CPP\MantisServer\MantisServer\cmake-build-release\MantisServer.exe -c .\mantisConfig.ini
 
