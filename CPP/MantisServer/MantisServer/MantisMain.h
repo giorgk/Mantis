@@ -464,8 +464,8 @@ namespace mantisServer {
 
 	class wellCollection{
 	public:
-        wellCollection::wellCollection(){}
-        wellCollection::wellCollection(std::string name, bool tf)
+        wellCollection(){}
+        wellCollection(std::string name, bool tf)
             :
             Name(name),
             calcSourceArea(tf)

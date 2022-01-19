@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <map>
 
 #if _USEHF > 0
 #include <highfive/H5DataSet.hpp>
@@ -308,24 +309,29 @@ namespace mantisServer {
 #if _USEHF>0
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
-            const std::string NamesNameSet("Names");
-            const std::string DataNameSet("Data");
-            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
-            HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
-            HighFive::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
+            try {
+                const std::string NamesNameSet("Names");
+                const std::string DataNameSet("Data");
+                HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+                HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
+                HighFive::DataSet datasetData = HDFfile.getDataSet(DataNameSet);
 
-            std::vector<std::string> names;
-            datasetNames.read(names);
-            datasetData.read(Data);
-            for (unsigned int i = 0; i < names.size(); ++i){
-                ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
+                std::vector<std::string> names;
+                datasetNames.read(names);
+                datasetData.read(Data);
+                for (unsigned int i = 0; i < names.size(); ++i){
+                    ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
+                }
+                Nscenarios = ScenarioMap.size();
+                auto finish = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double> elapsed = finish - start;
+                std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
+                bHFread = true;
+                return true;
             }
-            Nscenarios = ScenarioMap.size();
-            auto finish = std::chrono::high_resolution_clock::now();
-            std::chrono::duration<double> elapsed = finish - start;
-            std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
-            bHFread = true;
-            return true;
+            catch (...) {
+                return false;
+            }
         }
 #endif
 
