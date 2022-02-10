@@ -93,9 +93,9 @@ namespace mantisServer{
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
          * For SWAT this must be 1
          */
-        bool buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
+        bool buildLoadingFunction(std::vector<int>& CVindex, int startYear, int endYear, std::vector<double>& LF,
                                   Scenario& scenario, std::vector<double> &rch);
-        bool buildLoadingFromRaster(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
+        bool buildLoadingFromRaster(std::vector<int>& CVindex, int startYear, int endYear, std::vector<double>& LF,
                                     Scenario& scenario, std::vector<double> &rch);
         LoadType getLtype() {
             return loadType;
@@ -109,7 +109,7 @@ namespace mantisServer{
         //! checks if the index is not out of range
         bool isValidIndex(int index);
     private:
-        //! The type of loading function GNLM or SWAT
+        //! The type of loading function GNLM, SWAT or RASTER
         LoadType loadType;
 
         LoadUnits loadUnits;
@@ -378,7 +378,7 @@ namespace mantisServer{
         */
     }
 
-    bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int endYear, std::vector<double> &LF,
+    bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int startYear, int endYear, std::vector<double> &LF,
                                        Scenario &scenario, std::vector<double> &rch) {
 
         double load_value = 0.0f;
@@ -407,19 +407,38 @@ namespace mantisServer{
             }
         }
         load_value = load_value/static_cast<double>(CVindex.size());
-        int startYear = 1945;
+
+        if (scenario.maxConc > 0){
+            if (load_value > scenario.maxConc){
+                load_value = scenario.maxConc;
+            }
+        }
+
         int Nyears = endYear - startYear;
         LF.clear();
         LF.resize(Nyears, load_value);
         return true;
     }
 
-    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex, int endYear, std::vector<double>& LF,
-                                     Scenario& scenario, std::vector<double> &rch) {
+    bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
+                                     int startYear,
+                                     int endYear,
+                                     std::vector<double>& LF,
+                                     Scenario& scenario,
+                                     std::vector<double> &rch) {
         bool out = false;
-        int startYear = 1945;
+
+        if (loadType == LoadType::RASTER){
+            out = buildLoadingFromRaster(CVindex, startYear, endYear, LF, scenario, rch);
+            return out;
+        }
+
+
+        //int startYear = 1945;
         int istartReduction = scenario.startReductionYear - startYear;
         int iendReduction = scenario.endReductionYear - startYear;
+        double dstartReduction = static_cast<double>(istartReduction);
+        double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
         int Nyears = endYear - startYear;
         double adoptionCoeff = 0;
         LF.resize(Nyears, 0.0);
@@ -439,7 +458,7 @@ namespace mantisServer{
         for (int iyr = 0; iyr < Nyears; iyr++) {
             //std::cout << "i=" << i << " Y=" << i + startYear << std::endl;
             if ((iyr >= istartReduction) && (iyr <= iendReduction))
-                adoptionCoeff = (static_cast<double>(iyr) - static_cast<double>(istartReduction)) / (static_cast<double>(iendReduction) - static_cast<double>(istartReduction));
+                adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
             else if (iyr > iendReduction)
                 adoptionCoeff = 1.0;
 
@@ -536,6 +555,12 @@ namespace mantisServer{
                 }
                 else if (NvalidCells > 1){
                     LF[iyr] = lf/NvalidCells;
+                }
+            }
+
+            if (scenario.maxConc > 0){
+                if (LF[iyr] > scenario.maxConc){
+                    LF[iyr] = scenario.maxConc;
                 }
             }
         }

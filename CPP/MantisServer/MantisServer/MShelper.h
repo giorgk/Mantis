@@ -435,6 +435,11 @@ namespace mantisServer {
         //! This is the number of years to simulate starting from 1945
         int endSimulationYear;
 
+        int LoadTransitionStart;
+        int LoadTransitionEnd;
+        std::string LoadTransitionName;
+        bool buseLoadTransition;
+
         //! This is the name of the unsaturated flow scenario
         std::string unsatScenario;
         int unsatScenarioID;
@@ -464,6 +469,7 @@ namespace mantisServer {
          * By defaults it gets 0.000027 which corresponds to 10 mm/year
          */
         double minRecharge;
+        double maxConc;
 
         int rchScenID;
 
@@ -503,6 +509,7 @@ namespace mantisServer {
             globalReduction = 1.0;
             unsatZoneMobileWaterContent = 0.0;
             minRecharge = 0.000027; // 10 mm/year
+            maxConc = -9;
             PixelRadius = 0;
             RadSelect.clear();
             RectSelect.clear();
@@ -513,6 +520,7 @@ namespace mantisServer {
             useDepthRange = false;
             useScreenLenghtRange = false;
             bNarrowSelection = false;
+            buseLoadTransition = false;
             SourceArea.clear();
         }
     };

@@ -228,6 +228,10 @@ namespace mantisServer {
 
 		//! THis is the URF type
 		URFTYPE type;
+
+		std::vector<double> TwoYears{0.00095363,0.19552570,0.42041610,0.25295003,0.09352235,0.02809293,0.00773095,0.00206478,0.00055127,0.00014946,
+                                     0.00004149,0.00001184,0.00000348,0.00000106,0.00000033};
+        std::vector<double> OneYear{0.50462587,0.43378182,0.08653695,0.01394153,0.00229080,0.00040677,0.00007900,0.00001675,0.00000385,0.00000096,0.00000025};
 	};
 
 	URF::URF(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
@@ -237,8 +241,24 @@ namespace mantisServer {
 		type(type_in)
 	{
 		urf.resize(Nyrs, 0);
-		calc_urf(ade_opt);
-		//printVector<double>(urf, "URF");
+		if (std::abs(paramA + 1) < 0.0000001){
+		    for (unsigned int i = 0; i < OneYear.size(); ++i){
+		        if (i < urf.size())
+		            urf[i] = OneYear[i];
+		    }
+		}
+		else if(std::abs(paramA + 2) < 0.0000001){
+            for (unsigned int i = 0; i < TwoYears.size(); ++i){
+                if (i < urf.size())
+                    urf[i] = TwoYears[i];
+            }
+		}
+		else{
+            calc_urf(ade_opt);
+            //printVector<double>(urf, "URF");
+		}
+
+
 	}
 
 	double URF::calc_conc(double t, ADEoptions ade_opt) {
@@ -767,6 +787,19 @@ namespace mantisServer {
             scenario.unsatScenarioID = unsat.ScenarioIndex(scenario.unsatScenario);
         }
 
+        if (scenario.buseLoadTransition){
+            std::map<std::string, NLoad>::iterator baseloadit = NGWLoading.find(scenario.LoadTransitionName);
+            if (baseloadit == NGWLoading.end()){
+                outmsg += "0 ERROR: There is no loading scenario with name: [";
+                outmsg += scenario.LoadTransitionName;
+                outmsg += "]";
+                return false;
+            }
+            if (scenario.LoadTransitionStart < 1945){scenario.LoadTransitionStart = std::min(1945, scenario.endSimulationYear-1);}
+            if (scenario.LoadTransitionEnd > scenario.endSimulationYear){scenario.LoadTransitionStart = scenario.endSimulationYear;}
+            if (scenario.LoadTransitionEnd <= scenario.LoadTransitionStart){scenario.LoadTransitionEnd = scenario.LoadTransitionStart+1;}
+        }
+
         std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
         if (loadit == NGWLoading.end()) {
             outmsg += "0 ERROR: There is no loading scenario with name: [";
@@ -1000,6 +1033,19 @@ namespace mantisServer {
 
             if (test == "minRch") {
                 ss >> scenario.minRecharge;
+                continue;
+            }
+
+            if (test == "maxConc") {
+                ss >> scenario.minRecharge;
+                continue;
+            }
+
+            if (test == "loadTrans"){
+                ss >> scenario.LoadTransitionName;
+                ss >> scenario.LoadTransitionStart;
+                ss >> scenario.LoadTransitionEnd;
+                scenario.buseLoadTransition = true;
                 continue;
             }
 
@@ -1398,97 +1444,75 @@ namespace mantisServer {
         int nCells = scenario.SourceArea.getNpixels(cells.size());
         std::vector<int> lin_idx_vec;
 
-		// If the central streamline starting cell is outside the study area return false
-		//if (cvraster.IJ(row, col) < 0)
-		//    return out;
+        std::map<std::string, NLoad>::iterator loadit, baseloadit;
 
-        //
-        //cvraster.getSurroundingPixels(row, col, scenario.PixelRadius, lin_idx_vec);
-
-
-		std::map<std::string, NLoad>::iterator loadit = NGWLoading.find(scenario.loadScen);
-        bool needRch = loadit->second.getLunit() == LoadUnits::MASS;
+		loadit = NGWLoading.find(scenario.loadScen);
         std::vector<double> rch_val;
-		switch (loadit->second.getLtype())
-		{
-		case LoadType::GNLM:
-		{
-			// The units of NO3 are Kg / ha / year
-			// NO3 = NO3 * 1000000  mg / ha / year
-			// NO3 = NO3 / 10000	mg / m ^ 2 / year
-			// NO3 = NO3 / 1000000	mg / mm ^ 2 / year
-			// The units of recharge are m / day
-			// Rch = Rch * 365 * 1000	mm / year
-			// Con = NO3 / Rch		    mg / mm ^ 3
-			// Con = Con * 1000000	    mg / L
-			// NO3 * 1000000 / 10000 / 1000000 / (RCH * 365000) * 1000000
-			// NO3 * 1000000 / 10000 /  (RCH * 365000)
-			// NO3 * 100 /  (RCH * 365000)
-			// NO3 * (RCH * 3650)
-			double mult;
-            for (int i = 0; i < nCells; ++i){
-                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (needRch){
-                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
-                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
-                    rch_val.push_back(rtmp);
-                }
 
-                else
-                    rch_val.push_back(1.0);
-            }
-            if (lin_idx_vec.empty()){
-                return out;
-            }
-
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
-                                                      LF, scenario, rch_val);
-			break;
-		}
-		case LoadType::SWAT:
-		{
-            for (int i = 0; i < nCells; ++i){
-                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (needRch) {
-                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
-                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
-                    rch_val.push_back(rtmp);
-                }
-                else
-                    rch_val.push_back(1.0);
-            }
-            if (lin_idx_vec.empty()){
-                return out;
-            }
-			out = loadit->second.buildLoadingFunction(lin_idx_vec, scenario.endSimulationYear,
-                                                      LF, scenario, rch_val);
-			break;
-		}
-        case LoadType::RASTER:
-        {
-            if (scenario.modifierType == RasterOperation::Replace && scenario.modifierUnit == LoadUnits::MASS){
-                needRch = true;
-            }
-            for (int i = 0; i < nCells; ++i){
-                lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
-                if (needRch){
-                    double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
-                    if (rtmp < scenario.minRecharge){rtmp = scenario.minRecharge;}
-                    rch_val.push_back(rtmp);
-                }
-            }
-            if (lin_idx_vec.empty()){
-                return out;
-            }
-            out = loadit->second.buildLoadingFromRaster(lin_idx_vec,
-                                                        scenario.endSimulationYear,
-                                                        LF, scenario, rch_val);
-
-            break;
+        if (scenario.buseLoadTransition){
+            baseloadit = NGWLoading.find(scenario.LoadTransitionName);
         }
-		default:
-			break;
-		}
+
+        // Find the linear indices of the source area cells and the recharge value
+        for (int i = 0; i < nCells; ++i){
+            lin_idx_vec.push_back(cvraster.IJ(cells[i].row, cells[i].col));
+            double rtmp = rch.getValue(scenario.rchScenID,lin_idx_vec.back());
+            if (rtmp < scenario.minRecharge){
+                rtmp = scenario.minRecharge;
+            }
+            rch_val.push_back(rtmp);
+        }
+        if (lin_idx_vec.empty()){
+            return out;
+        }
+
+        std::vector<double> preLF, postLF;
+        if (scenario.buseLoadTransition){
+            out = baseloadit->second.buildLoadingFunction(lin_idx_vec,
+                                                    1945,
+                                                    scenario.LoadTransitionEnd,
+                                                    preLF,
+                                                    scenario,
+                                                    rch_val);
+
+            out = loadit->second.buildLoadingFunction(lin_idx_vec,
+                                                      scenario.LoadTransitionStart,
+                                                      scenario.endSimulationYear,
+                                                      postLF,
+                                                      scenario,
+                                                      rch_val);
+
+            int Nyears = scenario.endSimulationYear - 1945;
+            int ia = scenario.LoadTransitionStart - 1945;
+            int ib = scenario.LoadTransitionEnd - 1945;
+            double da = static_cast<double>(ia);
+            double dabRange = static_cast<double>(ib) - da;
+            LF.clear();
+            LF.resize(Nyears, 0.0);
+            for (int iyr = 0; iyr < Nyears; iyr++){
+                if (iyr <= ia){
+                    LF[iyr] = preLF[iyr];
+                }
+                else if (iyr >= ib){
+                    LF[iyr] = postLF[iyr - ia];
+                }
+                else{
+                    double t = (static_cast<double>(iyr) - ia) / dabRange;
+                    LF[iyr] = preLF[iyr]*(1-t) + t*postLF[iyr - ia];
+                }
+
+            }
+
+        }
+        else{
+            out = loadit->second.buildLoadingFunction(lin_idx_vec,
+                                                          1945,
+                                                          scenario.endSimulationYear,
+                                                          LF,
+                                                          scenario,
+                                                          rch_val);
+        }
+
 		return out;
 	}
 
@@ -1755,7 +1779,21 @@ namespace mantisServer {
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 								std::vector<double> BTC(NsimulationYears, 0);
 								std::vector<double> LF(NsimulationYears, 0);
-								if (strmlnit->second.mu > 0.00000001 && !strmlnit->second.inRiver) {
+
+								//Simulate this streamline only it the end point is not on a river
+								bool bSimulateThis = false;
+								if (!strmlnit->second.inRiver){
+								    // If mu is zero the source is coming from the side so we set this to 0
+                                    if (strmlnit->second.mu > 0.00000001){
+                                        bSimulateThis = true;
+                                    }
+                                    else if (strmlnit->second.mu + 1 < 0.00000001 || strmlnit->second.mu + 2 < 0.00000001 ){
+                                        // If mu is -1 or -2 this simulate them
+                                        bSimulateThis = true;
+                                    }
+								}
+
+								if (bSimulateThis) {
                                     // Find the travel time in the unsaturated zone
                                     int intTau = 0;
                                     if (unsat_idx != -1) {
