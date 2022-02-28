@@ -18,6 +18,7 @@
 
 #include "MSoptions.h"
 #include "MShelper.h"
+#include "runtimeWells.h"
 
 
 /**
@@ -547,6 +548,15 @@ namespace mantisServer {
 		//void simulate(std::string &msg, std::string &outmsg);
 
 		void simulate_with_threads(int id);//int id, std::string &msg, std::string &outmsg
+
+		void simulate_RF_wells(int id);
+
+		bool simulate_streamline(int unsat_idx, int &I, int &J,
+                                 std::vector<cell> &sourceArea, bool &inRiv,
+                                 double &m, double &s, double &w,
+                                 std::vector<double> &weightedBTC,
+                                 std::ofstream &lf_file, std::ofstream &urf_file,
+                                 std::ofstream &btc_file);
 		
 		bool readInputs();
 		/**
@@ -614,6 +624,9 @@ namespace mantisServer {
 
 		//! A map of well ids and wellClass
 		std::map<std::string, wellCollection > Wellmap;
+
+		std::map<std::string, runtimeURFSet> RegionFlowURFS;
+        runtimeURFSet temporaryURFs;
 
 		Scenario scenario;
 
@@ -695,6 +708,8 @@ namespace mantisServer {
 
 		bool readRCH();
 
+		bool readRFURF();
+
 		bool readCVraster();
 		
 		//bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
@@ -702,6 +717,8 @@ namespace mantisServer {
 
 		//void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
 		void CalculateSourceArea();
+
+		void getStartEndWells(int id, int Nwells, unsigned  int &startWell, unsigned int &endWell);
 
 	};
 
@@ -1077,6 +1094,26 @@ namespace mantisServer {
 		return out;
 	}
 
+	void Mantis::getStartEndWells(int id, int Nwells, unsigned int &startWell, unsigned int &endWell) {
+        if (Nwells <= options.nThreads){
+            if (id > 0){
+                startWell = 0;
+                endWell = 0;
+            }
+            else{
+                startWell = 0;
+                endWell = Nwells;
+            }
+        }
+        else{
+            int nwells2calc = Nwells / options.nThreads;
+            startWell = id * nwells2calc;
+            endWell = (id + 1)*nwells2calc;
+            if (id == options.nThreads - 1)
+                endWell = Nwells;
+        }
+	}
+
 	bool Mantis::readBackgroundMaps() {
 		//auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream MAPSdatafile;
@@ -1132,6 +1169,11 @@ namespace mantisServer {
 
 	bool Mantis::readInputs() {
 
+        if (options.bReadRFURF){
+            bool tf = readRFURF();
+            if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
+        }
+
         bool tf = readCVraster();
         if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
@@ -1155,7 +1197,64 @@ namespace mantisServer {
 
         CalculateSourceArea();
 
+        //if (options.bReadRFURF){
+        //    tf = readRFURF();
+        //    if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
+        //}
+
         return tf;
+	}
+
+	bool Mantis::readRFURF() {
+        std::ifstream RFMasterfile;
+        std::string filename;
+        if (!options.bAbsolutePaths){
+            filename = options.mainPath + options.RFURFfile;
+        }
+        else{
+            filename = options.RFURFfile;
+        }
+        RFMasterfile.open(filename);
+        if (!RFMasterfile.is_open()) {
+            std::cout << "Cant open file: " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::string line, nameset, tmpfile;
+            int nfiles;
+            while (getline(RFMasterfile, line)){
+                std::istringstream inp(line.c_str());
+                inp >> nameset;
+
+                if (nameset.empty())
+                    continue;
+                if (nameset.front() == '#')
+                    continue;
+
+                inp >> nfiles;
+                std::vector<std::string> files;
+                for (int i = 0; i < nfiles; ++i){
+                    getline(RFMasterfile, line);
+                    std::istringstream inp1(line.c_str());
+                    inp1 >> tmpfile;
+                    files.push_back(tmpfile);
+                }
+                std::map<std::string, runtimeURFSet>::iterator it;
+                it = RegionFlowURFS.find(nameset);
+                if (it == RegionFlowURFS.end()){
+                    runtimeURFSet rfset;
+                    rfset.readWellSet(nameset, files);
+                    RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(nameset, rfset));
+                }
+            }
+
+            //std::map<std::string, runtimeURFSet>::iterator it1;
+            //for (it1 = RegionFlowURFS.begin(); it1 != RegionFlowURFS.end(); ++it1){
+            //    std::cout <<it1->first << ":" << it1->second.getNwells() << ", " << it1->second.getNurfs() << std::endl;
+            //}
+        }
+
+        return true;
 	}
 
 	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
@@ -1170,25 +1269,25 @@ namespace mantisServer {
 			return false;
 		}
 		else {
-			std::string line, filename;
+			std::string line, filename1;
 			while (getline(WellMasterfile, line)) {
                 std::istringstream inp(line.c_str());
-                inp >> filename;
-			    if (filename.empty())
+                inp >> filename1;
+			    if (filename1.empty())
 			        continue;
-			    if (filename.front() == '#')
+			    if (filename1.front() == '#')
 			        continue;
 
                 if (!options.bAbsolutePaths)
-                    filename = options.mainPath + filename;
+                    filename1 = options.mainPath + filename;
 				bool tf;
 				if (isWell)
-                    tf = readWellSet(filename);
+                    tf = readWellSet(filename1);
 				else
-                    tf = readURFs(filename);
+                    tf = readURFs(filename1);
 
 				if (!tf) {
-					std::cout << "An error occured while reading " << filename << std::endl;
+					std::cout << "An error occurred while reading " << filename1 << std::endl;
 					return false;
 				}
 			}
@@ -1658,8 +1757,183 @@ namespace mantisServer {
 		return true;
 	}
 
+	void Mantis::simulate_RF_wells(int id) {
+        std::ofstream urf_file;
+        std::ofstream lf_file;
+        std::ofstream btc_file;
+        std::ofstream well_btc_file;
+        if (scenario.printAdditionalInfo) {
+            std::string root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+            std::string urf_file_name = root_name + "_urf.dat";
+            urf_file.open(urf_file_name.c_str());
+            std::string lf_file_name = root_name + "_lf.dat";
+            lf_file.open(lf_file_name.c_str());
+            std::string btc_file_name = root_name + "_btc.dat";
+            btc_file.open(btc_file_name.c_str());
+            std::string well_btc_file_name = root_name + "_well_btc.dat";
+            well_btc_file.open(well_btc_file_name.c_str());
+        }
+
+
+
+        int unsat_idx = unsat.ScenarioIndex(scenario.unsatScenario);
+        runtimeURFSet* currentURFS;
+	    for (unsigned int i = 0; i < scenario.RFWellSet.size(); ++i){
+	        // Check if the scenario is already preloaded
+            std::map<std::string, runtimeURFSet>::iterator it;
+            it = RegionFlowURFS.find(scenario.RFWellSet[i]);
+
+            if (it != RegionFlowURFS.end()){
+                //The scenario already exists
+                currentURFS = &it->second;
+            }
+            else{
+                // Check if the last loaded area is the same
+                if (!temporaryURFs.checkNameSet(scenario.RFWellSet[i])){
+                    temporaryURFs.readWellSet(scenario.RFnameSet, scenario.RFWellSet);
+                }
+                currentURFS = &temporaryURFs;
+            }
+	    }
+
+	    int Nwells = currentURFS->getNwells();
+
+        unsigned int startWell = 0;
+        unsigned int endWell = 0;
+        getStartEndWells(id, Nwells, startWell, endWell);
+
+        std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
+        int cntBTC = 0;
+        int NsimulationYears = scenario.endSimulationYear - 1945;
+        std::vector<double> weightedBTC(NsimulationYears, 0);
+        for (unsigned int iw = startWell; iw < endWell; ++iw){
+            std::vector<double> weightBTC(NsimulationYears, 0);
+            double sumW = 0;
+            int nStreamlines = 0;
+            double m, s, w, d;
+            int urfI, urfJ, inRiv;
+            bool tf;
+
+            for(unsigned int istrml = 0; istrml < currentURFS->getNsid(iw); ++istrml){
+                currentURFS->getParam(iw, istrml, m, s, w, d, urfI, urfJ, inRiv);
+                std::vector<cell> SourceArea;
+                SourceArea.push_back(cell(urfI, urfJ));
+                bool riv = inRiv == 1;
+                tf = simulate_streamline(unsat_idx,urfI, urfJ, SourceArea, riv,
+                                         m, s, w ,weightedBTC,
+                                         lf_file, urf_file, btc_file);
+
+                if (tf){
+                    sumW += w;
+                    nStreamlines++;
+                }
+            }
+
+            if (nStreamlines == 0) {
+                continue;
+            }
+            //average streamlines
+            for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc){
+                weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
+                replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
+                replymsg[id] += " ";
+            }
+            if (scenario.printAdditionalInfo){
+                well_btc_file << iw << " " << nStreamlines << " ";
+                for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
+                    well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
+                well_btc_file << std::endl;
+            }
+            cntBTC++;
+        }
+        std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
+        replyLength[id] = cntBTC;
+        if (scenario.printAdditionalInfo) {
+            urf_file.close();
+            lf_file.close();
+            btc_file.close();
+            well_btc_file.close();
+        }
+	}
+
+
+    bool Mantis::simulate_streamline(int unsat_idx, int &I, int &J,
+                                     std::vector<cell> &sourceArea, bool &inRiv,
+                                     double &m, double &s, double &w,
+                                     std::vector<double> &weightedBTC,
+                                     std::ofstream &lf_file, std::ofstream &urf_file,
+                                     std::ofstream &btc_file){
+	    int NsimulationYears = weightedBTC.size();
+
+        //Simulate this streamline only it the end point is not on a river
+        bool bSimulateThis = false;
+        if (!inRiv){
+            if (m > 0.00000001){
+                bSimulateThis = true;
+            }
+            else if (m + 1 < 0.00000001 || m + 2 < 0.00000001){
+                bSimulateThis = true;
+            }
+        }
+
+        if (bSimulateThis){
+            // Find the travel time in the unsaturated zone
+            int intTau = 0;
+            if (unsat_idx != -1) {
+                int lin_idx = cvraster.IJ(I, J);
+                double tau = unsat.getValue(unsat_idx,lin_idx);
+                tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
+                if (tau < 0)
+                    tau = 0.0;
+                intTau = static_cast<int>(tau);
+                //std::cout << tau << std::endl;
+            }
+            if (intTau >= NsimulationYears){
+                // If the unsaturated travel time is greater than the simulation time then we
+                // don't need to convolute because the contribution will be shifted by more that NsimulationYears
+                return true;
+            }
+
+            bool isLFValid = false;
+            std::vector<double> BTC(NsimulationYears, 0);
+            std::vector<double> LF(NsimulationYears, 0);
+            isLFValid = buildLoadingFunction(scenario, LF, sourceArea);
+            if (isLFValid){
+                if (scenario.printAdditionalInfo){
+                    for (int ii = 0; ii < NsimulationYears; ++ii)
+                        lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
+                    lf_file << std::endl;
+                }
+                URF urf(NsimulationYears, m, s, URFTYPE::LGNRM);
+                if (scenario.printAdditionalInfo){
+                    urf.print_urf(urf_file);
+                }
+                urf.convolute(LF, BTC);
+                if (scenario.printAdditionalInfo){
+                    for (int ii = 0; ii < NsimulationYears; ++ii)
+                        btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
+                    btc_file << std::endl;
+                }
+
+                int ibtc = 0;
+                for (int ii = intTau; ii < NsimulationYears; ++ii) {
+                    //std::cout << ii << std::endl;
+                    weightedBTC[ii] = weightedBTC[ii] + BTC[ibtc] * w;
+                    ibtc++;
+                }
+                return true;
+            }
+        }
+        else{
+            return true;
+        }
+        return false;
+	}
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
+	    if (scenario.bUseRFWells){
+            simulate_RF_wells(id);
+	    }
 
 		std::ofstream urf_file;
 		std::ofstream lf_file;
@@ -1708,23 +1982,10 @@ namespace mantisServer {
 			if (Nwells == 0)
 				continue;
 
-			int startWell, endWell;
+			unsigned int startWell = 0;
+            unsigned int endWell = 0;
 
-			if (Nwells <= options.nThreads) {
-				if (id > 0)
-					return;
-				else {
-					startWell = 0;
-					endWell = Nwells;
-				}
-			}
-			else {
-				int nwells2calc = Nwells / options.nThreads;
-				startWell = id * nwells2calc;
-				endWell = (id + 1)*nwells2calc;
-				if (id == options.nThreads - 1)
-					endWell = Nwells;
-			}
+            getStartEndWells(id, Nwells, startWell, endWell);
 			
 			int NsimulationYears = scenario.endSimulationYear - 1945;
 			
@@ -1767,15 +2028,17 @@ namespace mantisServer {
 						if (!options.testMode) {
 							int cnt_strmlines = 0;
 							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-							    //if (wellit->first == 9858){
-                                //    std::cout << strmlnit->first << " : " << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
-							    //}
-							    //std::cout << strmlnit->second.row << "," << strmlnit->second.col << "," << strmlnit->second.SourceArea.size() << std::endl;
-								//if ( cvraster.IJ(strmlnit->second.row, strmlnit->second.col) == -1) {
-								//    std::cout << strmlnit->second.mu << "," << strmlnit->second.std << std::endl;
-                                //    continue; // If the source area is outside the domain skip it
-                                //}
+							    bool tf = simulate_streamline(unsat_idx, strmlnit->second.row, strmlnit->second.col,
+                                                              strmlnit->second.SourceArea, strmlnit->second.inRiver,
+                                                              strmlnit->second.mu, strmlnit->second.std, strmlnit->second.w,
+                                                              weightBTC, lf_file, urf_file, btc_file);
 
+                                if (tf){
+                                    sumW += strmlnit->second.w;
+                                    nStreamlines++;
+                                }
+
+                                /*
 								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
 								std::vector<double> BTC(NsimulationYears, 0);
 								std::vector<double> LF(NsimulationYears, 0);
@@ -1853,9 +2116,10 @@ namespace mantisServer {
                                     sumW += strmlnit->second.w;
                                     nStreamlines++;
 								}
+								*/
 								//else if (strmlnit->second.type == URFTYPE::ADE){
 								//	URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
-							///		isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
+							//		isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
 								//	urf.convolute(LF, BTC);
 								//}
 
@@ -1898,7 +2162,7 @@ namespace mantisServer {
 			}
 		}// loop through regions
         std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
-        std::cout << " \tThread " << id << " found  " << nWellsWithoutStreamlines << " without streamlines" << std::endl;
+        //std::cout << " \tThread " << id << " found  " << nWellsWithoutStreamlines << " without streamlines" << std::endl;
 		replyLength[id] = cntBTC;
 
 		if (scenario.printAdditionalInfo) {

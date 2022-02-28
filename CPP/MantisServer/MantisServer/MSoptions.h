@@ -78,6 +78,8 @@ namespace mantisServer {
 		std::string WELLfile;
 		std::string URFfile;
 		std::string RCHfile;
+		std::string RFURFfile;
+		bool bReadRFURF;
 
 		//int yearInterval;
 		//int startYear;
@@ -173,6 +175,7 @@ namespace mantisServer {
             ("Data.UNSAT", "A file that contains the travel time for each LU pixel")
 			("Data.WELLS", "A list of files with the well info for each scenario")
 			("Data.URFS", "A list of files with the URF information")
+			("Data.RFURF", "A list of files with Region and Flow specific URFs")
             ("Data.RCH", "A file that contains the recharge values in mm/year for each LU pixel")
             ("Data.Path", "If this is not empty all data all data must be relative to DataPath.")
 
@@ -223,13 +226,24 @@ namespace mantisServer {
 			if (!get_option<std::string>("Data.URFS", vm_cfg, opt.URFfile)) return false;
             if (!get_option<std::string>("Data.RCH", vm_cfg, opt.RCHfile)) return false;
 
+            if (vm_cfg.count("Data.RFURF")){
+				if (get_option<std::string>("Data.RFURF", vm_cfg, opt.RFURFfile)){
+					opt.bReadRFURF = true;
+				}
+				else{
+					opt.bReadRFURF = false;
+				}
+            }
+
             opt.mainPath = "";
 			if (vm_cfg.count("Data.Path")){
-			    if (!get_option<std::string>("Data.Path", vm_cfg, opt.mainPath)){
-                    opt.bAbsolutePaths = true;
-			    }
-			    else{
-                    opt.bAbsolutePaths = false;
+			    if (get_option<std::string>("Data.Path", vm_cfg, opt.mainPath)){
+			    	if (opt.mainPath.empty()){
+						opt.bAbsolutePaths = true;
+			    	}
+			    	else{
+						opt.bAbsolutePaths = false;
+			    	}
 			    }
 			}
 			else{

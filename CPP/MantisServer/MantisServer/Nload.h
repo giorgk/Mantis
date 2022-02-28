@@ -18,12 +18,6 @@ namespace mantisServer{
         RASTER
     };
 
-
-
-
-
-
-
     /**
 	 * Nload is a container for each nitrate loading scenario.
 	 *

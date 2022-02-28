@@ -398,6 +398,10 @@ namespace mantisServer {
 
         std::string wellType;
 
+        bool bUseRFWells;
+        std::vector<std::string> RFWellSet;
+        std::string RFnameSet;
+
         //! The loading scenario from the list of initialization data
         std::string loadScen;
         int loadScenID;
