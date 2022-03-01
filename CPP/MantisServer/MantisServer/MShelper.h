@@ -398,9 +398,10 @@ namespace mantisServer {
 
         std::string wellType;
 
-        bool bUseRFWells;
-        std::vector<std::string> RFWellSet;
-        std::string RFnameSet;
+        bool bUseMonitoringWells;
+        //bool bUseInitRFsets;
+        //std::vector<std::string> RFSets;
+        //std::string RFnameSet;
 
         //! The loading scenario from the list of initialization data
         std::string loadScen;
@@ -513,7 +514,7 @@ namespace mantisServer {
             globalReduction = 1.0;
             unsatZoneMobileWaterContent = 0.0;
             minRecharge = 0.000027; // 10 mm/year
-            maxConc = -9;
+            maxConc = 250;
             PixelRadius = 0;
             RadSelect.clear();
             RectSelect.clear();
@@ -524,7 +525,11 @@ namespace mantisServer {
             useDepthRange = false;
             useScreenLenghtRange = false;
             bNarrowSelection = false;
-            buseLoadTransition = false;
+            buseLoadTransition = true;
+            LoadTransitionName = "GNLM";
+            LoadTransitionStart = 2005;
+            LoadTransitionEnd = 2015;
+            bUseMonitoringWells = false;
             SourceArea.clear();
         }
     };

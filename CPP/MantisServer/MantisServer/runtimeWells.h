@@ -106,11 +106,12 @@ namespace mantisServer{
 
     bool runtimeURFSet::readSet(std::string filename) {
 #if _USEHF>0
+        std::string file_ext = filename + ".h5";
         const std::string EIDNameSet("EID");
         const std::string EXYNameSet("EXY");
         const std::string SEIJRNameSet("SEIJR");
         const std::string SMSWDNameSet("SMSWD");
-        HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+        HighFive::File HDFfile(file_ext, HighFive::File::ReadOnly);
         HighFive::DataSet datasetEID = HDFfile.getDataSet(EIDNameSet);
         HighFive::DataSet datasetEXY = HDFfile.getDataSet(EXYNameSet);
         HighFive::DataSet datasetSEIJR = HDFfile.getDataSet(SEIJRNameSet);

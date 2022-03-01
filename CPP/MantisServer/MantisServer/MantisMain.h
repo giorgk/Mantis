@@ -739,59 +739,88 @@ namespace mantisServer {
 		if (scenario.endReductionYear > scenario.endSimulationYear)
 			scenario.endReductionYear = scenario.endSimulationYear;
 
-		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
-		if (mapit == MAPList.end()) {
-			outmsg += "0 ERROR: The Background map with id [";
-			outmsg += scenario.mapID;
-			outmsg += "] could not be found";
-			return false;
-		}
-
-		if (scenario.wellType.compare("VM") == 0 && scenario.mapID.compare("Townships") !=0 ){
-            outmsg += "0 ERROR: You can simulate VIRTUAL Monitoring wells only with Townships";
-            return false;
-		}
-
-		scenario.flowWellScen = scenario.flowScen + '_' + scenario.wellType;
 
 
-		int Nwells = 0;
-		std::map<std::string, Polyregion>::iterator regit;
-		std::map<std::string, std::vector<int> >::iterator wellscenit;
-		for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i) {
-			regit = mapit->second.find(scenario.regionIDs[i]);
-			if (regit == mapit->second.end()) {
-				outmsg += "0 ERROR: The Region with id [";
-				outmsg += scenario.regionIDs[i];
-				outmsg += "] could not be found in the map with id [";
-				outmsg += scenario.mapID;
-				outmsg += "]";
-				return false;
-			}
+        if (scenario.wellType.compare("VM") == 0){
+            if (scenario.mapID.compare("Townships") != 0 ){
+                outmsg += "0 ERROR: You can simulate VIRTUAL Monitoring wells with Townships only";
+                return false;
+            }
+            scenario.bUseMonitoringWells = true;
+            // Load data if needed
+            for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i){
+                std::map<std::string, runtimeURFSet>::iterator it;
+                std::string scen_name = "TWN_" + scenario.flowScen + "_" + scenario.regionIDs[i];
+                it = RegionFlowURFS.find(scen_name);
+                if (it == RegionFlowURFS.end()){
+                    // If the scenario does not exist loadit
+                    runtimeURFSet rfset;
+                    std::vector<std::string> files;
+                    files.push_back(scen_name);
+                    bool tf = rfset.readWellSet(scen_name, files);
+                    if (!tf){
+                        outmsg += "0 ERROR: while reading the files of [";
+                        outmsg += scen_name;
+                        outmsg += "]";
+                        return false;
+                    }
+                    else {
+                        RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(scen_name, rfset));
+                    }
+                }
+            }
+        }
+        else{
+            std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
+            if (mapit == MAPList.end()) {
+                outmsg += "0 ERROR: The Background map with id [";
+                outmsg += scenario.mapID;
+                outmsg += "] could not be found";
+                return false;
+            }
 
-			wellscenit = regit->second.wellids.find(scenario.flowWellScen);
-			if (wellscenit != regit->second.wellids.end()) {
-				Nwells = wellscenit->second.size();
-			}
-		}
-		if (Nwells == 0) {
-			outmsg += "0 ERROR: There no wells in the selected regions for the combination of flow scenario [";
-			outmsg += scenario.flowScen;
-			outmsg += "] and well type [";
-			outmsg += scenario.wellType;
-            outmsg += "]";
-			return false;
-		}
+            scenario.flowWellScen = scenario.flowScen + '_' + scenario.wellType;
 
-		std::map<std::string, wellCollection >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
-		if (wellscenNameit == Wellmap.end()) {
-			outmsg += "0 ERROR: There are no wells and urfs for the combination of flow scenario [";
-			outmsg += scenario.flowScen;
-            outmsg += "] and well type [";
-            outmsg += scenario.wellType;
-            outmsg += "]";
-			return false;
-		}
+            int Nwells = 0;
+            std::map<std::string, Polyregion>::iterator regit;
+            std::map<std::string, std::vector<int> >::iterator wellscenit;
+            for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i) {
+                regit = mapit->second.find(scenario.regionIDs[i]);
+                if (regit == mapit->second.end()) {
+                    outmsg += "0 ERROR: The Region with id [";
+                    outmsg += scenario.regionIDs[i];
+                    outmsg += "] could not be found in the map with id [";
+                    outmsg += scenario.mapID;
+                    outmsg += "]";
+                    return false;
+                }
+
+                wellscenit = regit->second.wellids.find(scenario.flowWellScen);
+                if (wellscenit != regit->second.wellids.end()) {
+                    Nwells = wellscenit->second.size();
+                }
+            }
+            if (Nwells == 0) {
+                outmsg += "0 ERROR: There no wells in the selected regions for the combination of flow scenario [";
+                outmsg += scenario.flowScen;
+                outmsg += "] and well type [";
+                outmsg += scenario.wellType;
+                outmsg += "]";
+                return false;
+            }
+
+            std::map<std::string, wellCollection >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
+            if (wellscenNameit == Wellmap.end()) {
+                outmsg += "0 ERROR: There are no wells and urfs for the combination of flow scenario [";
+                outmsg += scenario.flowScen;
+                outmsg += "] and well type [";
+                outmsg += scenario.wellType;
+                outmsg += "]";
+                return false;
+            }
+        }
+
+
 
 
 		if (unsat.ScenarioIndex(scenario.unsatScenario) == -1) {
@@ -1054,15 +1083,35 @@ namespace mantisServer {
             }
 
             if (test == "maxConc") {
-                ss >> scenario.minRecharge;
+                ss >> scenario.maxConc;
                 continue;
             }
+
+            /*
+            if (test == "RFset"){
+                scenario.bUseRuntimeRFsets = true;
+                scenario.bUseInitRFsets = false;
+                int Nsets;
+                ss >> Nsets;
+                for (int i = 0; i < Nsets; ++i){
+                    ss >> test;
+                    scenario.RFSets.push_back(test);
+                }
+            }
+            */
+
 
             if (test == "loadTrans"){
                 ss >> scenario.LoadTransitionName;
                 ss >> scenario.LoadTransitionStart;
                 ss >> scenario.LoadTransitionEnd;
-                scenario.buseLoadTransition = true;
+                if (scenario.LoadTransitionName.compare("NONE") == 0){
+                    scenario.buseLoadTransition = false;
+                }
+                else{
+                    scenario.buseLoadTransition = true;
+                }
+
                 continue;
             }
 
@@ -1169,11 +1218,6 @@ namespace mantisServer {
 
 	bool Mantis::readInputs() {
 
-        if (options.bReadRFURF){
-            bool tf = readRFURF();
-            if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
-        }
-
         bool tf = readCVraster();
         if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
@@ -1197,10 +1241,10 @@ namespace mantisServer {
 
         CalculateSourceArea();
 
-        //if (options.bReadRFURF){
-        //    tf = readRFURF();
-        //    if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
-        //}
+        if (options.bReadRFURF){
+            bool tf = readRFURF();
+            if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
+        }
 
         return tf;
 	}
@@ -1243,8 +1287,11 @@ namespace mantisServer {
                 it = RegionFlowURFS.find(nameset);
                 if (it == RegionFlowURFS.end()){
                     runtimeURFSet rfset;
-                    rfset.readWellSet(nameset, files);
-                    RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(nameset, rfset));
+                    bool tf = rfset.readWellSet(nameset, files);
+                    if (tf)
+                        RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(nameset, rfset));
+                    else
+                        return false;
                 }
             }
 
@@ -1774,78 +1821,64 @@ namespace mantisServer {
             well_btc_file.open(well_btc_file_name.c_str());
         }
 
-
-
         int unsat_idx = unsat.ScenarioIndex(scenario.unsatScenario);
-        runtimeURFSet* currentURFS;
-	    for (unsigned int i = 0; i < scenario.RFWellSet.size(); ++i){
-	        // Check if the scenario is already preloaded
-            std::map<std::string, runtimeURFSet>::iterator it;
-            it = RegionFlowURFS.find(scenario.RFWellSet[i]);
-
-            if (it != RegionFlowURFS.end()){
-                //The scenario already exists
-                currentURFS = &it->second;
-            }
-            else{
-                // Check if the last loaded area is the same
-                if (!temporaryURFs.checkNameSet(scenario.RFWellSet[i])){
-                    temporaryURFs.readWellSet(scenario.RFnameSet, scenario.RFWellSet);
-                }
-                currentURFS = &temporaryURFs;
-            }
-	    }
-
-	    int Nwells = currentURFS->getNwells();
-
-        unsigned int startWell = 0;
-        unsigned int endWell = 0;
-        getStartEndWells(id, Nwells, startWell, endWell);
-
-        std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
         int cntBTC = 0;
-        int NsimulationYears = scenario.endSimulationYear - 1945;
-        std::vector<double> weightedBTC(NsimulationYears, 0);
-        for (unsigned int iw = startWell; iw < endWell; ++iw){
-            std::vector<double> weightBTC(NsimulationYears, 0);
-            double sumW = 0;
-            int nStreamlines = 0;
-            double m, s, w, d;
-            int urfI, urfJ, inRiv;
-            bool tf;
+        std::map<std::string, runtimeURFSet>::iterator it;
+        for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg){
+            std::string scen_name = "TWN_" + scenario.flowScen + "_" + scenario.regionIDs[irg];
+            it = RegionFlowURFS.find(scen_name);
+            if (it != RegionFlowURFS.end()){
+                int Nwells = it->second.getNwells();
+                unsigned int startWell = 0;
+                unsigned int endWell = 0;
+                getStartEndWells(id, Nwells, startWell, endWell);
+                std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
 
-            for(unsigned int istrml = 0; istrml < currentURFS->getNsid(iw); ++istrml){
-                currentURFS->getParam(iw, istrml, m, s, w, d, urfI, urfJ, inRiv);
-                std::vector<cell> SourceArea;
-                SourceArea.push_back(cell(urfI, urfJ));
-                bool riv = inRiv == 1;
-                tf = simulate_streamline(unsat_idx,urfI, urfJ, SourceArea, riv,
-                                         m, s, w ,weightedBTC,
-                                         lf_file, urf_file, btc_file);
+                int NsimulationYears = scenario.endSimulationYear - 1945;
+                for (unsigned int iw = startWell; iw < endWell; ++iw){
+                    std::vector<double> weightedBTC(NsimulationYears, 0);
+                    double sumW = 0;
+                    int nStreamlines = 0;
+                    double m, s, w, d;
+                    int urfI, urfJ, inRiv;
+                    bool tf;
 
-                if (tf){
-                    sumW += w;
-                    nStreamlines++;
+                    for(unsigned int istrml = 0; istrml < it->second.getNsid(iw); ++istrml){
+                        //std::cout << istrml << std::endl;
+                        it->second.getParam(iw, istrml, m, s, w, d, urfI, urfJ, inRiv);
+                        std::vector<cell> SourceArea;
+                        SourceArea.push_back(cell(urfI, urfJ));
+                        bool riv = inRiv == 1;
+                        tf = simulate_streamline(unsat_idx,urfI, urfJ, SourceArea, riv,
+                                                 m, s, w ,weightedBTC,
+                                                 lf_file, urf_file, btc_file);
+
+                        if (tf){
+                            sumW += w;
+                            nStreamlines++;
+                        }
+                    }
+
+                    if (nStreamlines == 0) {
+                        continue;
+                    }
+                    //average streamlines
+                    for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc){
+                        weightedBTC[iwbtc] = weightedBTC[iwbtc] / sumW;
+                        replymsg[id] += std::to_string(static_cast<float>(weightedBTC[iwbtc]));
+                        replymsg[id] += " ";
+                    }
+                    if (scenario.printAdditionalInfo){
+                        well_btc_file << iw << " " << nStreamlines << " ";
+                        for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
+                            well_btc_file << std::scientific << std::setprecision(10) << weightedBTC[iwbtc] << " ";
+                        well_btc_file << std::endl;
+                    }
+                    cntBTC++;
                 }
             }
-
-            if (nStreamlines == 0) {
-                continue;
-            }
-            //average streamlines
-            for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc){
-                weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
-                replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
-                replymsg[id] += " ";
-            }
-            if (scenario.printAdditionalInfo){
-                well_btc_file << iw << " " << nStreamlines << " ";
-                for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
-                    well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
-                well_btc_file << std::endl;
-            }
-            cntBTC++;
         }
+
         std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
         replyLength[id] = cntBTC;
         if (scenario.printAdditionalInfo) {
@@ -1881,6 +1914,9 @@ namespace mantisServer {
             int intTau = 0;
             if (unsat_idx != -1) {
                 int lin_idx = cvraster.IJ(I, J);
+                if (lin_idx < 0){
+                    return false;
+                }
                 double tau = unsat.getValue(unsat_idx,lin_idx);
                 tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
                 if (tau < 0)
@@ -1931,8 +1967,9 @@ namespace mantisServer {
 	}
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
-	    if (scenario.bUseRFWells){
+	    if (scenario.bUseMonitoringWells){
             simulate_RF_wells(id);
+            return;
 	    }
 
 		std::ofstream urf_file;
