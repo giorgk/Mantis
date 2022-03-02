@@ -495,6 +495,7 @@ namespace mantisServer {
 	    std::string Name;
 	    std::map<int, wellClass> Wells;
 	    bool calcSourceArea = false;
+	    std::string rch_map;
 	    void addWell(int Eid, wellClass w){
             Wells.insert(std::pair<int, wellClass>(Eid, w));
 	    }
@@ -716,7 +717,7 @@ namespace mantisServer {
         bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, std::vector<cell> cells);
 
 		//void identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds);
-		void CalculateSourceArea();
+		bool CalculateSourceArea();
 
 		void getStartEndWells(int id, int Nwells, unsigned  int &startWell, unsigned int &endWell);
 
@@ -1239,7 +1240,8 @@ namespace mantisServer {
         tf = readLU_NGW();
         if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
 
-        CalculateSourceArea();
+        tf = CalculateSourceArea();
+        if (!tf) { std::cout << "Error while calculating Source areas" << std::endl; return false; }
 
         if (options.bReadRFURF){
             bool tf = readRFURF();
@@ -1358,14 +1360,16 @@ namespace mantisServer {
 		else {
 			std::cout << "Reading " << filename << std::endl;
 			int Nwells, Eid;
-			std::string setName, line;
+			std::string setName, line, rch_scen;
 			int calcSource;
             getline(Welldatafile, line);
             std::istringstream inp(line.c_str());
 			inp >> Nwells;
 			inp >> setName;
 			inp >> calcSource;
+			inp >> rch_scen;
 			wellCollection wCollection(setName, calcSource == 1);
+            wCollection.rch_map = rch_scen;
             Wellmap.insert(std::pair<std::string, wellCollection>(setName,wCollection));
 			double xw, yw, D, SL, Q, ratio, angle;
 			std::string regionCode;
@@ -2247,7 +2251,7 @@ namespace mantisServer {
 		std::cout << nBTC << " BTCs will be sent" << std::endl;
 	}
 
-	void Mantis::CalculateSourceArea() {
+	bool Mantis::CalculateSourceArea() {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Calculating source area ..." << std::endl;
 
@@ -2264,10 +2268,10 @@ namespace mantisServer {
         double xs, ys; // x y streamline
         double rch_v;
         int rs, cs, rn, cn; // r c streamline r c next
-        int scenCnt = 0;
         bool tf;
         bool debug_this = false;
-        int tmpNpxl = 0;
+        //int tmpNpxl = 0;
+        //int maxCells = 0;
         std::vector<cell> sp = SearchPattern();
         for(it1 = Wellmap.begin(); it1 != Wellmap.end(); ++it1){
             for (it2 = it1->second.Wells.begin(); it2 != it1->second.Wells.end(); ++it2){
@@ -2275,6 +2279,9 @@ namespace mantisServer {
                 //    continue;
                 if ((it2->first % 1000) == 0)
                     std::cout << "----" << it2->first << "----" << std::endl;
+                //if (it2->first == 4619)
+                //    bool stop_here = true;
+
                 //std::cout << it2->first << std::endl;
                 radAngl = it2->second.angle * pi /180.0;
                 cosd = std::cos(radAngl);
@@ -2285,6 +2292,11 @@ namespace mantisServer {
                         if (lin_ind != -1)
                             it3->second.SourceArea.push_back(cell(it3->second.row, it3->second.col));
                         continue;
+                    }
+                    int rch_idx = rch.ScenarioIndex(it1->second.rch_map);
+                    if (rch_idx < 0){
+                        std::cout << "[" << it1->second.rch_map << "] is not valid scenario" << std::endl;
+                        return false;
                     }
                     //if (it2->first == 157 && it3->first == 66){
                     //    debug_this = true;
@@ -2301,7 +2313,7 @@ namespace mantisServer {
                     ys =  298525.0 - 50.0*(rs);
                     npxl = static_cast<double>(it3->second.Npxl)+2;
                     side1 = 50.0 + 50.0 * npxl;
-                    side2 = std::max(25.0, side1/it2->second.ratio/2.0);
+                    side2 = std::max(100.0, side1/it2->second.ratio/2.0);
                     SAxmin = -side2 - 25;
                     SAxmax =  side2 + 25;
                     SAymin = -side1/2 - 25;
@@ -2337,9 +2349,9 @@ namespace mantisServer {
                     }
 
                     Qtmp = 0.0;
-                    //TODO Uncomment the next line and remove the next to the line below
-                    //Qtarget = it2->second.pumpingRate * it3->second.w;
-                    Qtarget = 0.01;
+
+                    Qtarget = it2->second.pumpingRate * it3->second.w;
+                    //Qtarget = 0.01;
 
                     bool sourceFound = false;
                     if (debug_this)
@@ -2366,11 +2378,12 @@ namespace mantisServer {
                             if (lin_ind != -1){
                                 if (debug_this)
                                     std::cout << "plot(" << xtmp << "," << ytmp << ",'xr');" << std::endl;
-                                rch_v = rch.getValue(scenCnt,lin_ind);
-                                if (rch_v > 0.00000001){
+                                rch_v = rch.getValue(rch_idx,lin_ind);
+                                if (rch_v > 10){
                                     it3->second.SourceArea.push_back(it4->second);
+                                    Qtmp += (rch_v/365/1000)*2500;
                                 }
-                                Qtmp += rch_v*2500;
+
 
                                 if (Qtmp >= Qtarget){
                                     sourceFound = true;
@@ -2387,6 +2400,10 @@ namespace mantisServer {
                         }
 
                         if (sourceFound){
+                            //if (it3->second.SourceArea.size() > maxCells){
+                            //    maxCells = it3->second.SourceArea.size();
+                            //    std::cout << it2->first << "," << it3->first << ":" << npxl << "-" << maxCells << std::endl;
+                            //}
                             break;
                         }
                         else{
@@ -2400,6 +2417,10 @@ namespace mantisServer {
                                 //    tmpNpxl = it3->second.SourceArea.size();
                                 //    std::cout << it2->first << "," << it3->first << std::endl;
                                 //    std::cout << tmpNpxl << std::endl;
+                                //}
+                                //if (it3->second.SourceArea.size() > maxCells){
+                                //    maxCells = it3->second.SourceArea.size();
+                                //    std::cout << it2->first << "," << it3->first << ":" << npxl << "-" << maxCells << std::endl;
                                 //}
                                 break;
                             }
@@ -2428,11 +2449,11 @@ namespace mantisServer {
                     }
                 }
             }
-            scenCnt++;
         }
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Source area calculated in " << elapsed.count() << std::endl;
+        return true;
 	}
 }
 
