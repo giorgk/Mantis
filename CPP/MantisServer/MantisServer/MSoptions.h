@@ -105,6 +105,8 @@ namespace mantisServer {
 
 		std::string DebugPrefix;
 
+		int RFmem;
+
 	};
 
 	/**
@@ -154,7 +156,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.8.01 |" << std::endl;
+			std::cout << "| Version : 1.8.10 |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -182,6 +184,7 @@ namespace mantisServer {
 			// ServerOptions
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
             ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
+            ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory depth")
             ("ServerOptions.Prefix", "Any output file will start with this prefix. You can include a full path")
 			;
 
@@ -253,6 +256,7 @@ namespace mantisServer {
             // ServerOptions
 			opt.port = vm_cfg["ServerOptions.PORT"].as<int>();
 			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
+            opt.RFmem = vm_cfg["ServerOptions.RFmem"].as<int>();
 
 			if (vm_cfg.count("ServerOptions.Prefix")) {
 				if (!get_option<std::string>("ServerOptions.Prefix", vm_cfg, opt.DebugPrefix))

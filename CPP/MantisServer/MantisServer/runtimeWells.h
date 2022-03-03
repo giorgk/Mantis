@@ -33,6 +33,11 @@ namespace mantisServer{
         int getNsid(unsigned int id);
         bool getParam(unsigned int eid, unsigned int sid,
                       double &m, double &s, double &w, double &d, int &I, int &J, int &riv);
+        bool getWellCoords(int iw, double &x, double &y);
+        int getlife(){return Nlife;}
+        void reduceLife(){Nlife--;}
+        void increaseLife(){Nlife++;}
+        void setlife(int l){Nlife = l;}
 
     private:
         std::string nameSet;
@@ -40,6 +45,7 @@ namespace mantisServer{
         std::vector<Entity> urfSet;
         bool readSet(std::string filename);
         int Nurfs = 0;
+        int Nlife = 0;
     };
 
     void runtimeURFSet::reset() {
@@ -56,6 +62,15 @@ namespace mantisServer{
         else{
             return 0;
         }
+    }
+
+    bool runtimeURFSet::getWellCoords(int iw, double &x, double &y) {
+        if (iw < urfSet.size() && iw >= 0){
+            x = urfSet[iw].X;
+            y = urfSet[iw].Y;
+            return true;
+        }
+        return false;
     }
 
     bool runtimeURFSet::getParam(unsigned int eid, unsigned int sid,

@@ -476,6 +476,8 @@ namespace mantisServer {
         double minRecharge;
         double maxConc;
 
+        bool bUseFlowRch;
+        std::string rchName;
         int rchScenID;
 
         int PixelRadius;
@@ -530,6 +532,7 @@ namespace mantisServer {
             LoadTransitionStart = 2005;
             LoadTransitionEnd = 2015;
             bUseMonitoringWells = false;
+            bUseFlowRch = true;
             SourceArea.clear();
         }
     };

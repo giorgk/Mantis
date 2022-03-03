@@ -594,6 +594,8 @@ namespace mantisServer {
 		*/
 		void makeReply(std::string &outmsg);
 
+		void postReplyActions();
+
 
 	private:
 		mantisServer::options options;
@@ -627,7 +629,7 @@ namespace mantisServer {
 		std::map<std::string, wellCollection > Wellmap;
 
 		std::map<std::string, runtimeURFSet> RegionFlowURFS;
-        runtimeURFSet temporaryURFs;
+        //runtimeURFSet temporaryURFs;
 
 		Scenario scenario;
 
@@ -721,6 +723,8 @@ namespace mantisServer {
 
 		void getStartEndWells(int id, int Nwells, unsigned  int &startWell, unsigned int &endWell);
 
+		void manageRFSets();
+
 	};
 
 
@@ -752,12 +756,13 @@ namespace mantisServer {
             for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i){
                 std::map<std::string, runtimeURFSet>::iterator it;
                 std::string scen_name = "TWN_" + scenario.flowScen + "_" + scenario.regionIDs[i];
+                std::string scen_path = "Townships/" + scenario.flowScen + "/" + scen_name;
                 it = RegionFlowURFS.find(scen_name);
                 if (it == RegionFlowURFS.end()){
                     // If the scenario does not exist loadit
                     runtimeURFSet rfset;
                     std::vector<std::string> files;
-                    files.push_back(scen_name);
+                    files.push_back(scen_path);
                     bool tf = rfset.readWellSet(scen_name, files);
                     if (!tf){
                         outmsg += "0 ERROR: while reading the files of [";
@@ -766,6 +771,7 @@ namespace mantisServer {
                         return false;
                     }
                     else {
+                        rfset.setlife(options.RFmem);
                         RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(scen_name, rfset));
                     }
                 }
@@ -898,10 +904,13 @@ namespace mantisServer {
 			scenario.unsatZoneMobileWaterContent = 0.0;
 		}
 
-        scenario.rchScenID = rch.ScenarioIndex(scenario.flowScen);
+		if (scenario.bUseFlowRch){
+            scenario.rchName = scenario.flowScen;
+		}
+        scenario.rchScenID = rch.ScenarioIndex(scenario.rchName);
         if (scenario.rchScenID == -1){
-            outmsg += "0 ERROR: Cannot find the Recharge map for the flow scenario: [";
-            outmsg += scenario.flowScen;
+            outmsg += "0 ERROR: Cannot find the Recharge map : [";
+            outmsg += scenario.rchName;
             outmsg += "]";
             return false;
         }
@@ -1075,6 +1084,12 @@ namespace mantisServer {
                 ss >> scenario.debugID;
                 if (!scenario.debugID.empty())
                     scenario.printAdditionalInfo = true;
+                continue;
+            }
+
+            if (test == "rchMap"){
+                scenario.bUseFlowRch = false;
+                ss >> scenario.rchName;
                 continue;
             }
 
@@ -1290,8 +1305,10 @@ namespace mantisServer {
                 if (it == RegionFlowURFS.end()){
                     runtimeURFSet rfset;
                     bool tf = rfset.readWellSet(nameset, files);
-                    if (tf)
+                    if (tf){
+                        rfset.setlife(options.RFmem);
                         RegionFlowURFS.insert(std::pair<std::string, runtimeURFSet>(nameset, rfset));
+                    }
                     else
                         return false;
                 }
@@ -1832,6 +1849,7 @@ namespace mantisServer {
             std::string scen_name = "TWN_" + scenario.flowScen + "_" + scenario.regionIDs[irg];
             it = RegionFlowURFS.find(scen_name);
             if (it != RegionFlowURFS.end()){
+                it->second.increaseLife();
                 int Nwells = it->second.getNwells();
                 unsigned int startWell = 0;
                 unsigned int endWell = 0;
@@ -1840,6 +1858,24 @@ namespace mantisServer {
 
                 int NsimulationYears = scenario.endSimulationYear - 1945;
                 for (unsigned int iw = startWell; iw < endWell; ++iw){
+                    double xw = 0;
+                    double yw = 0;
+                    bool valid_coords = it->second.getWellCoords(iw,xw,yw);
+                    if (scenario.bNarrowSelection == true){
+                        if (scenario.useRadSelect && valid_coords){
+                            if (!scenario.RadSelect.isPointIn(xw,yw)){
+                                continue;
+                            }
+                        }
+                        if (scenario.useRectSelect){
+                            if (!scenario.RectSelect.isPointIn(xw,yw)) {
+                                continue;
+                            }
+                        }
+                    }
+
+
+
                     std::vector<double> weightedBTC(NsimulationYears, 0);
                     double sumW = 0;
                     int nStreamlines = 0;
@@ -1849,7 +1885,17 @@ namespace mantisServer {
 
                     for(unsigned int istrml = 0; istrml < it->second.getNsid(iw); ++istrml){
                         //std::cout << istrml << std::endl;
-                        it->second.getParam(iw, istrml, m, s, w, d, urfI, urfJ, inRiv);
+                        bool valid_param = it->second.getParam(iw, istrml, m, s, w, d, urfI, urfJ, inRiv);
+                        if (!valid_param)
+                            continue;
+                        if (scenario.bNarrowSelection == true){
+                            if (scenario.useDepthRange){
+                                if (!scenario.DepthRange.isInRange(d)){
+                                    continue;
+                                }
+                            }
+                        }
+
                         std::vector<cell> SourceArea;
                         SourceArea.push_back(cell(urfI, urfJ));
                         bool riv = inRiv == 1;
@@ -2454,6 +2500,24 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Source area calculated in " << elapsed.count() << std::endl;
         return true;
+	}
+
+	void Mantis::postReplyActions() {
+        manageRFSets();
+	}
+
+	void Mantis::manageRFSets() {
+        std::map<std::string, runtimeURFSet>::iterator it;
+        std::vector<std::string> sets4delete;
+        for (it = RegionFlowURFS.begin(); it != RegionFlowURFS.end(); ++it){
+            it->second.reduceLife();
+            if (it->second.getlife() < 0){
+                sets4delete.push_back(it->first);
+            }
+        }
+        for (unsigned int i = 0; i < sets4delete.size(); ++i){
+            RegionFlowURFS.erase(sets4delete[i]);
+        }
 	}
 }
 

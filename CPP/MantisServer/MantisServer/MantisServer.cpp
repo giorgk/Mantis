@@ -106,6 +106,7 @@ int main(int argc, char *argv[])
 			//M.simulate(msg, outmsg);
 			socket.write_some(ba::buffer(outmsg));
 			socket.close();
+			M.postReplyActions();
 		}
 	}
 
