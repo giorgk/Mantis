@@ -492,6 +492,7 @@ namespace mantisServer {
         bool useDepthRange;
         bool useScreenLenghtRange;
         bool bNarrowSelection;
+        bool printWellIds;
 
         sourceArea SourceArea;
 

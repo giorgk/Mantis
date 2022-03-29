@@ -776,6 +776,8 @@ namespace mantisServer {
                     }
                 }
             }
+            scenario.printWellIds = false;
+            scenario.printAdditionalInfo = false;
         }
         else{
             std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
@@ -1133,6 +1135,13 @@ namespace mantisServer {
 
             if (test ==  "PixelRadius") {
                 ss >> scenario.PixelRadius;
+                continue;
+            }
+
+            if (test == "getids"){
+                int tmp;
+                ss >> tmp;
+                scenario.printWellIds = tmp != 0;
                 continue;
             }
 
@@ -2112,130 +2121,40 @@ namespace mantisServer {
 
 					if (wellit->second.streamlines.size() > 0) { //---------LOOP THROUGH the streamlines of the well
 					    //std::cout << wellit->first << std::endl;
-						if (!options.testMode) {
-							int cnt_strmlines = 0;
-							for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-							    bool tf = simulate_streamline(unsat_idx, strmlnit->second.row, strmlnit->second.col,
-                                                              strmlnit->second.SourceArea, strmlnit->second.inRiver,
-                                                              strmlnit->second.mu, strmlnit->second.std, strmlnit->second.w,
-                                                              weightBTC, lf_file, urf_file, btc_file);
+                        int cnt_strmlines = 0;
+                        for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
+                            bool tf = simulate_streamline(unsat_idx, strmlnit->second.row, strmlnit->second.col,
+                                                          strmlnit->second.SourceArea, strmlnit->second.inRiver,
+                                                          strmlnit->second.mu, strmlnit->second.std, strmlnit->second.w,
+                                                          weightBTC, lf_file, urf_file, btc_file);
 
-                                if (tf){
-                                    sumW += strmlnit->second.w;
-                                    nStreamlines++;
-                                }
+                            if (tf){
+                                sumW += strmlnit->second.w;
+                                nStreamlines++;
+                            }
+                        }
+                        if (nStreamlines == 0) {
+                            continue;
+                        }
+                        //average streamlines
+                        if (scenario.printWellIds){
+                            replymsg[id] += std::to_string(wellit->first);
+                            replymsg[id] += " ";
+                        }
+                        for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
+                            weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
+                            //std::cout << weightBTC[i] << std::endl;
+                            replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
+                            replymsg[id] += " ";
+                        }
+                        if (scenario.printAdditionalInfo && nStreamlines != 0) {
+                            well_btc_file << wellit->first << " " << nStreamlines << " ";
+                            for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
+                                well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
+                            well_btc_file << std::endl;
+                        }
+                        //printVector<double>(weightBTC, "wBTC");
 
-                                /*
-								// do convolution only if the source of water is not river. When mu and std are 0 then the source area is river
-								std::vector<double> BTC(NsimulationYears, 0);
-								std::vector<double> LF(NsimulationYears, 0);
-
-								//Simulate this streamline only it the end point is not on a river
-								bool bSimulateThis = false;
-								if (!strmlnit->second.inRiver){
-								    // If mu is zero the source is coming from the side so we set this to 0
-                                    if (strmlnit->second.mu > 0.00000001){
-                                        bSimulateThis = true;
-                                    }
-                                    else if (strmlnit->second.mu + 1 < 0.00000001 || strmlnit->second.mu + 2 < 0.00000001 ){
-                                        // If mu is -1 or -2 this simulate them
-                                        bSimulateThis = true;
-                                    }
-								}
-
-								if (bSimulateThis) {
-                                    // Find the travel time in the unsaturated zone
-                                    int intTau = 0;
-                                    if (unsat_idx != -1) {
-                                        int lin_idx = cvraster.IJ(strmlnit->second.row, strmlnit->second.col);
-                                        double tau = unsat.getValue(unsat_idx,lin_idx);
-                                        tau = std::floor(tau * scenario.unsatZoneMobileWaterContent);
-                                        if (tau < 0)
-                                            tau = 0.0;
-                                        intTau = static_cast<int>(tau);
-                                        //std::cout << tau << std::endl;
-                                    }
-                                    if (intTau >= NsimulationYears){
-                                        // If the unsaturated travel time is greater than the simulation time then we
-                                        // dont need to convolute because the contribution will be shifted by more that NsimulationYears
-                                        sumW += strmlnit->second.w;
-                                        nStreamlines++;
-                                        continue;
-                                    }
-
-
-                                    bool isLFValid = false;
-                                    isLFValid = buildLoadingFunction(scenario, LF, strmlnit->second.SourceArea);
-									if (scenario.printAdditionalInfo && isLFValid) {
-										for (int ii = 0; ii < NsimulationYears; ++ii)
-											lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
-										lf_file << std::endl;
-									}
-									if (isLFValid) {
-                                        URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type);
-                                        if (scenario.printAdditionalInfo)
-                                            urf.print_urf(urf_file);
-										urf.convolute(LF, BTC);
-									}
-									if (scenario.printAdditionalInfo && isLFValid) {
-										for (int ii = 0; ii < NsimulationYears; ++ii)
-											btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
-										btc_file << std::endl;
-									}
-									//if (iw >= 7337 && iw < 7338)
-									//	printVector<double>(BTC, "BTC");
-
-                                    if (isLFValid) {
-                                        int ibtc = 0;
-                                        for (int ii = intTau; ii < NsimulationYears; ++ii) {
-                                            //std::cout << ii << std::endl;
-                                            weightBTC[ii] = weightBTC[ii] + BTC[ibtc] * strmlnit->second.w;
-                                            ibtc++;
-                                        }
-
-                                        sumW += strmlnit->second.w;
-                                        nStreamlines++;
-                                    }
-								}
-								else{// If the mean is very close to zero then the concentration will be zero
-								    // so the contribution if this streamline should be accounted
-								    // but we skip the loading building, the convolution and the unsat shift
-                                    sumW += strmlnit->second.w;
-                                    nStreamlines++;
-								}
-								*/
-								//else if (strmlnit->second.type == URFTYPE::ADE){
-								//	URF urf(NsimulationYears, strmlnit->second.mu, strmlnit->second.std, strmlnit->second.type, ADEoptions());
-							//		isNotZero = buildLoadingFunction(scenario, LF, strmlnit->second.gnlm_index, strmlnit->second.swat_index, strmlnit->second.gwrch);
-								//	urf.convolute(LF, BTC);
-								//}
-
-
-							}
-							if (nStreamlines == 0) {
-								continue;
-							}
-							//average streamlines
-							for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
-								weightBTC[iwbtc] = weightBTC[iwbtc] / sumW;
-								//std::cout << weightBTC[i] << std::endl;
-								replymsg[id] += std::to_string(static_cast<float>(weightBTC[iwbtc]));
-								replymsg[id] += " ";
-							}
-							if (scenario.printAdditionalInfo && nStreamlines != 0) {
-								well_btc_file << wellit->first << " " << nStreamlines << " ";
-								for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc)
-									well_btc_file << std::scientific << std::setprecision(10) << weightBTC[iwbtc] << " ";
-								well_btc_file << std::endl;
-							}
-							//printVector<double>(weightBTC, "wBTC");
-						}
-						else {
-							for (int iwbtc = 0; iwbtc < NsimulationYears; ++iwbtc) {
-								replymsg[id] += std::to_string(static_cast<float>(std::rand() % 100) / 10);
-								replymsg[id] += " ";
-							}
-						}
 						cntBTC++;
 					}
 					else{
@@ -2284,6 +2203,9 @@ namespace mantisServer {
 		outmsg += "1 ";
 		outmsg += std::to_string(nBTC);
 		int Nyears = scenario.endSimulationYear - 1945;
+		if (scenario.printWellIds){
+		    Nyears++;
+		}
 		outmsg += " " + std::to_string(Nyears);
 
 		for (int i = 0; i < static_cast<int>(replymsg.size()); ++i) {
