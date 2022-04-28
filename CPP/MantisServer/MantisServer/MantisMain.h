@@ -1840,7 +1840,13 @@ namespace mantisServer {
         std::ofstream btc_file;
         std::ofstream well_btc_file;
         if (scenario.printAdditionalInfo) {
-            std::string root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+            std::string root_name;
+            if (options.DebugPrefix.empty()){
+                root_name = scenario.debugID + "_" + num2Padstr(id, 2);
+            }
+            else{
+                root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+            }
             std::string urf_file_name = root_name + "_urf.dat";
             urf_file.open(urf_file_name.c_str());
             std::string lf_file_name = root_name + "_lf.dat";
@@ -2036,7 +2042,13 @@ namespace mantisServer {
 		std::ofstream btc_file;
 		std::ofstream well_btc_file;
 		if (scenario.printAdditionalInfo) {
-			std::string root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+            std::string root_name;
+            if (options.DebugPrefix.empty()){
+                root_name = scenario.debugID + "_" + num2Padstr(id, 2);
+            }
+            else{
+                root_name = options.DebugPrefix + "_" + scenario.debugID + "_" + num2Padstr(id, 2);
+            }
 			std::string urf_file_name = root_name + "_urf.dat";
 			urf_file.open(urf_file_name.c_str());
 			std::string lf_file_name = root_name + "_lf.dat";
