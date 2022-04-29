@@ -420,22 +420,26 @@ namespace mantisServer {
         LinearData userRasterLoad;
         LoadUnits modifierUnit;
 
-        //! regionIDs is a list of regions to compute the breakthrough curves
+        ///! regionIDs is a list of regions to compute the breakthrough curves
         std::vector<std::string> regionIDs;
 
-        //! LoadReductionMap is a map that sets the nitrate loading reduction for selected land use categories.
-        //! The key value of the map is the land use category and the value is the percentage of loading reduction.
+        ///! LoadReductionMap is a map that sets the nitrate loading reduction for selected land use categories.
+        ///! The key value of the map is the land use category and the value is the percentage of loading reduction.
         std::map<int, double> LoadReductionMap;
 
-        //! If the input message contains crop id with -9 then this is applied to all crops except to the ones defined
-        //! in the LoadReductionMap
+        ///! If the input message contains crop id with -9 then this is applied to all crops except to the ones defined
+        ///! in the LoadReductionMap
         double globalReduction;
 
-        //! ReductionYear is the year to start the reduction.
+        ///! ReductionYear is the year to start the reduction.
         int startReductionYear;
 
-        //! The end reduction is the year when the loading has reduced to the desired amount
+        ///! The end reduction is the year when the loading has reduced to the desired amount
         int endReductionYear;
+
+        ///! This is a constant reduction coefficient that is applied over the simulation area on all loading types
+        float constReduction;
+        bool userSuppliedConstRed;
 
         //! This is the number of years to simulate starting from 1945
         int endSimulationYear;
@@ -512,9 +516,14 @@ namespace mantisServer {
             modifierType = RasterOperation::UNKNOWN;
             userRasterLoad.clear();
             regionIDs.clear();
+            startReductionYear = 2020;
+            endReductionYear = 2030;
+            endSimulationYear = 2100;
             LoadReductionMap.clear();
             printAdditionalInfo = false;
             globalReduction = 1.0;
+            constReduction = 1.0;
+            userSuppliedConstRed = false;
             unsatZoneMobileWaterContent = 0.0;
             minRecharge = 0.000027; // 10 mm/year
             maxConc = 250;

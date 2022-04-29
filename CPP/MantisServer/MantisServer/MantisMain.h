@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef MANTISSERVER_MANTISMAIN_H
 #define MANTISSERVER_MANTISMAIN_H
 
@@ -917,6 +915,11 @@ namespace mantisServer {
             return false;
         }
 
+        if (scenario.userSuppliedConstRed){
+            scenario.LoadReductionMap.clear();
+            scenario.globalReduction = scenario.constReduction;
+        }
+
 		return true;
 	}
 
@@ -1117,6 +1120,12 @@ namespace mantisServer {
                 }
             }
             */
+
+            if (test == "constRed"){
+                scenario.userSuppliedConstRed = true;
+                ss >> scenario.constReduction;
+                continue;
+            }
 
 
             if (test == "loadTrans"){

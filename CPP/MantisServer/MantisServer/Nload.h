@@ -411,6 +411,20 @@ namespace mantisServer{
         int Nyears = endYear - startYear;
         LF.clear();
         LF.resize(Nyears, load_value);
+        if (scenario.userSuppliedConstRed){
+            int istartReduction = scenario.startReductionYear - startYear;
+            int iendReduction = scenario.endReductionYear - startYear;
+            double dstartReduction = static_cast<double>(istartReduction);
+            double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
+            double adoptionCoeff = 0;
+            for (int iyr = 0; iyr < Nyears; iyr++){
+                if ((iyr >= istartReduction) && (iyr <= iendReduction))
+                    adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
+                else if (iyr > iendReduction)
+                    adoptionCoeff = 1.0;
+                LF[iyr] = LF[iyr] * (1 - adoptionCoeff) + LF[iyr]*scenario.constReduction * adoptionCoeff;
+            }
+        }
         return true;
     }
 
