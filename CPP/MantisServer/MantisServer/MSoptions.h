@@ -105,7 +105,14 @@ namespace mantisServer {
 
 		std::string DebugPrefix;
 
+        /// This is the string input file name
+        std::string logFile;
+        bool bUseLogFile = false;
+        int nLogReset = 10;
+        int nTimesPrinted = 0;
+
 		int RFmem;
+        std::string version = "1.9.00";
 
 	};
 
@@ -156,7 +163,7 @@ namespace mantisServer {
 		if (vm_cmd.count("version")) {
 			std::cout << "|------------------|" << std::endl;
 			std::cout << "|  Mantis Server   |" << std::endl;
-			std::cout << "| Version : 1.8.12 |" << std::endl;
+			std::cout << "| Version : " << opt.version << " |" << std::endl;
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
@@ -179,12 +186,14 @@ namespace mantisServer {
 			("Data.URFS", "A list of files with the URF information")
 			("Data.RFURF", "A list of files with Region and Flow specific URFs")
             ("Data.RCH", "A file that contains the recharge values in mm/year for each LU pixel")
-            ("Data.Path", "If this is not empty all data all data must be relative to DataPath.")
+            ("Data.Path", "If this is not empty all data all data must be relative to this Path.")
 
 			// ServerOptions
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
             ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
             ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory depth")
+            ("ServerOptions.logFile", "If it is empty the output will be printed in the terminal. You can include a full path")
+            ("ServerOptions.logClearFreq", po::value<int>()->default_value(50), "Frequency to clear log file")
             ("ServerOptions.Prefix", "Any output file will start with this prefix. You can include a full path")
 			;
 
@@ -265,6 +274,18 @@ namespace mantisServer {
 			else{
                 opt.DebugPrefix = "";
 			}
+
+            opt.nLogReset = vm_cfg["ServerOptions.logClearFreq"].as<int>();
+            if (vm_cfg.count("ServerOptions.logFile")){
+                if (get_option<std::string>("ServerOptions.logFile", vm_cfg, opt.logFile)){
+                    if (!opt.logFile.empty()){
+                        opt.bUseLogFile = true;
+                        logStream.open(opt.logFile.c_str(), std::ios::out);
+                        std::cout.rdbuf(logStream.rdbuf());
+                    }
+                }
+            }
+
             return true;
 		}
         std::cout << "Mantis received wrong input options" << std::endl;

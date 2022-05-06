@@ -30,30 +30,34 @@ size_t read_complete(char * buff, const boost::system::error_code & err, size_t 
 }
 
 
+
 int main(int argc, char *argv[])
 {
+	mantisServer::options msOptions;
+	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
+	if (!tf){
+        return 0;
+    }
+	static mantisServer::Mantis M(msOptions);
+
+    std::cout << "Running MantisServer Version : " << msOptions.version << std::endl;
+
     if (_USEHF>0){
         std::cout << "USE HDF5" << std::endl;
     }
     else{
         std::cout << "DONT USE HDF" << std::endl;
-     }
+    }
 
-	mantisServer::options msOptions;
-	bool tf = mantisServer::readInputParameters(argc, argv, msOptions);
-	if (!tf)
-        return 0;
-
-	
-	static mantisServer::Mantis M(msOptions);
-
-	std::cout << "Reading input data ..." << std::endl;
+    std::cout << "Reading input data ..." << std::endl;
 	tf = M.readInputs();
 	if (!tf)
 		return 0;
 
+    std::cout << std::endl;
+    std::cout << "=========================" << std::endl;
+    std::cout << "Mantis Server is Ready..." << std::endl;
 
-	std::cout << "Mantis Server Ready..." << std::endl;
 	if (tf) {
 		ba::io_service io_service;
 		ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::tcp::v4(), msOptions.port));

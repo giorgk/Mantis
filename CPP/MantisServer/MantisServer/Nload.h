@@ -268,6 +268,9 @@ namespace mantisServer{
             nRows = LU[0].size();
             nN = Ndata.size();
             nLU = LU.size();
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            std::cout << "Read Nload from " << filename << " in " << elapsed.count() << std::endl;
             return true;
         }
 #endif

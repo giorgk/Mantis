@@ -121,6 +121,7 @@ namespace mantisServer{
 
     bool runtimeURFSet::readSet(std::string filename) {
 #if _USEHF>0
+        std::cout << "Read set from " << filename << std::endl;
         std::string file_ext = filename + ".h5";
         const std::string EIDNameSet("EID");
         const std::string EXYNameSet("EXY");

@@ -13,6 +13,10 @@
 #include <highfive/H5File.hpp>
 #endif
 
+// Until I find a better solution for the output log
+// I will use this variable as global for redirecting the console output
+//https://stackoverflow.com/questions/10150468/how-to-redirect-cin-and-cout-to-files
+std::ofstream logStream;
 
 namespace mantisServer {
 
@@ -21,6 +25,7 @@ namespace mantisServer {
         MASS,
         UNKNOWN
     };
+
 
     LoadUnits string2LoadUnits(std::string str){
         if (str.compare("CONC") == 0)
@@ -70,6 +75,10 @@ namespace mantisServer {
         c.push_back(cell(1,0));
         c.push_back(cell(1,1));
         return c;
+    }
+
+    void logMSG1(std::ostream & out, std::string msg){
+        out << msg << std::endl;
     }
 
     std::string getExtension(std::string filename){

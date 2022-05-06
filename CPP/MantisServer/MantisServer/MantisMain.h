@@ -594,6 +594,7 @@ namespace mantisServer {
 
 		void postReplyActions();
 
+        void resetLogfile();
 
 	private:
 		mantisServer::options options;
@@ -723,6 +724,8 @@ namespace mantisServer {
 
 		void manageRFSets();
 
+
+
 	};
 
 
@@ -754,7 +757,13 @@ namespace mantisServer {
             for (int i = 0; i < static_cast<int>(scenario.regionIDs.size()); ++i){
                 std::map<std::string, runtimeURFSet>::iterator it;
                 std::string scen_name = "TWN_" + scenario.flowScen + "_" + scenario.regionIDs[i];
-                std::string scen_path = "Townships/" + scenario.flowScen + "/" + scen_name;
+                std::string scen_path;
+                if (!options.bAbsolutePaths){
+                    scen_path = options.mainPath + "Townships/" + scenario.flowScen + "/" + scen_name;
+                }
+                else{
+                    scen_path = "Townships/" + scenario.flowScen + "/" + scen_name;
+                }
                 it = RegionFlowURFS.find(scen_name);
                 if (it == RegionFlowURFS.end()){
                     // If the scenario does not exist loadit
@@ -1316,6 +1325,8 @@ namespace mantisServer {
                     getline(RFMasterfile, line);
                     std::istringstream inp1(line.c_str());
                     inp1 >> tmpfile;
+                    if (!options.bAbsolutePaths)
+                        tmpfile = options.mainPath + tmpfile;
                     files.push_back(tmpfile);
                 }
                 std::map<std::string, runtimeURFSet>::iterator it;
@@ -1363,7 +1374,7 @@ namespace mantisServer {
 			        continue;
 
                 if (!options.bAbsolutePaths)
-                    filename1 = options.mainPath + filename;
+                    filename1 = options.mainPath + filename1;
 				bool tf;
 				if (isWell)
                     tf = readWellSet(filename1);
@@ -1797,10 +1808,7 @@ namespace mantisServer {
                     return false;
                 }
 
-
 				inp >> Lfile;
-
-
 
                 if (!options.bAbsolutePaths)
                     Lfile = options.mainPath + Lfile;
@@ -2446,7 +2454,9 @@ namespace mantisServer {
 	}
 
 	void Mantis::postReplyActions() {
+        options.nTimesPrinted++;
         manageRFSets();
+        resetLogfile();
 	}
 
 	void Mantis::manageRFSets() {
@@ -2462,6 +2472,17 @@ namespace mantisServer {
             RegionFlowURFS.erase(sets4delete[i]);
         }
 	}
+
+    void Mantis::resetLogfile() {
+        if (options.bUseLogFile){
+            if (options.nTimesPrinted > options.nLogReset){
+                options.nTimesPrinted = 0;
+                logStream.close();
+                logStream.open(options.logFile.c_str(), std::ios::out);
+                std::cout.rdbuf(logStream.rdbuf());
+            }
+        }
+    }
 }
 
 #endif //MANTISSERVER_MANTISMAIN_H
