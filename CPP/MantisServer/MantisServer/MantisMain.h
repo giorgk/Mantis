@@ -228,9 +228,8 @@ namespace mantisServer {
 		//! THis is the URF type
 		URFTYPE type;
 
-		std::vector<double> TwoYears{0.00095363,0.19552570,0.42041610,0.25295003,0.09352235,0.02809293,0.00773095,0.00206478,0.00055127,0.00014946,
-                                     0.00004149,0.00001184,0.00000348,0.00000106,0.00000033};
-        std::vector<double> OneYear{0.50462587,0.43378182,0.08653695,0.01394153,0.00229080,0.00040677,0.00007900,0.00001675,0.00000385,0.00000096,0.00000025};
+		std::vector<double> TwoYears{0.00095171, 0.19513243, 0.41957050, 0.25244126, 0.09333424, 0.02803643, 0.00771540, 0.00206063, 0.00055016, 0.00014916, 0.00004141, 0.00001182, 0.00000347, 0.00000106, 0.00000032};
+        std::vector<double> OneYear{0.48443252, 0.41642340, 0.08307405, 0.01338364, 0.00219913, 0.00039049, 0.00007584, 0.00001608, 0.00000370, 0.00000092, 0.00000023};
 	};
 
 	URF::URF(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
@@ -306,8 +305,15 @@ namespace mantisServer {
 	}
 
 	void URF::calc_urf(ADEoptions ade_opt) {
-		for (int i = 0; i < static_cast<int>(urf.size()); ++i)
-			urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
+        double sumurf = 0.0;
+		for (int i = 0; i < static_cast<int>(urf.size()); ++i){
+            urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
+            sumurf += urf[i];
+        }
+        for (int i = 0; i < static_cast<int>(urf.size()); ++i){
+            urf[i] = urf[i]/sumurf;
+        }
+
 	}
 
 	void URF::print_urf(std::ofstream& urf_file) {
@@ -550,7 +556,7 @@ namespace mantisServer {
 
 		void simulate_RF_wells(int id);
 
-		bool simulate_streamline(int unsat_idx, int &I, int &J,
+		bool simulate_streamline(int Eid, int Sid, int unsat_idx, int &I, int &J,
                                  std::vector<cell> &sourceArea, bool &inRiv,
                                  double &m, double &s, double &w,
                                  std::vector<double> &weightedBTC,
@@ -1931,7 +1937,7 @@ namespace mantisServer {
                         std::vector<cell> SourceArea;
                         SourceArea.push_back(cell(urfI, urfJ));
                         bool riv = inRiv == 1;
-                        tf = simulate_streamline(unsat_idx,urfI, urfJ, SourceArea, riv,
+                        tf = simulate_streamline(iw, istrml, unsat_idx,urfI, urfJ, SourceArea, riv,
                                                  m, s, w ,weightedBTC,
                                                  lf_file, urf_file, btc_file);
 
@@ -1972,7 +1978,7 @@ namespace mantisServer {
 	}
 
 
-    bool Mantis::simulate_streamline(int unsat_idx, int &I, int &J,
+    bool Mantis::simulate_streamline(int Eid, int Sid, int unsat_idx, int &I, int &J,
                                      std::vector<cell> &sourceArea, bool &inRiv,
                                      double &m, double &s, double &w,
                                      std::vector<double> &weightedBTC,
@@ -2018,16 +2024,19 @@ namespace mantisServer {
             isLFValid = buildLoadingFunction(scenario, LF, sourceArea);
             if (isLFValid){
                 if (scenario.printAdditionalInfo){
+                    lf_file << Eid << " " << Sid << " ";
                     for (int ii = 0; ii < NsimulationYears; ++ii)
                         lf_file << std::scientific << std::setprecision(10) << LF[ii] << " ";
                     lf_file << std::endl;
                 }
                 URF urf(NsimulationYears, m, s, URFTYPE::LGNRM);
                 if (scenario.printAdditionalInfo){
+                    urf_file << Eid << " " << Sid << " ";
                     urf.print_urf(urf_file);
                 }
                 urf.convolute(LF, BTC);
                 if (scenario.printAdditionalInfo){
+                    btc_file << Eid << " " << Sid << " ";
                     for (int ii = 0; ii < NsimulationYears; ++ii)
                         btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
                     btc_file << std::endl;
@@ -2152,7 +2161,7 @@ namespace mantisServer {
 					    //std::cout << wellit->first << std::endl;
                         int cnt_strmlines = 0;
                         for (strmlnit = wellit->second.streamlines.begin(); strmlnit != wellit->second.streamlines.end(); ++strmlnit) {
-                            bool tf = simulate_streamline(unsat_idx, strmlnit->second.row, strmlnit->second.col,
+                            bool tf = simulate_streamline(wellit->first, strmlnit->first, unsat_idx, strmlnit->second.row, strmlnit->second.col,
                                                           strmlnit->second.SourceArea, strmlnit->second.inRiver,
                                                           strmlnit->second.mu, strmlnit->second.std, strmlnit->second.w,
                                                           weightBTC, lf_file, urf_file, btc_file);
