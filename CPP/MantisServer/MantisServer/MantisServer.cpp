@@ -57,6 +57,7 @@ int main(int argc, char *argv[])
     std::cout << std::endl;
     std::cout << "=========================" << std::endl;
     std::cout << "Mantis Server is Ready..." << std::endl;
+    std::cout << "   Version: " << msOptions.version << std::endl;
 
 	if (tf) {
 		ba::io_service io_service;

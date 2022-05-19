@@ -310,10 +310,11 @@ namespace mantisServer {
             urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
             sumurf += urf[i];
         }
-        for (int i = 0; i < static_cast<int>(urf.size()); ++i){
-            urf[i] = urf[i]/sumurf;
+        if (sumurf > 1.0){
+            for (int i = 0; i < static_cast<int>(urf.size()); ++i){
+                urf[i] = urf[i]/sumurf;
+            }
         }
-
 	}
 
 	void URF::print_urf(std::ofstream& urf_file) {
