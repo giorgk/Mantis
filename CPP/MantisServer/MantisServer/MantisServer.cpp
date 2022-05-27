@@ -41,6 +41,8 @@ int main(int argc, char *argv[])
 	static mantisServer::Mantis M(msOptions);
 
     std::cout << "Running MantisServer Version : " << msOptions.version << std::endl;
+    std::time_t result = std::time(nullptr);
+    std::cout << "Starting Date : " << std::asctime(std::localtime(&result)) << std::endl;
 
     if (_USEHF>0){
         std::cout << "USE HDF5" << std::endl;
@@ -61,7 +63,10 @@ int main(int argc, char *argv[])
 
 	if (tf) {
 		ba::io_service io_service;
-		ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::tcp::v4(), msOptions.port));
+		//ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::tcp::v4(), msOptions.port));
+        ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::address::from_string(msOptions.ip), msOptions.port));
+        std::cout << "   IP: " << acceptor.local_endpoint().address().to_string() << std::endl;
+        std::cout << "   PORT: " << acceptor.local_endpoint().port() << std::endl;
 		char buff[4096];
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);

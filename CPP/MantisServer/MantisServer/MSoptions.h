@@ -74,6 +74,7 @@ namespace mantisServer {
 		By defaults it gets 1234
 		*/
 		int port;
+        std::string ip;
 
 		std::string WELLfile;
 		std::string URFfile;
@@ -112,7 +113,7 @@ namespace mantisServer {
         int nTimesPrinted = 0;
 
 		int RFmem;
-        std::string version = "1.9.02";
+        std::string version = "1.9.03";
 
 	};
 
@@ -190,6 +191,7 @@ namespace mantisServer {
 
 			// ServerOptions
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
+            ("ServerOptions.IP", "IP address as string. Leave empty for default 127.0.0.1")
             ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
             ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory depth")
             ("ServerOptions.logFile", "If it is empty the output will be printed in the terminal. You can include a full path")
@@ -264,6 +266,10 @@ namespace mantisServer {
 
             // ServerOptions
 			opt.port = vm_cfg["ServerOptions.PORT"].as<int>();
+            if (!get_option<std::string>("ServerOptions.IP", vm_cfg, opt.ip)){
+                opt.ip = "127.0.0.1";
+            }
+
 			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
             opt.RFmem = vm_cfg["ServerOptions.RFmem"].as<int>();
 
