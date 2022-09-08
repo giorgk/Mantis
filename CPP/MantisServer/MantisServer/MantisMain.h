@@ -2,6 +2,7 @@
 #define MANTISSERVER_MANTISMAIN_H
 
 #include <sstream>
+#include <string>
 #include <fstream>
 #include <iomanip>
 #include <math.h>
@@ -921,7 +922,7 @@ namespace mantisServer {
 		}
 
 		if (scenario.bUseFlowRch){
-            scenario.rchName = scenario.flowScen;
+            scenario.rchName = scenario.flowScen.substr(0,scenario.flowScen.size()-3);
 		}
         scenario.rchScenID = rch.ScenarioIndex(scenario.rchName);
         if (scenario.rchScenID == -1){

@@ -113,7 +113,7 @@ namespace mantisServer {
         int nTimesPrinted = 0;
 
 		int RFmem;
-        std::string version = "1.9.03";
+        std::string version = "1.9.04";
 
 	};
 
