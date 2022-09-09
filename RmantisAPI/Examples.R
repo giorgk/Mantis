@@ -10,16 +10,12 @@ library(gwtools)
 # From the MantisData/v1_8 directory run:
 #..\..\CPP\MantisServer\MantisServer\cmake-build-release\MantisServer.exe -c .\mantisConfig.ini
 
+# Define the client executable
+client_exe <- "../CPP/TestClient/TestClient/cmake-build-release/MantisClient.exe"
+
 # Configure the scenario options ----------------------------
 # The following command creates a list with all available options to configure a scenario
-scenario <- mantis.ScenarioOptions()
-
-# First setup the path for the Mantis client program
-scenario$client <- "../CPP/TestClient/TestClient/cmake-build-release/MantisClient.exe"
-
-# Quit Server -------------------------
-res <- mantis.Quit(scenario)
-# If you did that you must restart the server
+scenario <- mantis.ScenarioOptions(client = client_exe)
 
 # Configure the input file name. This is the file where all the options will be written.
 # This file name will be used as input to the Mantis client program.
@@ -31,7 +27,6 @@ scenario$outfile <- 'BTCresults.dat'
 # Test the connection ----------------
 res <- mantis.Ping(scenario)
 # if the result looks like this [1] "0 0"    "0 pong" its all good
-
 
 # Optionally we can add an one line short description of the scenario.
 # This is printed in the input file and it is not used.
@@ -63,7 +58,7 @@ scenario$Crops <- matrix(c(-9, 1),nrow = 1, ncol = 2)
 
 # Select well type ------------
 # There are three options. See this table  https://github.com/giorgk/Mantis/wiki/Runtime-Data#general-options
-# We select here the Virtual Irrigarion/public supply wells
+# We select here the Virtual Irrigation/Public supply wells
 scenario$wellType <- 'VI'
 
 
