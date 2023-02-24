@@ -19,6 +19,7 @@
 #include "MSoptions.h"
 #include "Nload.h"
 #include "Rch.h"
+#include "Region.h"
 #include "MantisMain.h"
 
 namespace ba = boost::asio;
