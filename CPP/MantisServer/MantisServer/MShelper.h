@@ -248,6 +248,7 @@ namespace mantisServer {
         int ScenarioIndex(std::string scenario);
         double getValue(int scenID, int lin_idx);
         void setNoDataValue(double v);
+        double getNoDataValue(){return NoDataValue;}
         void multiply(double mult);
         void clear();
     private:

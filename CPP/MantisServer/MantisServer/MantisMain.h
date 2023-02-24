@@ -17,6 +17,7 @@
 
 #include "MSoptions.h"
 #include "MShelper.h"
+#include "Rch.h"
 #include "runtimeWells.h"
 
 
@@ -625,6 +626,7 @@ namespace mantisServer {
         LinearData unsat;
         //! rch is a linear data structure that holds the groundwater recharge in mm/year
         LinearData rch;
+        RechargeScenarioList rchList;
 
 		//std::map<std::string, int > UNSATscenarios;
         //std::vector<std::vector<double>> UNSATData;
@@ -1771,6 +1773,8 @@ namespace mantisServer {
 	}
 
 	bool Mantis::readRCH() {
+        bool tf1 = rchList.readData(options.mainPath,options.RCHfile, options.Npixels);
+        return false;
         if (!options.bAbsolutePaths)
             options.RCHfile = options.mainPath + options.RCHfile;
         rch.setNoDataValue(0.0);
