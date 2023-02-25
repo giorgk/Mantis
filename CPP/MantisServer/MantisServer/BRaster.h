@@ -13,17 +13,22 @@ namespace mantisServer{
         bool readData(std::string filename, int Nr, int Nc, int Ncells);
         int IJ(int row, int col);
         void getSurroundingPixels(int row, int col, int Ndepth, std::vector<int>& lin_inds);
+        int Nr(){return Nrows;}
+        int Nc(){return Ncols;}
+        int Ncell(){return Ncells;}
     private:
         int Nrows;
         int Ncols;
+        int Ncells;
         std::vector<std::vector<int>> raster;
         bool bHFread;
     };
 
-    bool BackroundRaster::readData(std::string filename, int Nr, int Nc, int Ncells) {
+    bool BackroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell) {
         auto start = std::chrono::high_resolution_clock::now();
         Nrows = Nr;
         Ncols = Nc;
+        Ncells = Ncell;
 #if _USEHF>0
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){

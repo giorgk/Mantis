@@ -9,6 +9,7 @@
 
 #include "BRaster.h"
 #include "BMaps.h"
+#include "wells.h"
 
 namespace po = boost::program_options;
 
@@ -21,6 +22,9 @@ namespace mantisServer{
 
         std::string path;
         BackroundRaster raster;
+        BMapCollection Bmaps;
+        LinearData Unsat;
+        RechargeScenarioList Rch;
     };
 
     bool Region::readRegionData(std::string inputfile) {
@@ -52,10 +56,32 @@ namespace mantisServer{
             int Ncells = vm_ro["Raster.Ncells"].as<int>();
             int Nr = vm_ro["Raster.Nrows"].as<int>();
             int Nc = vm_ro["Raster.Ncols"].as<int>();
-            std::string rasterfile =  vm_ro["Raster.File"].as<std::string>();
+            std::string rasterfile =  path + vm_ro["Raster.File"].as<std::string>();
 
-            raster.readData(rasterfile, Nr, Nc, Ncells);
+            bool tf = raster.readData(rasterfile, Nr, Nc, Ncells);
+            if (!tf)
+                return false;
         }
+
+        {// Read Background Maps
+            std::string bmapsfile =  path + vm_ro["Data.BMAPS"].as<std::string>();
+            bool tf = Bmaps.readData(bmapsfile);
+            if (!tf)
+                return false;
+        }
+
+        {//Read Unsaturated data
+            std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
+            bool tf = Unsat.readData(unsatfile,raster.Ncell());
+            if (!tf)
+                return false;
+        }
+
+        {//Read Recharge
+            std::string rchfile =  path + vm_ro["Data.RCH"].as<std::string>();
+            bool tf = Rch.readData(path,rchfile, raster.Ncell());
+        }
+
         return true;
     }
 

@@ -20,6 +20,29 @@ std::ofstream logStream;
 
 namespace mantisServer {
 
+    /**
+	 * @brief Enumeration for the type of the Unit Response function.
+	 *
+	 * Since it is very inefficient to hold all 200~300 double values we will keep only
+	 * a number of parameters.
+	 *
+	 * If the URF is represented as lognormal distribution the parameteres are the mean and the
+	 * standard deviation. This is what we currently used. THe other two type will be removed in future versions.
+	 *
+	 * We can also store the length and velocity and compute at runtime the analytical
+	 * ADE. However this contains evaluations of the error function and exponential function
+	 * multiple times and may be not very efficient
+	 *
+	 * Both is used as test where the parameters for both representations are stored and
+	 * we can compare the efficiency and results
+	 *
+	 */
+    enum class URFTYPE{
+        LGNRM, /**< The URF is represented as lognormal distribution with mean and standard deviation parameters*/
+        ADE, /**< The URF is represented as analytical ADE with Length and velocity parameters*/
+        BOTH /**< The URF has parameters for both of the above definitions. It is used for testing */
+    };
+
     enum class LoadUnits{
         CONC,
         MASS,
