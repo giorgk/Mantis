@@ -10,6 +10,7 @@
 #include "BRaster.h"
 #include "BMaps.h"
 #include "wells.h"
+#include "Nload.h"
 
 namespace po = boost::program_options;
 
@@ -25,6 +26,8 @@ namespace mantisServer{
         BMapCollection Bmaps;
         LinearData Unsat;
         RechargeScenarioList Rch;
+        FlowWellCollection FWC;
+        NLoadList NLL;
     };
 
     bool Region::readRegionData(std::string inputfile) {
@@ -78,8 +81,24 @@ namespace mantisServer{
         }
 
         {//Read Recharge
-            std::string rchfile =  path + vm_ro["Data.RCH"].as<std::string>();
+            std::string rchfile =  vm_ro["Data.RCH"].as<std::string>();
             bool tf = Rch.readData(path,rchfile, raster.Ncell());
+        }
+
+        {// Read the wells
+            std::string wellfile =  vm_ro["Data.WELLS"].as<std::string>();
+            bool tf = FWC.readMainfile(path, wellfile, true, Bmaps);
+        }
+
+        {// Read the Urfs
+            std::string urfsfile =  vm_ro["Data.URFS"].as<std::string>();
+            bool tf = FWC.readMainfile(path, urfsfile, false, Bmaps);
+        }
+
+        {// Read the loading maps
+            std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
+            bool tf = NLL.readData(path, nLoadfile);
+
         }
 
         return true;

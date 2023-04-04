@@ -40,14 +40,24 @@ namespace mantisServer{
     class BMapLayer{
     public:
         BMapLayer(){}
-        void addwell(std::string geoUnitName, std::string flowScenarioName, int wellid);
+        bool addwell(std::string geoUnitName, std::string flowScenarioName, int wellid);
         void getWells(std::vector<std::string> geoUnitNames,
                       std::string flowScenarioName, std::vector<int> &wellids);
         void addGeoUnit(std::string geoUnitName);
+        bool hasGeoUnit(std::string geoUnitName);
 
     private:
         std::map<std::string, GeoUnit> geoUnits;
     };
+
+    bool BMapLayer::hasGeoUnit(std::string geoUnitName) {
+        std::map<std::string, GeoUnit>::iterator it;
+        it = geoUnits.find(geoUnitName);
+        if (it == geoUnits.end())
+            return false;
+        else
+            return true;
+    }
 
     void BMapLayer::addGeoUnit(std::string geoUnitName) {
         std::map<std::string, GeoUnit>::iterator it;
@@ -58,16 +68,16 @@ namespace mantisServer{
         }
     }
 
-    void BMapLayer::addwell(std::string geoUnitName, std::string flowScenarioName, int wellid){
+    bool BMapLayer::addwell(std::string geoUnitName, std::string flowScenarioName, int wellid){
         std::map<std::string, GeoUnit>::iterator it;
         it = geoUnits.find(geoUnitName);
         if (it == geoUnits.end()){
             it->second.addWell(flowScenarioName, wellid);
+            return true;
         }
         else{
-            GeoUnit GU;
-            GU.addWell(flowScenarioName, wellid);
-            geoUnits.insert(std::pair<std::string, GeoUnit>(geoUnitName, GU));
+            std::cout << "GeoUnit with name [ " << geoUnitName << " ] not found in the Background Maps" << std::endl;
+            return false;
         }
 
     }
@@ -87,12 +97,12 @@ namespace mantisServer{
     class BMapCollection{
     public:
         BMapCollection(){}
-        void addwell(std::string LayerName, std::string GeoUnitName,
-                     std::string flowScenName, int wellid);
+        bool addwell(std::string GeoUnitName, std::string flowScenName, int wellid);
         void getWells(std::string LayerName, std::vector<std::string> GeoUnitNames,
                       std::string flowScenName, std::vector<int> &wellids);
 
         bool readData(std::string filename);
+        int Nbmaps(){return BMaps.size();}
 
     private:
         std::map<std::string, BMapLayer> BMaps;
@@ -112,19 +122,19 @@ namespace mantisServer{
         }
     }
 
-    void BMapCollection::addwell(std::string LayerName, std::string GeoUnitName,
+    bool BMapCollection::addwell(std::string GeoUnitName,
                                  std::string flowScenName, int wellid){
         std::map<std::string, BMapLayer>::iterator it;
-        it = BMaps.find(LayerName);
-        if (it == BMaps.end()){
-            BMapLayer BML;
-            BML.addwell(GeoUnitName, flowScenName, wellid);
-            BMaps.insert(std::pair<std::string, BMapLayer>(LayerName, BML));
+        bool tf = false;
+        for (it = BMaps.begin(); it != BMaps.end(); ++it){
+            if (it->second.hasGeoUnit(GeoUnitName)){
+                tf = it->second.addwell(GeoUnitName,flowScenName,wellid);
+                if (tf){
+                    break;
+                }
+            }
         }
-        else{
-            it->second.addwell(GeoUnitName,flowScenName,wellid);
-        }
-
+        return tf;
     }
 
     void BMapCollection::getWells(std::string LayerName, std::vector<std::string> GeoUnitNames,

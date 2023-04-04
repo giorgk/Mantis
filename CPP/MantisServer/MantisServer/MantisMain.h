@@ -328,9 +328,10 @@ namespace mantisServer {
 	 * Although this is a class, it is used more like struct container.
 	 * 
 	 */
-	class streamlineClass {
+
+	/*class streamlineClass {
 	public:
-		/*! \brief streamlineClass constructor expects the parameters that define a streamline
+		*//*! \brief streamlineClass constructor expects the parameters that define a streamline
 		\param row_ind is the index in GNLM loading where this streamline starts from near the land surface.
 		\param col_ind is the index in SWAT loading where this streamline starts from near the land surface.
 		\param w_in is the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
@@ -340,7 +341,7 @@ namespace mantisServer {
 		\param paramB this is either the standard deviation or the velocity.
 		\param paramC if the type is both this is mean, while A and B are length and velocity
 		\param paramD if the type is both this is standard deviation
-		*/
+		*//*
 		streamlineClass(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                   double paramA, double paramB, double paramC = 0, double paramD = 0);
 		
@@ -411,16 +412,16 @@ namespace mantisServer {
 		default:
 			break;
 		}
-	}
+	}*/
 
 	/*! \class wellClass
 		\brief Contains the streamline information for a well.
 
 		Each well is associated with multiple streamlines.
-	*/
+	*//*
 	class wellClass {
 	public:
-		/**
+		*//**
 		 * @brief inserts information about a streamline that reaches the well.
 		 * 
 		 * @param Sid is the streamline id.
@@ -434,7 +435,7 @@ namespace mantisServer {
 		 * @param paramB 
 		 * @param paramC 
 		 * @param paramD 
-		 */
+		 *//*
 		void addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
 			double paramA, double paramB, double paramC = 0, double paramD = 0);
 
@@ -481,7 +482,7 @@ namespace mantisServer {
 	    void addWell(int Eid, wellClass w){
             Wells.insert(std::pair<int, wellClass>(Eid, w));
 	    }
-	};
+	};*/
 
 
 
@@ -494,13 +495,13 @@ namespace mantisServer {
 	 * If the background map contains the CVHM farms then each farm is a Polyregion.
 	 *
 	 * This class contains the ids of the wells that each Polyregion contains.
-	 */
+	 *//*
 	class Polyregion {
 	public:
 		//! The well ids that are contained by the polygon. 
 		//! This is actually a map so that it can contain mutliple well sets where the name of the set is the key
 		std::map<std::string, std::vector<int> > wellids;
-	};
+	};*/
 
 	/*! \class Mantis
 		\brief This is the main class of the server.
@@ -583,6 +584,8 @@ namespace mantisServer {
 	private:
 		mantisServer::options options;
 
+        std::map<std::string, Region> RegionList;
+
 		/*!
 		 * CVrasterClass is a 2D raster map that contains the indices of the linear vector.
 		 * All the info that is formatted as 1D or 2D arrays with length 1 - Ncells
@@ -592,27 +595,27 @@ namespace mantisServer {
 		 * cells that have no associated info. These are outside the study area.
 		 */
 		//std::vector<std::vector<int>> CVraster;
-		CVrasterClass cvraster;
+		//CVrasterClass cvraster;
 
-		std::map<std::string, NLoad> NGWLoading;
+		//std::map<std::string, NLoad> NGWLoading;
 
 		//! UNSAT is a linear data structure that holds the depth/recharge values
         //UNSATdataClass unsat;
-        LinearData unsat;
+        //LinearData unsat;
         //! rch is a linear data structure that holds the groundwater recharge in mm/year
-        LinearData rch;
-        RechargeScenarioList rchList;
+        //LinearData rch;
+        //RechargeScenarioList rchList;
 
 		//std::map<std::string, int > UNSATscenarios;
         //std::vector<std::vector<double>> UNSATData;
 		//! a list of background maps
-		std::map<std::string, std::map<std::string, Polyregion> > MAPList;
-		std::vector<std::string> backgroundMapNames;
+		//std::map<std::string, std::map<std::string, Polyregion> > MAPList;
+		s//td::vector<std::string> backgroundMapNames;
 
 		//! A map of well ids and wellClass
-		std::map<std::string, wellCollection > Wellmap;
+		//std::map<std::string, wellCollection > Wellmap;
 
-		std::map<std::string, runtimeURFSet> RegionFlowURFS;
+		//std::map<std::string, runtimeURFSet> RegionFlowURFS;
         //runtimeURFSet temporaryURFs;
 
 		Scenario scenario;
@@ -633,7 +636,7 @@ namespace mantisServer {
 		Repeat Nverts the following
 		xcoord ycoord : the coordinates of the polygon order
 		*/
-		bool readBackgroundMaps();
+		//bool readBackgroundMaps();
 
 		/**
 		 * @brief Reads a file with information about a well set
@@ -652,10 +655,10 @@ namespace mantisServer {
 		 * @return true if the reading was succesfull
 		 * @return false if reading failed for any reason
 		 */
-		bool readWellSet(std::string filename);
+		//bool readWellSet(std::string filename);
 
 
-		bool readMultipleSets(std::string filename, bool isWell);
+		//bool readMultipleSets(std::string filename, bool isWell);
 
 		/**
 		 * @brief Reads the parameteres of the Unit Respons 
@@ -687,17 +690,19 @@ namespace mantisServer {
 		 * @return false if the reading failed
 		 */
 
-		bool readURFs(std::string filename);
+		//bool readURFs(std::string filename);
 
-		bool readLU_NGW();
+		//bool readLU_NGW();
 
-		bool readUNSAT();
+		//bool readUNSAT();
 
-		bool readRCH();
+		//bool readRCH();
 
-		bool readRFURF();
+		//bool readRFURF();
 
-		bool readCVraster();
+		//bool readCVraster();
+
+        bool readRegionList();
 		
 		//bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, int row, int col, double rch);
         bool buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, std::vector<cell> cells);
@@ -707,7 +712,7 @@ namespace mantisServer {
 
 		void getStartEndWells(int id, int Nwells, unsigned  int &startWell, unsigned int &endWell);
 
-		void manageRFSets();
+		//void manageRFSets();
 
 
 
@@ -1191,7 +1196,7 @@ namespace mantisServer {
         }
 	}
 
-	bool Mantis::readBackgroundMaps() {
+	/*bool Mantis::readBackgroundMaps() {
 		//auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream MAPSdatafile;
 		if (!options.bAbsolutePaths)
@@ -1242,43 +1247,47 @@ namespace mantisServer {
 		}
 		MAPSdatafile.close();
 		return true;
-	}
+	}*/
 
 	bool Mantis::readInputs() {
 
-        bool tf = readCVraster();
-        if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
+        bool tf = readRegionList();
+        if (!tf) { std::cout << "Error reading Region list file" << std::endl; return false; }
 
-		tf = readBackgroundMaps();
-		if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
 
-        tf = readUNSAT();
-        if (!tf) { std::cout << "Error reading UNSAT data" << std::endl; return false; }
+        //bool tf = readCVraster();
+        //if (!tf) { std::cout << "Error reading Raster file" << std::endl; return false; }
 
-        tf = readRCH();
-        if (!tf) { std::cout << "Error reading Recharge data" << std::endl; return false; }
+		//tf = readBackgroundMaps();
+		//if (!tf) { std::cout << "Error reading Background Maps" << std::endl; return false; }
 
-        tf = readMultipleSets(options.WELLfile, true);
-        if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
+        //tf = readUNSAT();
+        //if (!tf) { std::cout << "Error reading UNSAT data" << std::endl; return false; }
 
-        tf = readMultipleSets(options.URFfile, false);
-        if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
+        //tf = readRCH();
+        //if (!tf) { std::cout << "Error reading Recharge data" << std::endl; return false; }
 
-        tf = readLU_NGW();
-        if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+        //tf = readMultipleSets(options.WELLfile, true);
+        //if (!tf) { std::cout << "Error reading Wells" << std::endl; return false; }
 
-        tf = CalculateSourceArea();
-        if (!tf) { std::cout << "Error while calculating Source areas" << std::endl; return false; }
+        //tf = readMultipleSets(options.URFfile, false);
+        //if (!tf) { std::cout << "Error reading URFs" << std::endl; return false; }
 
-        if (options.bReadRFURF){
-            bool tf = readRFURF();
-            if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
-        }
+        //tf = readLU_NGW();
+        //if (!tf) { std::cout << "Error reading LU or NGW" << std::endl; return false; }
+
+        //tf = CalculateSourceArea();
+        //if (!tf) { std::cout << "Error while calculating Source areas" << std::endl; return false; }
+
+        //if (options.bReadRFURF){
+        //    bool tf = readRFURF();
+        //    if (!tf) { std::cout << "Error reading Region-Flow specific file" << std::endl; return false; }
+        //}
 
         return tf;
 	}
 
-	bool Mantis::readRFURF() {
+	/*bool Mantis::readRFURF() {
         std::ifstream RFMasterfile;
         std::string filename;
         if (!options.bAbsolutePaths){
@@ -1335,7 +1344,32 @@ namespace mantisServer {
         }
 
         return true;
-	}
+	}*/
+
+    bool Mantis::readRegionList(){
+        std::ifstream RegionListFStream;
+        RegionListFStream.open(options.RegionsListFile);
+        if (!RegionsListFile.is_open()){
+            std::cout << "Cant open file: " << options.RegionsListFile << std::endl;
+            return false;
+        }
+        else{
+            std::string line, filename RegionName;
+            while (getline(RegionListFStream, line)){
+                std::istringstream inp(line.c_str());
+                inp >> RegionName;
+                if (RegionName.empty())
+                    continue;
+                if (RegionName.front() == '#')
+                    continue;
+
+                inp >> filename;
+
+                Reg
+
+            }
+        }
+    }
 
 	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
 		std::ifstream WellMasterfile;

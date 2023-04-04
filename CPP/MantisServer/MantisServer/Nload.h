@@ -577,6 +577,35 @@ namespace mantisServer{
         }
         return true;
     }
+
+    class NLoadList{
+    public:
+        NLoadList(){}
+
+        std::map<std::string, NLoad> NLoadMaps;
+        bool readData(std::string path, std::string filename);
+    };
+
+    bool NLoadList::readData(std::string path, std::string filename){
+        auto start = std::chrono::high_resolution_clock::now();
+        filename = path + filename;
+        std::ifstream no3MainFile;
+        no3MainFile.open(filename);
+        if (!no3MainFile.is_open()) {
+            std::cout << "Cant open file: " << filename << std::endl;
+            return false;
+        }
+        else{
+
+        }
+
+
+
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        std::cout << "Read Loading maps in " << elapsed.count() << std::endl;
+        return true;
+    }
 }
 
 #endif //MANTISSERVER_NLOAD_H

@@ -24,14 +24,16 @@ namespace mantisServer {
 	}
 
 	struct options {
+        std::string RegionsListFile;
+        int Nregions = 0;
 		//! The number of pixels in \p LUfile and \p NGWfile files
-		int Npixels;
+		//int Npixels;
 
 		//! The number of rows of the Land use and Nitrate groundwater loading maps
-		int Nrow;
+		//int Nrow;
 
 		//! The number of columns of the Land use and Nitrate groundwater loading maps
-		int Ncol;
+		//int Ncol;
 
 		//! GNLM_LUfile holds name file for the Land use file.
 		/*!
@@ -43,9 +45,9 @@ namespace mantisServer {
 		YRxx are the land use codes. The file  contain the pixels
 		that are non zero either in land use.
 		*/
-		std::string NO3LoadFile;
+		//std::string NO3LoadFile;
 
-		std::string CVrasterFile;
+		//std::string CVrasterFile;
 
 		//! GNLM_NGWfile holds the Nitrate groundwater load according to GNLM.
 		/*!
@@ -60,13 +62,13 @@ namespace mantisServer {
 
 		//std::string SWAT_Mainfile;
 
-		std::string UNSATfile;
+		//std::string UNSATfile;
 
 		//! MAPSfile is the name file for the background maps
 		/*!
 		The format of the file is....
 		*/
-		std::string MAPSfile;
+		//std::string MAPSfile;
 
 		//! Port is the port number
 		/*!
@@ -76,11 +78,11 @@ namespace mantisServer {
 		int port;
         std::string ip;
 
-		std::string WELLfile;
-		std::string URFfile;
-		std::string RCHfile;
-		std::string RFURFfile;
-		bool bReadRFURF;
+		//std::string WELLfile;
+		//std::string URFfile;
+		//std::string RCHfile;
+		//std::string RFURFfile;
+		//bool bReadRFURF;
 
 		//int yearInterval;
 		//int startYear;
@@ -93,7 +95,7 @@ namespace mantisServer {
         /**
          * Indicates whether the paths inside the configuration file are absolute or relative to the main path
          */
-		bool bAbsolutePaths = true;
+		//bool bAbsolutePaths = true;
 
 		/**
 		 * This is the main path where all input files are relative to.
@@ -173,21 +175,23 @@ namespace mantisServer {
 		// Configuration file options
 		po::options_description config_options("Configuration file options");
 		config_options.add_options()
+            //Regions
+            ("Regions.File", "The file with a list of regions")
 		    // CV_Raster
-            ("CV_Raster.Ncells", po::value<int>(), "Number of active pixels in background raster")
-            ("CV_Raster.Nrows", po::value<int>(), "Number of rows of the background raster")
-            ("CV_Raster.Ncols", po::value<int>(), "Number of columns of the background raster")
-            ("CV_Raster.Raster", "The file with the raster indices that point to Nidx")
+            //("CV_Raster.Ncells", po::value<int>(), "Number of active pixels in background raster")
+            //("CV_Raster.Nrows", po::value<int>(), "Number of rows of the background raster")
+            //("CV_Raster.Ncols", po::value<int>(), "Number of columns of the background raster")
+            //("CV_Raster.Raster", "The file with the raster indices that point to Nidx")
 
             // Data
-			("Data.MAPS", "A List of the background maps with their subregions")
-			("Data.NO3", "A file with a list of files that contain the Nitrate loading base scenarios")
-            ("Data.UNSAT", "A file that contains the travel time for each LU pixel")
-			("Data.WELLS", "A list of files with the well info for each scenario")
-			("Data.URFS", "A list of files with the URF information")
-			("Data.RFURF", "A list of files with Region and Flow specific URFs")
-            ("Data.RCH", "A file that contains the recharge values in mm/year for each LU pixel")
-            ("Data.Path", "If this is not empty all data all data must be relative to this Path.")
+			//("Data.MAPS", "A List of the background maps with their subregions")
+			//("Data.NO3", "A file with a list of files that contain the Nitrate loading base scenarios")
+            //("Data.UNSAT", "A file that contains the travel time for each LU pixel")
+			//("Data.WELLS", "A list of files with the well info for each scenario")
+			//("Data.URFS", "A list of files with the URF information")
+			//("Data.RFURF", "A list of files with Region and Flow specific URFs")
+            //("Data.RCH", "A file that contains the recharge values in mm/year for each LU pixel")
+            //("Data.Path", "If this is not empty all data all data must be relative to this Path.")
 
 			// ServerOptions
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
@@ -227,42 +231,42 @@ namespace mantisServer {
 			std::cout << opt.configFile << std::endl;
 			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
             // CV_Raster
-			opt.Npixels = vm_cfg["CV_Raster.Ncells"].as<int>();
-            opt.Nrow = vm_cfg["CV_Raster.Nrows"].as<int>();
-            opt.Ncol = vm_cfg["CV_Raster.Ncols"].as<int>();
-            if (!get_option<std::string>("CV_Raster.Raster", vm_cfg, opt.CVrasterFile)) return false;
+			//opt.Npixels = vm_cfg["CV_Raster.Ncells"].as<int>();
+            //opt.Nrow = vm_cfg["CV_Raster.Nrows"].as<int>();
+            //opt.Ncol = vm_cfg["CV_Raster.Ncols"].as<int>();
+            //if (!get_option<std::string>("CV_Raster.Raster", vm_cfg, opt.CVrasterFile)) return false;
 
             // Data
-			if (!get_option<std::string>("Data.MAPS", vm_cfg, opt.MAPSfile)) return false;
-			if (!get_option<std::string>("Data.NO3", vm_cfg, opt.NO3LoadFile)) return false;
-			if (!get_option<std::string>("Data.UNSAT", vm_cfg, opt.UNSATfile)) return false;
-			if (!get_option<std::string>("Data.WELLS", vm_cfg, opt.WELLfile)) return false;
-			if (!get_option<std::string>("Data.URFS", vm_cfg, opt.URFfile)) return false;
-            if (!get_option<std::string>("Data.RCH", vm_cfg, opt.RCHfile)) return false;
+			//if (!get_option<std::string>("Data.MAPS", vm_cfg, opt.MAPSfile)) return false;
+			//if (!get_option<std::string>("Data.NO3", vm_cfg, opt.NO3LoadFile)) return false;
+			//if (!get_option<std::string>("Data.UNSAT", vm_cfg, opt.UNSATfile)) return false;
+			//if (!get_option<std::string>("Data.WELLS", vm_cfg, opt.WELLfile)) return false;
+			//if (!get_option<std::string>("Data.URFS", vm_cfg, opt.URFfile)) return false;
+            //if (!get_option<std::string>("Data.RCH", vm_cfg, opt.RCHfile)) return false;
 
-            if (vm_cfg.count("Data.RFURF")){
-				if (get_option<std::string>("Data.RFURF", vm_cfg, opt.RFURFfile)){
-					opt.bReadRFURF = true;
-				}
-				else{
-					opt.bReadRFURF = false;
-				}
-            }
+            //if (vm_cfg.count("Data.RFURF")){
+			//	if (get_option<std::string>("Data.RFURF", vm_cfg, opt.RFURFfile)){
+			//		opt.bReadRFURF = true;
+			//	}
+			//	else{
+			//		opt.bReadRFURF = false;
+			//	}
+            //}
 
-            opt.mainPath = "";
-			if (vm_cfg.count("Data.Path")){
-			    if (get_option<std::string>("Data.Path", vm_cfg, opt.mainPath)){
-			    	if (opt.mainPath.empty()){
-						opt.bAbsolutePaths = true;
-			    	}
-			    	else{
-						opt.bAbsolutePaths = false;
-			    	}
-			    }
-			}
-			else{
-			    opt.bAbsolutePaths = true;
-			}
+            //opt.mainPath = "";
+			//if (vm_cfg.count("Data.Path")){
+			//    if (get_option<std::string>("Data.Path", vm_cfg, opt.mainPath)){
+			//    	if (opt.mainPath.empty()){
+			//			opt.bAbsolutePaths = true;
+			//    	}
+			//    	else{
+			//			opt.bAbsolutePaths = false;
+            //   	}
+			//    }
+			//}
+			//else{
+			//    opt.bAbsolutePaths = true;
+			//}
 
             // ServerOptions
 			opt.port = vm_cfg["ServerOptions.PORT"].as<int>();
