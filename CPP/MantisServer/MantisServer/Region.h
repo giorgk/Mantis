@@ -18,9 +18,9 @@ namespace mantisServer{
     class Region{
     public:
         Region(){}
-    private:
         bool readRegionData(std::string inputfile);
 
+    private:
         std::string path;
         BackroundRaster raster;
         BMapCollection Bmaps;
@@ -65,6 +65,7 @@ namespace mantisServer{
             if (!tf)
                 return false;
         }
+        return true;
 
         {// Read Background Maps
             std::string bmapsfile =  path + vm_ro["Data.BMAPS"].as<std::string>();

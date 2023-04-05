@@ -230,6 +230,9 @@ namespace mantisServer {
 
 			std::cout << opt.configFile << std::endl;
 			po::store(po::parse_config_file<char>(opt.configFile.c_str(), config_options), vm_cfg);
+            //Regions
+            if (!get_option<std::string>("Regions.File", vm_cfg, opt.RegionsListFile)) return false;
+
             // CV_Raster
 			//opt.Npixels = vm_cfg["CV_Raster.Ncells"].as<int>();
             //opt.Nrow = vm_cfg["CV_Raster.Nrows"].as<int>();

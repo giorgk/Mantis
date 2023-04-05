@@ -610,7 +610,7 @@ namespace mantisServer {
         //std::vector<std::vector<double>> UNSATData;
 		//! a list of background maps
 		//std::map<std::string, std::map<std::string, Polyregion> > MAPList;
-		s//td::vector<std::string> backgroundMapNames;
+		//td::vector<std::string> backgroundMapNames;
 
 		//! A map of well ids and wellClass
 		//std::map<std::string, wellCollection > Wellmap;
@@ -737,7 +737,7 @@ namespace mantisServer {
 
 
 
-        if (scenario.wellType.compare("VM") == 0){
+        /*if (scenario.wellType.compare("VM") == 0){
             if (scenario.mapID.compare("Townships") != 0 ){
                 outmsg += "0 ERROR: You can simulate VIRTUAL Monitoring wells with Townships only";
                 return false;
@@ -917,7 +917,7 @@ namespace mantisServer {
         if (scenario.userSuppliedConstRed){
             scenario.LoadReductionMap.clear();
             scenario.globalReduction = scenario.constReduction;
-        }
+        }*/
 
 		return true;
 	}
@@ -1349,12 +1349,12 @@ namespace mantisServer {
     bool Mantis::readRegionList(){
         std::ifstream RegionListFStream;
         RegionListFStream.open(options.RegionsListFile);
-        if (!RegionsListFile.is_open()){
+        if (!RegionListFStream.is_open()){
             std::cout << "Cant open file: " << options.RegionsListFile << std::endl;
             return false;
         }
         else{
-            std::string line, filename RegionName;
+            std::string line, filename, RegionName;
             while (getline(RegionListFStream, line)){
                 std::istringstream inp(line.c_str());
                 inp >> RegionName;
@@ -1364,14 +1364,19 @@ namespace mantisServer {
                     continue;
 
                 inp >> filename;
+                RegionList.insert(std::pair<std::string, Region>(RegionName, Region()));
+                std::map<std::string, Region>::iterator it = RegionList.find(RegionName);
+                if (it != RegionList.end()){
+                    it->second.readRegionData(filename);
+                }
 
-                Reg
 
             }
         }
+        return true;
     }
 
-	bool Mantis::readMultipleSets(std::string filename, bool isWell) {
+	/*bool Mantis::readMultipleSets(std::string filename, bool isWell) {
 		std::ifstream WellMasterfile;
 
 		if (!options.bAbsolutePaths)
@@ -1407,9 +1412,9 @@ namespace mantisServer {
 			}
 		}
 		return true;
-	}
+	}*/
 
-	bool Mantis::readWellSet(std::string filename) {
+	/*bool Mantis::readWellSet(std::string filename) {
 		auto start = std::chrono::high_resolution_clock::now();
 		std::ifstream Welldatafile;
 
@@ -1485,9 +1490,9 @@ namespace mantisServer {
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read Wells in " << elapsed.count() << std::endl;
 		return true;
-	}
+	}*/
 
-	bool Mantis::readURFs(std::string filename) {
+	/*bool Mantis::readURFs(std::string filename) {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Reading " << filename << std::endl;
 #if _USEHF>0
@@ -1630,7 +1635,7 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read URFS in " << elapsed.count() << std::endl;
 		return true;
-	}
+	}*/
 
 	/*
 	void Mantis::identifySurroundingPixel(int Npixels, int row, int col, std::vector<int>& lin_inds) {
@@ -1656,7 +1661,7 @@ namespace mantisServer {
     */
 	bool Mantis::buildLoadingFunction(Scenario &scenario, std::vector<double> &LF, std::vector<cell> cells) {
 		bool out = false;
-        int nCells = scenario.SourceArea.getNpixels(cells.size());
+        /*int nCells = scenario.SourceArea.getNpixels(cells.size());
         std::vector<int> lin_idx_vec;
 
         std::map<std::string, NLoad>::iterator loadit, baseloadit;
@@ -1726,17 +1731,17 @@ namespace mantisServer {
                                                           LF,
                                                           scenario,
                                                           rch_val);
-        }
+        }*/
 
 		return out;
 	}
 
 
-	bool Mantis::readCVraster() {
+	/*bool Mantis::readCVraster() {
         if (!options.bAbsolutePaths)
             options.CVrasterFile = options.mainPath + options.CVrasterFile;
         return cvraster.readData(options.CVrasterFile, options.Nrow, options.Ncol, options.Npixels);
-        /*
+        *//*
 	    auto start = std::chrono::high_resolution_clock::now();
         const std::string NameSet("Raster");
 
@@ -1748,16 +1753,16 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read CV active raster in " << elapsed.count() << std::endl;
         return true;
-        */
-	}
+        *//*
+	}*/
 
 
-	bool Mantis::readUNSAT() {
+	/*bool Mantis::readUNSAT() {
         if (!options.bAbsolutePaths)
             options.UNSATfile = options.mainPath + options.UNSATfile;
         unsat.setNoDataValue(0.0);
 	    return unsat.readData(options.UNSATfile, options.Npixels);
-	    /*
+	    *//*
         auto start = std::chrono::high_resolution_clock::now();
         const std::string NamesNameSet("Names");
         const std::string DataNameSet("Data");
@@ -1778,10 +1783,10 @@ namespace mantisServer {
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read Unsaturated Scenarios in " << elapsed.count() << std::endl;
         return true;
-        */
-	}
+        *//*
+	}*/
 
-	bool Mantis::readRCH() {
+	/*bool Mantis::readRCH() {
         bool tf1 = rchList.readData(options.mainPath,options.RCHfile, options.Npixels);
         return false;
         if (!options.bAbsolutePaths)
@@ -1792,9 +1797,9 @@ namespace mantisServer {
         //    rch.multiply(1.0/365000.0);
         //}
         return tf;
-	}
+	}*/
 
-	bool Mantis::readLU_NGW() {
+	/*bool Mantis::readLU_NGW() {
 		auto start = std::chrono::high_resolution_clock::now();
 
 		std::ifstream no3MainFile;
@@ -1870,7 +1875,7 @@ namespace mantisServer {
 		std::chrono::duration<double> elapsed = finish - start;
 		std::cout << "Read LU and NGW in " << elapsed.count() << std::endl;
 		return true;
-	}
+	}*/
 
 	void Mantis::simulate_RF_wells(int id) {
         std::ofstream urf_file;
@@ -1895,7 +1900,7 @@ namespace mantisServer {
             well_btc_file.open(well_btc_file_name.c_str());
         }
 
-        int unsat_idx = unsat.ScenarioIndex(scenario.unsatScenario);
+        /*int unsat_idx = unsat.ScenarioIndex(scenario.unsatScenario);
         int cntBTC = 0;
         std::map<std::string, runtimeURFSet>::iterator it;
         for (int irg = 0; irg < static_cast<int>(scenario.regionIDs.size()); ++irg){
@@ -1980,16 +1985,16 @@ namespace mantisServer {
                     cntBTC++;
                 }
             }
-        }
+        }*/
 
-        std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
+        /*std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
         replyLength[id] = cntBTC;
         if (scenario.printAdditionalInfo) {
             urf_file.close();
             lf_file.close();
             btc_file.close();
             well_btc_file.close();
-        }
+        }*/
 	}
 
 
@@ -2012,7 +2017,7 @@ namespace mantisServer {
             }
         }
 
-        if (bSimulateThis){
+        /*if (bSimulateThis){
             // Find the travel time in the unsaturated zone
             int intTau = 0;
             if (unsat_idx != -1) {
@@ -2068,7 +2073,7 @@ namespace mantisServer {
         }
         else{
             return true;
-        }
+        }*/
         return false;
 	}
 
@@ -2101,7 +2106,7 @@ namespace mantisServer {
 		}
 
 		// Get an iterator to the selected map
-		std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
+		/*std::map<std::string, std::map<std::string, Polyregion> >::iterator mapit = MAPList.find(scenario.mapID);
 		// Get an iterator to the list of wells for the selected scenario
 		std::map<std::string, wellCollection >::iterator wellscenNameit = Wellmap.find(scenario.flowWellScen);
 
@@ -2222,7 +2227,7 @@ namespace mantisServer {
 		}// loop through regions
         std::cout << " \tThread " << id << " simulated " << cntBTC << " BTCs" << std::endl;
         //std::cout << " \tThread " << id << " found  " << nWellsWithoutStreamlines << " without streamlines" << std::endl;
-		replyLength[id] = cntBTC;
+		replyLength[id] = cntBTC;*/
 
 		if (scenario.printAdditionalInfo) {
 			urf_file.close();
@@ -2276,7 +2281,7 @@ namespace mantisServer {
         auto start = std::chrono::high_resolution_clock::now();
         std::cout << "Calculating source area ..." << std::endl;
 
-        std::map<std::string, wellCollection >::iterator it1;
+        /*std::map<std::string, wellCollection >::iterator it1;
         std::map<int, wellClass>::iterator it2;
         std::map<int, streamlineClass>::iterator it3;
         std::map< int, cell>::iterator it4, it5;
@@ -2470,7 +2475,7 @@ namespace mantisServer {
                     }
                 }
             }
-        }
+        }*/
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Source area calculated in " << elapsed.count() << std::endl;
@@ -2479,11 +2484,11 @@ namespace mantisServer {
 
 	void Mantis::postReplyActions() {
         options.nTimesPrinted++;
-        manageRFSets();
+        //manageRFSets();
         resetLogfile();
 	}
 
-	void Mantis::manageRFSets() {
+	/*void Mantis::manageRFSets() {
         std::map<std::string, runtimeURFSet>::iterator it;
         std::vector<std::string> sets4delete;
         for (it = RegionFlowURFS.begin(); it != RegionFlowURFS.end(); ++it){
@@ -2495,7 +2500,7 @@ namespace mantisServer {
         for (unsigned int i = 0; i < sets4delete.size(); ++i){
             RegionFlowURFS.erase(sets4delete[i]);
         }
-	}
+	}*/
 
     void Mantis::resetLogfile() {
         if (options.bUseLogFile){
