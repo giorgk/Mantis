@@ -65,7 +65,6 @@ namespace mantisServer{
             if (!tf)
                 return false;
         }
-        return true;
 
         {// Read Background Maps
             std::string bmapsfile =  path + vm_ro["Data.BMAPS"].as<std::string>();
@@ -80,6 +79,7 @@ namespace mantisServer{
             if (!tf)
                 return false;
         }
+        return true;
 
         {//Read Recharge
             std::string rchfile =  vm_ro["Data.RCH"].as<std::string>();

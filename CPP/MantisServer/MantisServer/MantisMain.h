@@ -1356,13 +1356,21 @@ namespace mantisServer {
         else{
             std::string line, filename, RegionName;
             while (getline(RegionListFStream, line)){
+                {
+                    std::string teststring;
+                    if (line.empty())
+                        continue;
+                    if (line.front() == '#')
+                        continue;
+                    std::istringstream inptest(line.c_str());
+                    inptest >> teststring;
+                    if (teststring.empty())
+                        continue;
+                }
+
+
                 std::istringstream inp(line.c_str());
                 inp >> RegionName;
-                if (RegionName.empty())
-                    continue;
-                if (RegionName.front() == '#')
-                    continue;
-
                 inp >> filename;
                 RegionList.insert(std::pair<std::string, Region>(RegionName, Region()));
                 std::map<std::string, Region>::iterator it = RegionList.find(RegionName);
