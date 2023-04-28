@@ -18,6 +18,11 @@ namespace mantisServer{
         RASTER
     };
 
+    enum class extrapMethod{
+        NEAREST,
+        REPEAT
+    };
+
     /**
 	 * Nload is a container for each nitrate loading scenario.
 	 *
@@ -81,7 +86,7 @@ namespace mantisServer{
         /**
          * This builds the loading function.
          * @param index this is the index of #NLoad
-         * @param endYear the ending year of hte simulation
+         * @param endYear the ending year of the simulation
          * @param LF THis is the output loading function
          * @param scenario the options of the simulatied scenario
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
@@ -91,6 +96,12 @@ namespace mantisServer{
                                   Scenario& scenario, std::vector<double> &rch);
         bool buildLoadingFromRaster(std::vector<int>& CVindex, int startYear, int endYear, std::vector<double>& LF,
                                     Scenario& scenario, std::vector<double> &rch);
+
+
+        bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex, std::vector<double>& LF,
+                                        Scenario& scenario, std::vector<double> &rch);
+
+
         LoadType getLtype() {
             return loadType;
         }
@@ -105,6 +116,7 @@ namespace mantisServer{
     private:
         //! The type of loading function GNLM, SWAT or RASTER
         LoadType loadType;
+        extrapMethod extMeth;
 
         LoadUnits loadUnits;
         //! Container for the data
@@ -112,6 +124,8 @@ namespace mantisServer{
         //! Container for the Land use data
         std::vector<std::vector<int> > LU;
         //! A map between the CV active pixels and the Ndata
+        std::vector<int> NloadYears;
+        std::vector<int> LUYears;
         std::vector<int> Nidx;
         LinearData RasterLoading;
         int nRows;
@@ -139,7 +153,39 @@ namespace mantisServer{
         return 0;
     }
     void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
-        switch (loadType)
+        if (LUYears.size() == 1){
+            LUcS = getLU(index,0);
+            LUcE = getLU(index,0);
+            perc = 1.0;
+            return;
+        }
+
+        if (iyr <= LUYears[0]){
+            LUcS = getLU(index,0);
+            LUcE = getLU(index,0);
+            perc = 1.0;
+        }
+        else if (iyr >= LUYears[LUYears.size()-1]){
+            LUcS = getLU(index,LUYears.size()-1);
+            LUcE = getLU(index,LUYears.size()-1);
+            perc = 0.0;
+        }
+        else{
+            for(int i = 0; i < LUYears.size()-1; ++i){
+                if (iyr == LUYears[i]){
+                    LUcS = getLU(index,i);
+                    LUcE = getLU(index,i);
+                    perc = 0;
+                }
+                else if (iyr > LUYears[i] && iyr < LUYears[i+1]){
+                    LUcS = getLU(index,LUYears[i]);
+                    LUcE = getLU(index,LUYears[i+1]);
+                    perc = static_cast<double>((iyr - LUYears[i])) / static_cast<double>(LUYears[i+1] - LUYears[i]);
+                }
+            }
+        }
+
+        /*switch (loadType)
         {
             case mantisServer::LoadType::GNLM:
             {
@@ -169,10 +215,49 @@ namespace mantisServer{
             }
             default:
                 break;
-        }
+        }*/
     }
 
     void NLoad::getNload(int index, int iyr, double& N1, double& N2, double& u) {
+        if (NloadYears.size() == 1){
+            N1 = Ndata[0][index];
+            N2 = Ndata[0][index];
+            u = 1.0;
+            return;
+        }
+
+        if (extMeth == extrapMethod::REPEAT){
+            if (iyr < NloadYears[0]){
+
+            }
+            else if (iyr > NloadYears[NloadYears.size() - 1]){
+
+            }
+        }
+
+        if (iyr <= NloadYears[0]){
+            if (extMeth == extrapMethod::REPEAT){
+
+            }
+            else if (extMeth == extrapMethod::NEAREST){
+                N1 = Ndata[0][index];
+                N2 = Ndata[0][index];
+                u = 1.0;
+            }
+        }
+        else if (iyr >= NloadYears[NloadYears.size() - 1]){
+            if (extMeth == extrapMethod::REPEAT){
+
+            }
+            else if (extMeth == extrapMethod::NEAREST){
+                N1 = Ndata[NloadYears.size() - 1][index];
+                N2 = Ndata[NloadYears.size() - 1][index];
+                u = 1.0;
+            }
+        }
+
+
+
         switch (loadType)
         {
             case mantisServer::LoadType::GNLM:
@@ -429,6 +514,78 @@ namespace mantisServer{
             }
         }
         return true;
+    }
+
+    bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex, std::vector<double>& LF,
+                                           Scenario& scenario, std::vector<double> &rch){
+        bool out = false;
+
+        int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
+        LF.clear();
+        LF.resize(Nyears, 0.0);
+        if (cellIndex.size() == 0){
+            out = true;
+            return out;
+        }
+
+        int istartReduction = scenario.startReductionYear - scenario.startSimulationYear;
+        int iendReduction = scenario.endReductionYear - scenario.startSimulationYear;
+        double dstartReduction = static_cast<double>(istartReduction);
+        double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
+        double adoptionCoeff = 0;
+        std::map<int, double>::iterator it;
+
+        for (int iyr = 0; iyr < Nyears; iyr++){
+            if ((iyr >= istartReduction) && (iyr <= iendReduction)) {
+                adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
+            }
+            else if (iyr > iendReduction) {
+                adoptionCoeff = 1.0;
+            }
+            else{
+                adoptionCoeff = 0;
+            }
+
+            double NvalidCells = 0;
+            for (unsigned int j = 0; j < cellIndex.size(); ++j){
+                int lus = 0;
+                int lue = 0;
+                double prc = 0.0;
+                double rs = 1.0;
+                double re = 1.0;
+                getLU(cellIndex[j], iyr + scenario.startSimulationYear, lus, lue, prc);
+                if (adoptionCoeff > 0){
+                    rs = scenario.globalReduction;
+                    it = scenario.LoadReductionMap.find(lus);
+                    if (it != scenario.LoadReductionMap.end()){
+                        rs = it->second;
+                    }
+
+                    if (lus == lue){
+                        re = rs;
+                    }
+                    else{
+                        re = scenario.globalReduction;
+                        it = scenario.LoadReductionMap.find(lue);
+                        if (it != scenario.LoadReductionMap.end()) {
+                            re = it->second;
+                        }
+                    }
+                }
+
+                int nload_idx = Nidx[cellIndex[j]];
+                if (nload_idx < 0)
+                    continue;
+                NvalidCells = NvalidCells + 1.0;
+                double N1 = 0, N2 = 0, u = 0;
+                getNload(nload_idx, iyr + scenario.startSimulationYear, N1, N2, u);
+
+
+
+            }
+
+        }
+
     }
 
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,

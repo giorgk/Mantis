@@ -475,6 +475,7 @@ namespace mantisServer {
         bool userSuppliedConstRed;
 
         //! This is the number of years to simulate starting from 1945
+        int startSimulationYear;
         int endSimulationYear;
 
         int LoadTransitionStart;
@@ -551,6 +552,7 @@ namespace mantisServer {
             regionIDs.clear();
             startReductionYear = 2020;
             endReductionYear = 2030;
+            startSimulationYear = 1945;
             endSimulationYear = 2100;
             LoadReductionMap.clear();
             printAdditionalInfo = false;
