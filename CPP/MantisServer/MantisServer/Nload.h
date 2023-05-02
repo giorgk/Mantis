@@ -18,11 +18,6 @@ namespace mantisServer{
         RASTER
     };
 
-    enum class extrapMethod{
-        NEAREST,
-        REPEAT
-    };
-
     /**
 	 * Nload is a container for each nitrate loading scenario.
 	 *

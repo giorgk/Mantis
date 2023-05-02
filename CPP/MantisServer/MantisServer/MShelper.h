@@ -690,6 +690,45 @@ namespace mantisServer {
         }
     }
 
+    enum class extrapMethod{
+        NEAREST,
+        REPEAT
+    };
+
+    void getTSrange(int iyr, int StartYear, int Interval, int NYears,
+                    int &SY, int &EY, double &t, extrapMethod xm){
+        double dyr = static_cast<double>(iyr);
+        double dSyr = static_cast<double>(StartYear);
+        double dIntrv = static_cast<double>(Interval);
+        //double dNyrs = static_cast<double>(NYears);
+        int idx = static_cast<int>(std::floor((dyr - dSyr)/dIntrv));
+        bool isBefore = false;
+        if (idx > 0){
+            idx = idx + 1;
+        }
+        else{
+            abs(idx) % NYears
+            //idx = NYears+idx+1;
+            isBefore = true;
+        }
+        int idx1 = idx % NYears;
+
+        int yr_bef = StartYear+ (idx - 1)*Interval;
+        //int yr_aft = yr_bef + Interval;
+        t = static_cast<double>(iyr - yr_bef)/dIntrv;
+
+        if (idx == 0){
+            SY = NYears-1;
+            EY = 0;
+        }
+        else {
+            SY = idx1-1;
+            EY = SY + 1;
+        }
+
+
+    }
+
 
 }
 
