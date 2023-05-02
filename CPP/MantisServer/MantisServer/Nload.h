@@ -126,6 +126,8 @@ namespace mantisServer{
         int nRows;
         int nLU;
         int nN;
+        TSgrid LUtsgrid;
+        TSgrid Nloadtsgrid;
     };
 
     bool NLoad::isValidIndex(int index) {
@@ -154,7 +156,12 @@ namespace mantisServer{
             perc = 1.0;
             return;
         }
+        int sy,ey;
+        LUtsgrid.getIndices(iyr,sy, ey,perc);
+        LUcS = getLU(index,sy);
+        LUcE = getLU(index,ey);
 
+        /*
         if (iyr <= LUYears[0]){
             LUcS = getLU(index,0);
             LUcE = getLU(index,0);
@@ -179,6 +186,7 @@ namespace mantisServer{
                 }
             }
         }
+        */
 
         /*switch (loadType)
         {
@@ -220,7 +228,13 @@ namespace mantisServer{
             u = 1.0;
             return;
         }
+        int sy, ey;
+        Nloadtsgrid.getIndices(iyr,sy,ey,u);
+        N1 = Ndata[sy][index];
+        N2 = Ndata[ey][index];
 
+
+        /*
         if (extMeth == extrapMethod::REPEAT){
             if (iyr < NloadYears[0]){
 
@@ -289,6 +303,7 @@ namespace mantisServer{
             default:
                 break;
         }
+        */
     }
 
     double NLoad::getNload(int index, int iyr) {
@@ -531,6 +546,7 @@ namespace mantisServer{
         std::map<int, double>::iterator it;
 
         for (int iyr = 0; iyr < Nyears; iyr++){
+            double lf = 0;
             if ((iyr >= istartReduction) && (iyr <= iendReduction)) {
                 adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
             }
@@ -574,13 +590,35 @@ namespace mantisServer{
                 NvalidCells = NvalidCells + 1.0;
                 double N1 = 0, N2 = 0, u = 0;
                 getNload(nload_idx, iyr + scenario.startSimulationYear, N1, N2, u);
+                double Nbase = N1* (1 - u) + N2* u;
+                if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))){
+                    double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
+                    double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
+                    if (loadUnits == LoadUnits::MASS){
+                        tmpLoad = tmpLoad*100 / rch[j];
+                    }
+                    lf += tmpLoad;
+                }
+                else{
+                    if (loadUnits == LoadUnits::MASS){
+                        Nbase = Nbase*100 / rch[j];
+                    }
+                    lf += Nbase;
+                }
 
-
-
+                if (NvalidCells < 0.00001){
+                    out = false;
+                    return out;
+                }
+                else if (std::abs(NvalidCells - 1) < 0.000001){
+                    LF[iyr] = lf;
+                }
+                else if (NvalidCells > 1){
+                    LF[iyr] = lf/NvalidCells;
+                }
             }
-
         }
-
+        return true;
     }
 
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
@@ -593,6 +631,10 @@ namespace mantisServer{
 
         if (loadType == LoadType::RASTER){
             out = buildLoadingFromRaster(CVindex, startYear, endYear, LF, scenario, rch);
+            return out;
+        }
+        else{
+            out = buildLoadingFromTimeSeries(CVindex,LF,scenario,rch);
             return out;
         }
 

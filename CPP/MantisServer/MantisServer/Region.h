@@ -75,16 +75,17 @@ namespace mantisServer{
 
         {//Read Unsaturated data
             std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
+            Unsat.setNoDataValue(0.0);
             bool tf = Unsat.readData(unsatfile,raster.Ncell());
             if (!tf)
                 return false;
         }
-        return true;
 
         {//Read Recharge
             std::string rchfile =  vm_ro["Data.RCH"].as<std::string>();
             bool tf = Rch.readData(path,rchfile, raster.Ncell());
         }
+        return true;
 
         {// Read the wells
             std::string wellfile =  vm_ro["Data.WELLS"].as<std::string>();

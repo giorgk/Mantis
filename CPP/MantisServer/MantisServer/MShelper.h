@@ -695,41 +695,78 @@ namespace mantisServer {
         REPEAT
     };
 
-    void getTSrange(int iyr, int StartYear, int Interval, int NYears,
-                    int &SY, int &EY, double &t, extrapMethod xm){
-        double dyr = static_cast<double>(iyr);
-        double dSyr = static_cast<double>(StartYear);
-        double dIntrv = static_cast<double>(Interval);
-        //double dNyrs = static_cast<double>(NYears);
-        int idx = static_cast<int>(std::floor((dyr - dSyr)/dIntrv));
-        bool isBefore = false;
-        if (idx > 0){
-            idx = idx + 1;
-        }
-        else{
-            abs(idx) % NYears
-            //idx = NYears+idx+1;
-            isBefore = true;
-        }
-        int idx1 = idx % NYears;
+    class TSgrid{
+    public:
+        TSgrid(){};
+        void init(int sy, int N, int d, extrapMethod xm);
+        void getIndices(int iyr, int &SY, int &EY, double &t);
 
-        int yr_bef = StartYear+ (idx - 1)*Interval;
-        //int yr_aft = yr_bef + Interval;
-        t = static_cast<double>(iyr - yr_bef)/dIntrv;
+    private:
+        int StartYear;
+        int EndYear;
+        int Interval;
+        int Nyears;
+        double dStartYear;
+        double dInterval;
+        extrapMethod XM;
 
-        if (idx == 0){
-            SY = NYears-1;
-            EY = 0;
-        }
-        else {
-            SY = idx1-1;
-            EY = SY + 1;
-        }
+    };
 
-
+    void TSgrid::init(int sy, int N, int d, extrapMethod xm) {
+        StartYear = sy;
+        Interval = d;
+        Nyears = N;
+        EndYear = StartYear + d * (Nyears - 1);
+        dStartYear = static_cast<double>(StartYear);
+        dInterval = static_cast<double>(Interval);
+        XM = xm;
     }
 
+    void TSgrid::getIndices(int iyr, int &SY, int &EY, double &t) {
+        if (XM == extrapMethod::NEAREST){
+            if (iyr < StartYear){
+                SY = 0;
+                EY = 0;
+                t = 0.0;
+                return;
+            }
+            else if (iyr > EndYear){
+                SY = Nyears-1;
+                EY = Nyears-1;
+                t = 1.0;
+                return;
+            }
+        }
 
+        double dyr = static_cast<double>(iyr);
+        int idx = static_cast<int>(std::floor((dyr - dStartYear)/dInterval)) + 1;
+        int idx1;
+        if (idx > 0){
+            idx1 = idx % Nyears;
+            if (idx1 == 0){
+                SY = Nyears-1;
+                EY = 0;
+            }
+            else{
+                SY = idx1-1;
+                EY = SY+1;
+            }
+        }
+        else{
+            idx1 = Nyears - std::abs(idx) % Nyears;
+            if (idx1 == Nyears){
+                SY = Nyears-1;
+                EY = 0;
+            }
+            else{
+                SY = idx1-1;
+                EY = SY+1;
+            }
+        }
+
+        int yr_bef = StartYear+ (idx1 - 1)*Interval;
+        t = static_cast<double>(iyr - yr_bef)/dInterval;
+    }
 }
 
 #endif //MANTISSERVER_MSHELPER_H

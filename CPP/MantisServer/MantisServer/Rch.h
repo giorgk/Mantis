@@ -65,7 +65,7 @@ namespace mantisServer{
 
         std::ifstream rchMainFile;
 
-        if (path.empty()){
+        if (!path.empty()){
             filename = path + filename;
         }
         rchMainFile.open(filename);
@@ -87,7 +87,7 @@ namespace mantisServer{
 
                 inp >> scenarioFile;
 
-                if (path.empty()){
+                if (!path.empty()){
                     scenarioFile = path + scenarioFile;
                 }
                 RechargeScenario rch;
