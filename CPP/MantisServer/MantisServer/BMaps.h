@@ -71,7 +71,7 @@ namespace mantisServer{
     bool BMapLayer::addwell(std::string geoUnitName, std::string flowScenarioName, int wellid){
         std::map<std::string, GeoUnit>::iterator it;
         it = geoUnits.find(geoUnitName);
-        if (it == geoUnits.end()){
+        if (it != geoUnits.end()){
             it->second.addWell(flowScenarioName, wellid);
             return true;
         }

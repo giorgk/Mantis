@@ -17,6 +17,7 @@ namespace mantisServer{
 	 */
     class Streamline{
     public:
+        Streamline(){};
         /*! \brief streamlineClass constructor expects the parameters that define a streamline
 		\param row_ind is the index in GNLM loading where this streamline starts from near the land surface.
 		\param col_ind is the index in SWAT loading where this streamline starts from near the land surface.
@@ -28,8 +29,10 @@ namespace mantisServer{
 		\param paramC if the type is both this is mean, while A and B are length and velocity
 		\param paramD if the type is both this is standard deviation
 		*/
-        Streamline(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
+        void setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                         double paramA, double paramB, double paramC = 0, double paramD = 0);
+
+        void print();
 
         //! the row number of the pixel where this streamline starts from near the land surface.
         int row;
@@ -63,7 +66,11 @@ namespace mantisServer{
         std::vector<cell> SourceArea;
     };
 
-    Streamline::Streamline(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
+    void Streamline::print() {
+        std::cout << "r: " << row << ", c: " << col << ", m: " << mu << ", s: " << std << ", w: " << w << ", riv: " << inRiver << ", N: " << Npxl << std::endl;
+    }
+
+    void Streamline::setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                                      double paramA, double paramB, double paramC, double paramD) {
         row = row_ind;
         col = col_ind;
@@ -114,7 +121,9 @@ namespace mantisServer{
 
     void Well::addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
                                   double paramA, double paramB, double paramC, double paramD) {
-        streamlines.insert(std::pair<int, Streamline>(Sid, Streamline( row_ind, col_ind, w, npxl, type, riv, paramA, paramB, paramC, paramD)));
+        Streamline s;
+        s.setParameters(row_ind, col_ind, w, npxl, type, riv, paramA, paramB, paramC, paramD);
+        streamlines.insert(std::pair<int, Streamline>(Sid, s));
     }
 
     void Well::setAdditionalData(double x, double y, double d, double s, double q, double r, double a){
@@ -147,7 +156,7 @@ namespace mantisServer{
         std::map<int, Well>::iterator eidit;
         eidit = Wells.find(Eid);
         if (eidit == Wells.end()){
-            std::cout << "I can't find a well with id [ " << Eid << " ]" << "in my list" << std::endl;
+            std::cout << "I can't find a well with id [ " << Eid << " ]" << "in the list" << std::endl;
             return false;
         }
         eidit->second.addStreamline(Sid,row_ind,col_ind,w,npxl,type,riv,paramA,paramB,paramC,paramD);
@@ -269,7 +278,7 @@ namespace mantisServer{
                 Well w;
                 w.setAdditionalData(xw,yw,D,SL,Q,ratio,angle);
                 wList.addWell(Eid, w);
-                for (int j = 1; j < Bmaps.Nbmaps(); ++j){
+                for (int j = 0; j < Bmaps.Nbmaps(); ++j){
                     inp >> regionCode;
                     tf = Bmaps.addwell(regionCode,setName,Eid);
                     if (!tf){
@@ -278,7 +287,9 @@ namespace mantisServer{
                     }
                 }
             }
+            FlowScenarios.insert(std::pair<std::string, WellList>(setName, wList));
         }
+
 
         Welldatafile.close();
         auto finish = std::chrono::high_resolution_clock::now();
@@ -348,7 +359,7 @@ namespace mantisServer{
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
             std::cout << "Read URFS in " << elapsed.count() << std::endl;
-            return false;
+            return true;
         }
 #endif
         std::ifstream ifile;

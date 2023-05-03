@@ -60,13 +60,14 @@ namespace mantisServer{
             int Nr = vm_ro["Raster.Nrows"].as<int>();
             int Nc = vm_ro["Raster.Ncols"].as<int>();
             std::string rasterfile =  path + vm_ro["Raster.File"].as<std::string>();
-
+            std::cout << "      Reading base Raster ..." << std::endl;
             bool tf = raster.readData(rasterfile, Nr, Nc, Ncells);
             if (!tf)
                 return false;
         }
 
         {// Read Background Maps
+            std::cout << "      Reading Background map data  ..." << std::endl;
             std::string bmapsfile =  path + vm_ro["Data.BMAPS"].as<std::string>();
             bool tf = Bmaps.readData(bmapsfile);
             if (!tf)
@@ -74,6 +75,7 @@ namespace mantisServer{
         }
 
         {//Read Unsaturated data
+            std::cout << "      Reading Unsaturated zone data..." << std::endl;
             std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
             Unsat.setNoDataValue(0.0);
             bool tf = Unsat.readData(unsatfile,raster.Ncell());
@@ -82,20 +84,31 @@ namespace mantisServer{
         }
 
         {//Read Recharge
+            std::cout << "      Reading data for Recharge ..." << std::endl;
             std::string rchfile =  vm_ro["Data.RCH"].as<std::string>();
             bool tf = Rch.readData(path,rchfile, raster.Ncell());
+            if (!tf)
+                return false;
         }
-        return true;
+
 
         {// Read the wells
+            std::cout << "      Reading well data ..." << std::endl;
             std::string wellfile =  vm_ro["Data.WELLS"].as<std::string>();
             bool tf = FWC.readMainfile(path, wellfile, true, Bmaps);
+            if (!tf)
+                return false;
         }
 
         {// Read the Urfs
+            std::cout << "      Reading URF data ..." << std::endl;
             std::string urfsfile =  vm_ro["Data.URFS"].as<std::string>();
             bool tf = FWC.readMainfile(path, urfsfile, false, Bmaps);
+            if (!tf)
+                return false;
+            //FWC.FlowScenarios["Modesto"].Wells[1].streamlines[0].print();
         }
+        return true;
 
         {// Read the loading maps
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
