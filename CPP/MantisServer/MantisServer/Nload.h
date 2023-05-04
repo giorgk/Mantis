@@ -429,21 +429,24 @@ namespace mantisServer{
             else{
                 std::cout << "Reading " << nloadfile << std::endl;
                 std::string line;
-                int Nr, Nc;
+                int Nr, Sy, D, Ny;
                 {// Get the dimension of the data
                     getline(ifile, line);
                     std::istringstream inp(line.c_str());
                     inp >> Nr;
-                    inp >> Nc;
+                    inp >> Sy;
+                    inp >> D;
+                    inp >> Ny;
+                    Nloadtsgrid.init(Sy,Ny,D,xm);
                     Ndata.clear();
-                    Ndata.resize(Nr, std::vector<double>(Nc, 0));
+                    Ndata.resize(Nr, std::vector<double>(Ny, 0));
                 }
                 {// Read the data
                     for (int i = 0; i < Nr; ++i){
                         getline(ifile, line);
                         std::istringstream inp(line.c_str());
                         double v;
-                        for (int j = 0; j < Nc; ++j){
+                        for (int j = 0; j < Ny; ++j){
                             inp >> v;
                             Ndata[i][j] = v;
                         }

@@ -112,7 +112,8 @@ namespace mantisServer{
         {// Read the loading maps
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
             bool tf = NLL.readData(path, nLoadfile);
-
+            if (!tf)
+                return false;
         }
 
         return true;
