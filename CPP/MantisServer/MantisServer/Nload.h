@@ -13,8 +13,7 @@ namespace mantisServer{
 	 *
 	 */
     enum class LoadType {
-        GNLM,
-        SWAT,
+        TGL,
         RASTER
     };
 
@@ -38,7 +37,7 @@ namespace mantisServer{
          * @param ltype is the loading type. Currently this must be either GNLM or SWAT
          * @return
          */
-        bool readData(std::string filename, LoadType ltype, LoadUnits lunit);
+        bool readData(std::string filename, LoadType ltype, LoadUnits lunit, extrapMethod xm);
 
         bool readData(std::string filename, LoadType ltype, LoadUnits lunit, int Npixels);
         /**
@@ -310,12 +309,12 @@ namespace mantisServer{
         double value = 0.0;
         switch (loadType)
         {
-            case mantisServer::LoadType::GNLM:
+            case mantisServer::LoadType::TGL:// GNLM:
             {
                 std::cout << "You can't call this method for GNLM loading type" << std::endl;
                 break;
             }
-            case mantisServer::LoadType::SWAT:
+            case mantisServer::LoadType::RASTER:// SWAT:
             {
                 int load_index = (iyr - 1940) % 25;
                 //value = Ndata[index][load_index];
@@ -342,7 +341,7 @@ namespace mantisServer{
         }
     }
 
-    bool NLoad::readData(std::string filename, LoadType ltype, LoadUnits lunit) {
+    bool NLoad::readData(std::string filename, LoadType ltype, LoadUnits lunit, extrapMethod xm) {
         loadType = ltype;
         loadUnits = lunit;
         auto start = std::chrono::high_resolution_clock::now();
@@ -382,17 +381,20 @@ namespace mantisServer{
             else{
                 std::cout << "Reading " << idxlufile << std::endl;
                 std::string line;
-                int Nr, Nc;
+                int Nr, Sy, D, Ny; // Number of rows, Starting year, Interval, Number of years
                 {// Get the dimension of the data
                     getline(ifile, line);
                     std::istringstream inp(line.c_str());
                     inp >> Nr;
-                    inp >> Nc;
+                    inp >> Sy;
+                    inp >> D;
+                    inp >> Ny;
+                    LUtsgrid.init(Sy,Ny,D,xm);
                     Nidx.clear();
                     Nidx.resize(Nr,0);
                     LU.clear();
                     std::vector<int> tmp(Nr,0);
-                    for (int i = 0; i < Nc-1; ++i){
+                    for (int i = 0; i < D; ++i){
                         LU.push_back(tmp);
                     }
                 }
@@ -401,7 +403,7 @@ namespace mantisServer{
                         getline(ifile, line);
                         std::istringstream inp(line.c_str());
                         int v;
-                        for (int j = 0; j < Nc; ++j){
+                        for (int j = 0; j < D+1; ++j){
                             inp >> v;
                             if (j == 0){
                                 Nidx[i] = v;
@@ -650,7 +652,7 @@ namespace mantisServer{
 
         std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
         std::map<int, double>::iterator it;
-        if (loadType == LoadType::SWAT) {
+        if (loadType == LoadType::TGL/*SWAT*/) {
             for (unsigned int i = 0; i < CVindex.size(); ++i){
                 int lucode = getLU(CVindex[i], 0);
                 it = scenario.LoadReductionMap.find(lucode);
@@ -669,7 +671,7 @@ namespace mantisServer{
 
             //std::cout << "a=" << adoptionCoeff;
 
-            if (loadType == LoadType::GNLM) {
+            if (loadType == LoadType::TGL/*GNLM*/) {
                 double lf = 0;
                 if (CVindex.size() == 0){
                     LF[iyr] = 0;
@@ -733,7 +735,7 @@ namespace mantisServer{
                     }
                 }
             }
-            else if (loadType == LoadType::SWAT) {
+            else if (loadType == LoadType::TGL/*SWAT*/) {
                 double lf = 0;
                 double NvalidCells = 0;
                 for (unsigned int j = 0; j < CVindex.size(); ++j){
@@ -790,7 +792,47 @@ namespace mantisServer{
             return false;
         }
         else{
+            std::string line;
+            while (getline(no3MainFile, line)){
+                std::string Ltype, Lname, Lfile, Lunit, Lextrap;
+                LoadUnits loadunit;
+                std::istringstream inp(line.c_str());
+                inp >> Ltype;
+                if (Ltype.empty())
+                    continue;
+                if (Ltype.front() == '#')
+                    continue;
 
+                inp >> Lname;
+                inp >> Lunit;
+                loadunit = string2LoadUnits(Lunit);
+                if (loadunit == LoadUnits::UNKNOWN){
+                    std::cout << Lunit << " is not recognized loading Unit" << std::endl;
+                    return false;
+                }
+
+                inp >> Lfile;
+                inp >> Lextrap;
+                extrapMethod xm = string2xtrapMethod(Lextrap);
+                Lfile = path + Lfile;
+
+                NLoad NL;
+                NLoadMaps.insert(std::pair<std::string, NLoad>(Lname,NL));
+                bool tf;
+                if (Ltype.compare("TGL") == 0){
+                    tf = NLoadMaps[Lname].readData(Lfile, LoadType::TGL ,loadunit, xm);
+                }
+                //else if (Ltype.compare("RASTER") == 0){
+                //    bool tf = NLoadMaps[Lname].readData(Lfile, LoadType::RASTER, loadunit, options.Npixels);
+                //}
+                else{
+                    std::cout << "Unknown loading type " << Ltype << std::endl;
+                    return false;
+                }
+                if (!tf){
+                    return false;
+                }
+            }
         }
 
 

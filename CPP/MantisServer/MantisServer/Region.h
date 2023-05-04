@@ -108,7 +108,6 @@ namespace mantisServer{
                 return false;
             //FWC.FlowScenarios["Modesto"].Wells[1].streamlines[0].print();
         }
-        return true;
 
         {// Read the loading maps
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();

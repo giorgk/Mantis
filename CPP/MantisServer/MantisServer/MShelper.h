@@ -692,8 +692,22 @@ namespace mantisServer {
 
     enum class extrapMethod{
         NEAREST,
-        REPEAT
+        REPEAT,
+        UNKNOWN
     };
+
+    extrapMethod string2xtrapMethod(std::string xs){
+        if (xs.compare("NEAREST")){
+            return extrapMethod::NEAREST;
+        }
+        else if (xs.compare("REPEAT")){
+            return extrapMethod::REPEAT;
+        }
+        else{
+            return extrapMethod::UNKNOWN;
+        }
+    }
+
 
     class TSgrid{
     public:
