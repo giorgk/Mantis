@@ -55,8 +55,6 @@ namespace mantisServer{
 
         bool getValue(std::string scenarioName, int lin_idx, double &rch, double &clean_prc);
 
-
-    private:
         std::map<std::string, RechargeScenario> RechargeList;
     };
 

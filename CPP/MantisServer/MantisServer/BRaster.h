@@ -18,6 +18,7 @@ namespace mantisServer{
         int Ncell(){return Ncells;}
         void setGridLocation(double x, double y, double cs);
         void getGridLocation(double &x, double &y, double &cs);
+        void cellCoords(int r, int c, double &x, double &y);
     private:
         int Nrows;
         int Ncols;
@@ -39,6 +40,12 @@ namespace mantisServer{
         x = Xorig;
         y = Yorig;
         cs = cellSize;
+    }
+
+    void BackroundRaster::cellCoords(int r, int c, double &x, double &y) {
+        x = Xorig + cellSize/2 + cellSize*(c);
+        // For the Y the row numbers start from the top
+        y =  Yorig + cellSize*Nrows - cellSize/2 - cellSize*(r);
     }
 
     bool BackroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell) {

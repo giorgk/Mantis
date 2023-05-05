@@ -112,6 +112,7 @@ namespace mantisServer{
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 
         void calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc);
+        void calculateWeights();
 
         std::map<int, Streamline> streamlines;
         double xcoord;
@@ -122,6 +123,17 @@ namespace mantisServer{
         double ratio;
         double angle;
     };
+
+    void Well::calculateWeights() {
+        std::map<int, Streamline>::iterator it;
+        double sumW = 0.0;
+        for (it = streamlines.begin(); it != streamlines.end(); ++it){
+            sumW = it->second.w + sumW;
+        }
+        for (it = streamlines.begin(); it != streamlines.end(); ++it){
+            it->second.w = it->second.w/sumW;
+        }
+    }
 
     void Well::addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
                                   double paramA, double paramB, double paramC, double paramD) {
@@ -141,14 +153,22 @@ namespace mantisServer{
     }
 
     void Well::calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc) {
-        int lin_ind, rs, cs;
-        double Xorig, Yorig, cellSize, xs, ys, dNr;
+        bool tf;
+        int lin_ind, rs, cs, rn, cn;
+        double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
+        double SAxmin, SAxmax, SAymin, SAymax;
+        double x1, x2, x3, x4, y1, y2, y3, y4;
+        double Qtmp, Qtarget, xtmp, ytmp, rch_v, dummy;
         braster.getGridLocation(Xorig, Yorig, cellSize);
-        dNr = static_cast<double>(braster.Nr());
+        double cellArea = cellSize*cellSize;
+        int Nrow = braster.Nr();
+        dNr = static_cast<double>(Nrow);
         double radAngle = angle*pi/180.0;
         double cosd = std::cos(radAngle);
         double sind = std::sin(radAngle);
         std::map<int, Streamline>::iterator itstrml;
+        std::map< int, cell>::iterator itcell1, itcell2;
+        std::vector<cell> sp = SearchPattern();
 
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
@@ -162,15 +182,108 @@ namespace mantisServer{
             else{
                 rs = itstrml->second.row;
                 cs = itstrml->second.col;
-                xs = Xorig + cellSize/2 + cellSize*(cs);
+                braster.cellCoords(rs, cs, xs, ys);
+                //xs = Xorig + cellSize/2 + cellSize*(cs);
                 // For the Y the row numbers start from the top
-                ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
+                //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
+                side1 = cellSize + cellSize * itstrml->second.Npxl;
+                side2 = std::max(2.0*cellSize, side1/ratio/2.0);
+                SAxmin = -side2 - 25;
+                SAxmax =  side2 + 25;
+                SAymin = -side1/2 - 25;
+                SAymax =  side1/2 + 25;
 
+                x1 = (cosd * SAxmin + sind * SAymin) + xs;
+                y1 = (-sind * SAxmin + cosd * SAymin) + ys;
 
+                x2 = (cosd * SAxmin + sind * SAymax) + xs;
+                y2 = (-sind * SAxmin + cosd * SAymax) + ys;
+
+                x3 = (cosd * SAxmax + sind * SAymax) + xs;
+                y3 = (-sind * SAxmax + cosd * SAymax) + ys;
+
+                x4 = (cosd * SAxmax + sind * SAymin) + xs;
+                y4 = (-sind * SAxmax + cosd * SAymin) + ys;
+
+                std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
+                                    << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
+
+                std::map< int, cell> for_test;
+                std::map< int, cell> tested;
+                std::map< int, cell> next_round;
+
+                lin_ind = Nrow * cs + rs;
+                for_test.insert(std::pair<int, cell>(lin_ind, cell(rs,cs)));
+                if (braster.IJ(rs,cs) == -1){
+                    // The first pixel is outside the study area.
+                    // We will assume zero loading
+                    itstrml->second.mu = 0.0;
+                    itstrml->second.std = 0.0;
+                    continue;
+                }
+
+                Qtmp = 0.0;
+                Qtarget = pumpingRate * itstrml->second.w;
+
+                bool sourceFound = false;
+                while (true){
+                    for (itcell1 = for_test.begin(); itcell1 != for_test.end(); ++itcell1){
+                        tested.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                        braster.cellCoords(itcell1->second.row, itcell1->second.col, xtmp, ytmp);
+                        std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
+                        //xtmp = -223275.0 + 50.0*(it4->second.col);
+                        //ytmp =  298525.0 - 50.0*(it4->second.row);
+                        // Check if the point is in the source area by testing the barycentric coordinates
+                        tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                        if (!tf){
+                            tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
+                            if (!tf){
+                                continue;
+                            }
+                        }
+                        lin_ind = braster.IJ(itcell1->second.row, itcell1->second.col);
+                        if (lin_ind != -1){
+                            tf = rch.getValues(lin_ind, rch_v, dummy);
+                            if (tf){
+                                if (rch_v > 10.0){
+                                    itstrml->second.SourceArea.push_back(itcell1->second);
+                                    Qtmp += (rch_v/365/1000)*cellArea;
+                                }
+                            }
+                            if (Qtmp >= Qtarget){
+                                sourceFound = true;
+                                break;
+                            }
+                            next_round.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                        }
+                    }
+                    if (sourceFound){
+                        break;
+                    }
+                    else{
+                        if (next_round.empty()){
+                            break;
+                        }
+                        else{
+                            for_test.clear();
+                            for (itcell1 = next_round.begin(); itcell1 != next_round.end(); ++itcell1){
+                                for (unsigned int i = 0; i < sp.size(); ++i){
+                                    rn = itcell1->second.row + sp[i].row;
+                                    cn = itcell1->second.col + sp[i].col;
+                                    if (braster.IJ(rn,cn) == -1)
+                                        continue;
+                                    lin_ind = Nrow * cn + rn;
+                                    itcell2 = tested.find(lin_ind);
+                                    if (itcell2 == tested.end()){
+                                        for_test.insert(std::pair<int,cell>(lin_ind, cell(rn,cn)));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
-
         }
-
     }
 
     class WellList{
@@ -210,7 +323,8 @@ namespace mantisServer{
 
         bool readMainfile(std::string path, std::string filename,
                           bool bReadWells, BMapCollection &Bmaps);
-
+        void calcWellWeights();
+        void calcWellSourceArea(BackroundRaster &braster, RechargeScenarioList &rchList);
         std::map<std::string ,WellList> FlowScenarios;
     private:
         bool readWells(std::string filename, BMapCollection &Bmaps);
@@ -221,6 +335,36 @@ namespace mantisServer{
                            double paramA, double paramB,
                            double paramC = 0, double paramD = 0);
     };
+
+    void FlowWellCollection::calcWellWeights() {
+        std::map<std::string ,WellList>::iterator flowit;
+        std::map<int, Well>::iterator wellit;
+        // First Calculate the streamline weights to sum to 1
+        for (flowit = FlowScenarios.begin(); flowit != FlowScenarios.end(); ++flowit){
+            for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
+                wellit->second.calculateWeights();
+            }
+        }
+    }
+
+    void FlowWellCollection::calcWellSourceArea(BackroundRaster &braster, RechargeScenarioList &rchList) {
+        std::map<std::string ,WellList>::iterator flowit;
+        std::map<int, Well>::iterator wellit;
+        std::map<std::string, RechargeScenario>::iterator rchit;
+        for (flowit = FlowScenarios.begin(); flowit != FlowScenarios.end(); ++flowit){
+            rchit = rchList.RechargeList.find(flowit->second.rch_map);
+            if (rchit == rchList.RechargeList.end()){
+                std::cout << "I can't find a recharge scenario with name " << flowit->second.rch_map << std::endl;
+                continue;
+            }
+            for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
+                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea);
+            }
+        }
+
+
+        //flowit->second.calcSourceArea
+    }
 
     bool FlowWellCollection::addStreamline(std::string flowScenName, int wellid,
                                            int Sid, int row_ind, int col_ind, double w,
