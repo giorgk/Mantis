@@ -20,6 +20,11 @@ std::ofstream logStream;
 
 namespace mantisServer {
 
+    //! Set the square pi as constant
+    const double sqrt2pi = std::sqrt(2*std::acos(-1));
+    //! Set the pi as constant
+    const double pi = std::atan(1)*4;
+
     /**
 	 * @brief Enumeration for the type of the Unit Response function.
 	 *
@@ -697,10 +702,10 @@ namespace mantisServer {
     };
 
     extrapMethod string2xtrapMethod(std::string xs){
-        if (xs.compare("NEAREST")){
+        if (xs.compare("NEAREST") == 0){
             return extrapMethod::NEAREST;
         }
-        else if (xs.compare("REPEAT")){
+        else if (xs.compare("REPEAT") == 0){
             return extrapMethod::REPEAT;
         }
         else{

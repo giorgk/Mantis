@@ -28,9 +28,9 @@
 namespace mantisServer {
 
     //! Set the square pi as constant
-    const double sqrt2pi = std::sqrt(2*std::acos(-1));
+    //const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
-    const double pi = std::atan(1)*4;
+    //const double pi = std::atan(1)*4;
     //std::vector<double> dummyVector(1,0);
 
     /*!

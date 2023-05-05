@@ -351,14 +351,26 @@ namespace mantisServer{
         if (ext.compare("h5") == 0){
             const std::string LUNameSet("LU");
             const std::string NidxNameSet("Nidx");
-            const std::string NloadNameSet("NLoad");
+            const std::string NloadNameSet("Nload");
+            const std::string LUNGNameSet("LUNgrid");
             HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);
             HighFive::DataSet datasetNidx = HDFNfile.getDataSet(NidxNameSet);
             HighFive::DataSet datasetNLoad = HDFNfile.getDataSet(NloadNameSet);
+            HighFive::DataSet datasetLUNG = HDFNfile.getDataSet(LUNGNameSet);
             datasetLU.read(LU);
             datasetNidx.read(Nidx);
             datasetNLoad.read(Ndata);
+            std::vector<int> lung;
+            datasetLUNG.read(lung);
+            if (lung.size() != 6){
+                std::cout << "The LUNgrid property must have 6 values" << std::endl;
+                return false;
+            }
+            LUtsgrid.init(lung[0],lung[2],lung[1],xm);
+            Nloadtsgrid.init(lung[3],lung[5],lung[4],xm);
+
+
             nRows = LU[0].size();
             nN = Ndata.size();
             nLU = LU.size();
@@ -394,7 +406,7 @@ namespace mantisServer{
                     Nidx.resize(Nr,0);
                     LU.clear();
                     std::vector<int> tmp(Nr,0);
-                    for (int i = 0; i < D; ++i){
+                    for (int i = 0; i < Ny; ++i){
                         LU.push_back(tmp);
                     }
                 }
@@ -403,13 +415,13 @@ namespace mantisServer{
                         getline(ifile, line);
                         std::istringstream inp(line.c_str());
                         int v;
-                        for (int j = 0; j < D+1; ++j){
+                        for (int j = 0; j < Ny+1; ++j){
                             inp >> v;
                             if (j == 0){
                                 Nidx[i] = v;
                             }
                             else{
-                                LU[i][j-1] = v;
+                                LU[j-1][i] = v;
                             }
                         }
                     }
@@ -439,7 +451,10 @@ namespace mantisServer{
                     inp >> Ny;
                     Nloadtsgrid.init(Sy,Ny,D,xm);
                     Ndata.clear();
-                    Ndata.resize(Nr, std::vector<double>(Ny, 0));
+                    std::vector<double> tmp(Nr,0);
+                    for (int i = 0; i < Ny; ++i){
+                        Ndata.push_back(tmp);
+                    }
                 }
                 {// Read the data
                     for (int i = 0; i < Nr; ++i){
@@ -448,31 +463,21 @@ namespace mantisServer{
                         double v;
                         for (int j = 0; j < Ny; ++j){
                             inp >> v;
-                            Ndata[i][j] = v;
+                            Ndata[j][i] = v;
                         }
                     }
                 }
                 ifile.close();
             }
+            nRows = LU[0].size();
+            nN = Ndata.size();
+            nLU = LU.size();
         }
+
         auto finish = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> elapsed = finish - start;
         std::cout << "Read Nload from " << filename << " in " << elapsed.count() << std::endl;
         return true;
-        /*
-
-
-        hf::File HDFNfile(filename, hf::File::ReadOnly);
-        hf::DataSet datasetLU = HDFNfile.getDataSet(LUNameSet);
-        hf::DataSet datasetNidx = HDFNfile.getDataSet(NidxNameSet);
-        hf::DataSet datasetNLoad = HDFNfile.getDataSet(NloadNameSet);
-        datasetLU.read(LU);
-        datasetNidx.read(Nidx);
-        datasetNLoad.read(Ndata);
-        loadType = ltype;
-
-        return true;
-        */
     }
 
     bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int startYear, int endYear, std::vector<double> &LF,

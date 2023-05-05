@@ -38,6 +38,9 @@ namespace mantisServer{
             ("Raster.Ncells", po::value<int>()->default_value(0), "Number of cells with index")
             ("Raster.Nrows", po::value<int>()->default_value(0), "Number of Raster rows")
             ("Raster.Ncols", po::value<int>()->default_value(0), "Number of Raster Columns")
+            ("Raster.Xorig", po::value<double>()->default_value(0), "X coordinate of left lower raster corner")
+            ("Raster.Yorig", po::value<double>()->default_value(0), "Y coordinate of left lower raster corner")
+            ("Raster.CellSize", po::value<double>()->default_value(0), "Cell size of raster")
             ("Raster.File", po::value<std::string>(), "Name of the file with the raster values")
 
             // Data Options
@@ -59,8 +62,12 @@ namespace mantisServer{
             int Ncells = vm_ro["Raster.Ncells"].as<int>();
             int Nr = vm_ro["Raster.Nrows"].as<int>();
             int Nc = vm_ro["Raster.Ncols"].as<int>();
+            double Xorig = vm_ro["Raster.Xorig"].as<int>();
+            double Yorig = vm_ro["Raster.Yorig"].as<int>();
+            double cs = vm_ro["Raster.CellSize"].as<int>();
             std::string rasterfile =  path + vm_ro["Raster.File"].as<std::string>();
             std::cout << "      Reading base Raster ..." << std::endl;
+            raster.setGridLocation(Xorig, Yorig, cs);
             bool tf = raster.readData(rasterfile, Nr, Nc, Ncells);
             if (!tf)
                 return false;

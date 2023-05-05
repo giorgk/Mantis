@@ -16,13 +16,30 @@ namespace mantisServer{
         int Nr(){return Nrows;}
         int Nc(){return Ncols;}
         int Ncell(){return Ncells;}
+        void setGridLocation(double x, double y, double cs);
+        void getGridLocation(double &x, double &y, double &cs);
     private:
         int Nrows;
         int Ncols;
         int Ncells;
         std::vector<std::vector<int>> raster;
         bool bHFread;
+        double Xorig;
+        double Yorig;
+        double cellSize;
     };
+
+    void BackroundRaster::setGridLocation(double x, double y, double cs) {
+        Xorig = x;
+        Yorig = y;
+        cellSize = cs;
+    }
+
+    void BackroundRaster::getGridLocation(double &x, double &y, double &cs) {
+        x = Xorig;
+        y = Yorig;
+        cs = cellSize;
+    }
 
     bool BackroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell) {
         auto start = std::chrono::high_resolution_clock::now();

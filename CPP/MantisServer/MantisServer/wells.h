@@ -5,8 +5,10 @@
 #ifndef MANTISSERVER_WELLS_H
 #define MANTISSERVER_WELLS_H
 
-# include "MShelper.h"
+#include "MShelper.h"
 #include "BMaps.h"
+#include "BRaster.h"
+#include "Rch.h"
 
 namespace mantisServer{
     /**
@@ -109,6 +111,8 @@ namespace mantisServer{
                            double paramA, double paramB, double paramC = 0, double paramD = 0);
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 
+        void calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc);
+
         std::map<int, Streamline> streamlines;
         double xcoord;
         double ycoord;
@@ -134,6 +138,39 @@ namespace mantisServer{
         pumpingRate = q;
         ratio = r;
         angle = a;
+    }
+
+    void Well::calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc) {
+        int lin_ind, rs, cs;
+        double Xorig, Yorig, cellSize, xs, ys, dNr;
+        braster.getGridLocation(Xorig, Yorig, cellSize);
+        dNr = static_cast<double>(braster.Nr());
+        double radAngle = angle*pi/180.0;
+        double cosd = std::cos(radAngle);
+        double sind = std::sin(radAngle);
+        std::map<int, Streamline>::iterator itstrml;
+
+
+        for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
+            lin_ind = braster.IJ(itstrml->second.row, itstrml->second.col);
+            if (!doCalc){
+                if (lin_ind != -1){
+                    itstrml->second.SourceArea.push_back(cell(itstrml->second.row, itstrml->second.col));
+                    continue;
+                }
+            }
+            else{
+                rs = itstrml->second.row;
+                cs = itstrml->second.col;
+                xs = Xorig + cellSize/2 + cellSize*(cs);
+                // For the Y the row numbers start from the top
+                ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
+
+
+            }
+
+        }
+
     }
 
     class WellList{
