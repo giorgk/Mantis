@@ -323,7 +323,7 @@ namespace mantisServer{
                         // If the source area of this iteration comes from a
                         // zero recharge area we assume the water is clean
                         // if the source area is sufficiently large
-                        if (itstrml->second.Npxl > 20){
+                        if (itstrml->second.Npxl + niter > 21){
                             break;
                         }
                     }
