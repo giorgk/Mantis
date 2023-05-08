@@ -116,6 +116,11 @@ namespace mantisServer{
             //FWC.FlowScenarios["Modesto"].Wells[1].streamlines[0].print();
         }
 
+        {// Run postprocess routines for the wells
+            FWC.calcWellWeights();
+            FWC.calcWellSourceArea(raster, Rch);
+        }
+
 
         {// Read the loading maps
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
