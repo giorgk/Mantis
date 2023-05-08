@@ -7,11 +7,12 @@
 
 namespace mantisServer{
 
-    class BackroundRaster{
+    class BackgroundRaster{
     public:
-        BackroundRaster(){}
+        BackgroundRaster(){}
         bool readData(std::string filename, int Nr, int Nc, int Ncells);
         int IJ(int row, int col);
+        int linear_index(int row, int col);
         void getSurroundingPixels(int row, int col, int Ndepth, std::vector<int>& lin_inds);
         int Nr(){return Nrows;}
         int Nc(){return Ncols;}
@@ -30,25 +31,25 @@ namespace mantisServer{
         double cellSize;
     };
 
-    void BackroundRaster::setGridLocation(double x, double y, double cs) {
+    void BackgroundRaster::setGridLocation(double x, double y, double cs) {
         Xorig = x;
         Yorig = y;
         cellSize = cs;
     }
 
-    void BackroundRaster::getGridLocation(double &x, double &y, double &cs) {
+    void BackgroundRaster::getGridLocation(double &x, double &y, double &cs) {
         x = Xorig;
         y = Yorig;
         cs = cellSize;
     }
 
-    void BackroundRaster::cellCoords(int r, int c, double &x, double &y) {
+    void BackgroundRaster::cellCoords(int r, int c, double &x, double &y) {
         x = Xorig + cellSize/2 + cellSize*(c);
         // For the Y the row numbers start from the top
         y =  Yorig + cellSize*Nrows - cellSize/2 - cellSize*(r);
     }
 
-    bool BackroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell) {
+    bool BackgroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell) {
         auto start = std::chrono::high_resolution_clock::now();
         Nrows = Nr;
         Ncols = Nc;
@@ -107,7 +108,7 @@ namespace mantisServer{
         return true;
     }
 
-    int BackroundRaster::IJ(int row, int col) {
+    int BackgroundRaster::IJ(int row, int col) {
         if (row >=0 && col >=0 && row < Nrows && col < Ncols) {
             if (bHFread)
                 return raster[col][row];
@@ -118,7 +119,11 @@ namespace mantisServer{
             return -1;
     }
 
-    void BackroundRaster::getSurroundingPixels(int row, int col, int Ndepth, std::vector<int> &lin_inds) {
+    int BackgroundRaster::linear_index(int row, int col) {
+        return Nrows * col + row;
+    }
+
+    void BackgroundRaster::getSurroundingPixels(int row, int col, int Ndepth, std::vector<int> &lin_inds) {
         if (Ndepth == 0){
             int lid = IJ(row,col);
             if ( lid >= 0)

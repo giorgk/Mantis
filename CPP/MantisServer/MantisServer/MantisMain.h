@@ -1375,11 +1375,9 @@ namespace mantisServer {
                 RegionList.insert(std::pair<std::string, Region>(RegionName, Region()));
                 std::map<std::string, Region>::iterator it = RegionList.find(RegionName);
                 if (it != RegionList.end()){
-                    std::cout << "   Reading data for " << RegionName << " from " << filename << std::endl;
+                    std::cout << "||============= " << RegionName << " (" << filename << ") ============||" << std::endl;
                     it->second.readRegionData(filename);
                 }
-
-
             }
         }
         return true;

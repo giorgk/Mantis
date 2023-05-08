@@ -22,7 +22,7 @@ namespace mantisServer{
 
     private:
         std::string path;
-        BackroundRaster raster;
+        BackgroundRaster raster;
         BMapCollection Bmaps;
         LinearData Unsat;
         RechargeScenarioList Rch;
@@ -62,11 +62,11 @@ namespace mantisServer{
             int Ncells = vm_ro["Raster.Ncells"].as<int>();
             int Nr = vm_ro["Raster.Nrows"].as<int>();
             int Nc = vm_ro["Raster.Ncols"].as<int>();
-            double Xorig = vm_ro["Raster.Xorig"].as<int>();
-            double Yorig = vm_ro["Raster.Yorig"].as<int>();
-            double cs = vm_ro["Raster.CellSize"].as<int>();
+            double Xorig = vm_ro["Raster.Xorig"].as<double>();
+            double Yorig = vm_ro["Raster.Yorig"].as<double>();
+            double cs = vm_ro["Raster.CellSize"].as<double>();
             std::string rasterfile =  path + vm_ro["Raster.File"].as<std::string>();
-            std::cout << "      Reading base Raster ..." << std::endl;
+            std::cout << "-------- Raster --------" << std::endl;
             raster.setGridLocation(Xorig, Yorig, cs);
             bool tf = raster.readData(rasterfile, Nr, Nc, Ncells);
             if (!tf)
@@ -74,7 +74,7 @@ namespace mantisServer{
         }
 
         {// Read Background Maps
-            std::cout << "      Reading Background map data  ..." << std::endl;
+            std::cout << "-------- Background map --------" << std::endl;
             std::string bmapsfile =  path + vm_ro["Data.BMAPS"].as<std::string>();
             bool tf = Bmaps.readData(bmapsfile);
             if (!tf)
@@ -82,7 +82,7 @@ namespace mantisServer{
         }
 
         {//Read Unsaturated data
-            std::cout << "      Reading Unsaturated zone data..." << std::endl;
+            std::cout << "-------- Unsaturated travel time --------" << std::endl;
             std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
             Unsat.setNoDataValue(0.0);
             bool tf = Unsat.readData(unsatfile,raster.Ncell());
@@ -91,7 +91,7 @@ namespace mantisServer{
         }
 
         {//Read Recharge
-            std::cout << "      Reading data for Recharge ..." << std::endl;
+            std::cout << "-------- Recharge --------" << std::endl;
             std::string rchfile =  vm_ro["Data.RCH"].as<std::string>();
             bool tf = Rch.readData(path,rchfile, raster.Ncell());
             if (!tf)
@@ -100,7 +100,7 @@ namespace mantisServer{
 
 
         {// Read the wells
-            std::cout << "      Reading well data ..." << std::endl;
+            std::cout << "-------- Wells --------" << std::endl;
             std::string wellfile =  vm_ro["Data.WELLS"].as<std::string>();
             bool tf = FWC.readMainfile(path, wellfile, true, Bmaps);
             if (!tf)
@@ -108,7 +108,7 @@ namespace mantisServer{
         }
 
         {// Read the Urfs
-            std::cout << "      Reading URF data ..." << std::endl;
+            std::cout << "-------- URFs --------" << std::endl;
             std::string urfsfile =  vm_ro["Data.URFS"].as<std::string>();
             bool tf = FWC.readMainfile(path, urfsfile, false, Bmaps);
             if (!tf)
@@ -117,12 +117,14 @@ namespace mantisServer{
         }
 
         {// Run postprocess routines for the wells
+            std::cout << "-------- Well sources --------" << std::endl;
             FWC.calcWellWeights();
             FWC.calcWellSourceArea(raster, Rch);
         }
 
 
         {// Read the loading maps
+            std::cout << "-------- NO3 Loading --------" << std::endl;
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
             bool tf = NLL.readData(path, nLoadfile);
             if (!tf)

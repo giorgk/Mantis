@@ -33,6 +33,9 @@ namespace mantisServer{
 		*/
         void setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                         double paramA, double paramB, double paramC = 0, double paramD = 0);
+        void addSourceAreaCell(int lin_ind, int row, int col);
+        void addSourceAreaCell(int lin_ind, cell c);
+        void clearSourceArea();
 
         void print();
 
@@ -65,8 +68,24 @@ namespace mantisServer{
 
         int Npxl;
 
-        std::vector<cell> SourceArea;
+        std::map<int,cell> SourceArea;
     };
+
+    void Streamline::clearSourceArea() {
+        SourceArea.clear();
+    }
+
+    void Streamline::addSourceAreaCell(int lin_ind, int row, int col) {
+        addSourceAreaCell(lin_ind, cell(row,col));
+    }
+
+    void Streamline::addSourceAreaCell(int lin_ind, cell c) {
+        std::map<int,cell>::iterator it;
+        it = SourceArea.find(lin_ind);
+        if (it == SourceArea.end()){
+            SourceArea.insert(std::pair<int, cell>(lin_ind, c));
+        }
+    }
 
     void Streamline::print() {
         std::cout << "r: " << row << ", c: " << col << ", m: " << mu << ", s: " << std << ", w: " << w << ", riv: " << inRiver << ", N: " << Npxl << std::endl;
@@ -111,7 +130,7 @@ namespace mantisServer{
                            double paramA, double paramB, double paramC = 0, double paramD = 0);
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 
-        void calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc);
+        void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug = false);
         void calculateWeights();
 
         std::map<int, Streamline> streamlines;
@@ -152,9 +171,9 @@ namespace mantisServer{
         angle = a;
     }
 
-    void Well::calculateSourceArea(BackroundRaster &braster, RechargeScenario &rch, bool doCalc) {
+    void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug) {
         bool tf;
-        int lin_ind, rs, cs, rn, cn;
+        int lin_ind, rs, cs, rn, cn, rasterValue;
         double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
         double SAxmin, SAxmax, SAymin, SAymax;
         double x1, x2, x3, x4, y1, y2, y3, y4;
@@ -172,115 +191,144 @@ namespace mantisServer{
 
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
-            lin_ind = braster.IJ(itstrml->second.row, itstrml->second.col);
+            if (debug){
+                std::cout << itstrml->first << std::endl;
+            }
+            rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
+            if (rasterValue == -1){
+                // The source area is outside the active area therefore the loading will be zero
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+
+            if (itstrml->second.inRiver){
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+
             if (!doCalc){
-                if (lin_ind != -1){
-                    itstrml->second.SourceArea.push_back(cell(itstrml->second.row, itstrml->second.col));
-                    continue;
-                }
+                // If there is no need for source area calculation
+                // then assign as source area the cell of the urf
+                itstrml->second.addSourceAreaCell(braster.linear_index(itstrml->second.row, itstrml->second.col),
+                                                  itstrml->second.row, itstrml->second.col);
             }
             else{
-                rs = itstrml->second.row;
-                cs = itstrml->second.col;
-                braster.cellCoords(rs, cs, xs, ys);
-                //xs = Xorig + cellSize/2 + cellSize*(cs);
-                // For the Y the row numbers start from the top
-                //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
-                side1 = cellSize + cellSize * itstrml->second.Npxl;
-                side2 = std::max(2.0*cellSize, side1/ratio/2.0);
-                SAxmin = -side2 - 25;
-                SAxmax =  side2 + 25;
-                SAymin = -side1/2 - 25;
-                SAymax =  side1/2 + 25;
-
-                x1 = (cosd * SAxmin + sind * SAymin) + xs;
-                y1 = (-sind * SAxmin + cosd * SAymin) + ys;
-
-                x2 = (cosd * SAxmin + sind * SAymax) + xs;
-                y2 = (-sind * SAxmin + cosd * SAymax) + ys;
-
-                x3 = (cosd * SAxmax + sind * SAymax) + xs;
-                y3 = (-sind * SAxmax + cosd * SAymax) + ys;
-
-                x4 = (cosd * SAxmax + sind * SAymin) + xs;
-                y4 = (-sind * SAxmax + cosd * SAymin) + ys;
-
-                std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
-                                    << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
-
-                std::map< int, cell> for_test;
-                std::map< int, cell> tested;
-                std::map< int, cell> next_round;
-
-                lin_ind = Nrow * cs + rs;
-                for_test.insert(std::pair<int, cell>(lin_ind, cell(rs,cs)));
-                if (braster.IJ(rs,cs) == -1){
-                    // The first pixel is outside the study area.
-                    // We will assume zero loading
-                    itstrml->second.mu = 0.0;
-                    itstrml->second.std = 0.0;
-                    continue;
-                }
-
-                Qtmp = 0.0;
-                Qtarget = pumpingRate * itstrml->second.w;
-
+                int niter = 0;
                 bool sourceFound = false;
-                while (true){
-                    for (itcell1 = for_test.begin(); itcell1 != for_test.end(); ++itcell1){
-                        tested.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
-                        braster.cellCoords(itcell1->second.row, itcell1->second.col, xtmp, ytmp);
-                        std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
-                        //xtmp = -223275.0 + 50.0*(it4->second.col);
-                        //ytmp =  298525.0 - 50.0*(it4->second.row);
-                        // Check if the point is in the source area by testing the barycentric coordinates
-                        tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
-                        if (!tf){
-                            tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
-                            if (!tf){
-                                continue;
+                while (niter < 20){
+                    rs = itstrml->second.row;
+                    cs = itstrml->second.col;
+                    braster.cellCoords(rs, cs, xs, ys);
+                    //xs = Xorig + cellSize/2 + cellSize*(cs);
+                    // For the Y the row numbers start from the top
+                    //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
+                    side1 = cellSize + cellSize * (itstrml->second.Npxl+niter);
+                    side2 = std::max(2.0*cellSize, side1/ratio/2.0);
+                    SAxmin = -side2 - 25;
+                    SAxmax =  side2 + 25;
+                    SAymin = -side1/2 - 25;
+                    SAymax =  side1/2 + 25;
+
+                    x1 = (cosd * SAxmin + sind * SAymin) + xs;
+                    y1 = (-sind * SAxmin + cosd * SAymin) + ys;
+
+                    x2 = (cosd * SAxmin + sind * SAymax) + xs;
+                    y2 = (-sind * SAxmin + cosd * SAymax) + ys;
+
+                    x3 = (cosd * SAxmax + sind * SAymax) + xs;
+                    y3 = (-sind * SAxmax + cosd * SAymax) + ys;
+
+                    x4 = (cosd * SAxmax + sind * SAymin) + xs;
+                    y4 = (-sind * SAxmax + cosd * SAymin) + ys;
+
+                    if (debug){
+                        std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
+                                  << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
+                    }
+
+                    std::map< int, cell> for_test;
+                    std::map< int, cell> tested;
+                    std::map< int, cell> next_round;
+
+                    lin_ind = braster.linear_index(itstrml->second.row, itstrml->second.col);
+                    for_test.insert(std::pair<int, cell>(lin_ind, cell(rs,cs)));
+
+                    Qtmp = 0.0;
+                    Qtarget = std::abs(pumpingRate * itstrml->second.w);
+
+                    while (true){
+                        for (itcell1 = for_test.begin(); itcell1 != for_test.end(); ++itcell1){
+                            tested.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                            braster.cellCoords(itcell1->second.row, itcell1->second.col, xtmp, ytmp);
+                            if (debug){
+                                std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
                             }
-                        }
-                        lin_ind = braster.IJ(itcell1->second.row, itcell1->second.col);
-                        if (lin_ind != -1){
-                            tf = rch.getValues(lin_ind, rch_v, dummy);
-                            if (tf){
-                                if (rch_v > 10.0){
-                                    itstrml->second.SourceArea.push_back(itcell1->second);
-                                    Qtmp += (rch_v/365/1000)*cellArea;
+
+                            // Check if the point is in the source area by testing the barycentric coordinates
+                            tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                            if (!tf){
+                                tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
+                                if (!tf){
+                                    continue;
                                 }
                             }
-                            if (Qtmp >= Qtarget){
-                                sourceFound = true;
+                            lin_ind = braster.IJ(itcell1->second.row, itcell1->second.col);
+                            if (lin_ind != -1){
+                                tf = rch.getValues(lin_ind, rch_v, dummy);
+                                if (tf){
+                                    if (rch_v > 10.0){
+                                        itstrml->second.addSourceAreaCell(lin_ind,itcell1->second);
+                                        Qtmp += (rch_v/365/1000)*cellArea;
+                                    }
+                                }
+                                if (Qtmp >= Qtarget){
+                                    sourceFound = true;
+                                    break;
+                                }
+                                next_round.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                            }
+                        }
+                        if (sourceFound){
+                            break;
+                        }
+                        else{
+                            if (next_round.empty()){
                                 break;
                             }
-                            next_round.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                            else{
+                                for_test.clear();
+                                for (itcell1 = next_round.begin(); itcell1 != next_round.end(); ++itcell1){
+                                    for (unsigned int i = 0; i < sp.size(); ++i){
+                                        rn = itcell1->second.row + sp[i].row;
+                                        cn = itcell1->second.col + sp[i].col;
+                                        if (braster.IJ(rn,cn) == -1)
+                                            continue;
+                                        lin_ind = Nrow * cn + rn;
+                                        itcell2 = tested.find(lin_ind);
+                                        if (itcell2 == tested.end()){
+                                            for_test.insert(std::pair<int,cell>(lin_ind, cell(rn,cn)));
+                                        }
+                                    }
+                                }
+                                next_round.clear();
+                            }
                         }
                     }
                     if (sourceFound){
                         break;
                     }
-                    else{
-                        if (next_round.empty()){
+                    if (Qtmp < 0.0001){
+                        // If the source area of this iteration comes from a
+                        // zero recharge area we assume the water is clean
+                        // if the source area is sufficiently large
+                        if (itstrml->second.Npxl > 20){
                             break;
                         }
-                        else{
-                            for_test.clear();
-                            for (itcell1 = next_round.begin(); itcell1 != next_round.end(); ++itcell1){
-                                for (unsigned int i = 0; i < sp.size(); ++i){
-                                    rn = itcell1->second.row + sp[i].row;
-                                    cn = itcell1->second.col + sp[i].col;
-                                    if (braster.IJ(rn,cn) == -1)
-                                        continue;
-                                    lin_ind = Nrow * cn + rn;
-                                    itcell2 = tested.find(lin_ind);
-                                    if (itcell2 == tested.end()){
-                                        for_test.insert(std::pair<int,cell>(lin_ind, cell(rn,cn)));
-                                    }
-                                }
-                            }
-                        }
                     }
+                    niter++;
+                    itstrml->second.clearSourceArea();
                 }
             }
         }
@@ -324,7 +372,7 @@ namespace mantisServer{
         bool readMainfile(std::string path, std::string filename,
                           bool bReadWells, BMapCollection &Bmaps);
         void calcWellWeights();
-        void calcWellSourceArea(BackroundRaster &braster, RechargeScenarioList &rchList);
+        void calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList);
         std::map<std::string ,WellList> FlowScenarios;
     private:
         bool readWells(std::string filename, BMapCollection &Bmaps);
@@ -347,7 +395,7 @@ namespace mantisServer{
         }
     }
 
-    void FlowWellCollection::calcWellSourceArea(BackroundRaster &braster, RechargeScenarioList &rchList) {
+    void FlowWellCollection::calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList) {
         std::map<std::string ,WellList>::iterator flowit;
         std::map<int, Well>::iterator wellit;
         std::map<std::string, RechargeScenario>::iterator rchit;
@@ -357,8 +405,20 @@ namespace mantisServer{
                 std::cout << "I can't find a recharge scenario with name " << flowit->second.rch_map << std::endl;
                 continue;
             }
+            int count = 0;
+            bool dbg = false;
             for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
-                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea);
+                std::cout << wellit->first << std::endl;
+                //if (wellit->first == 2893){
+                //    dbg = true;
+                //    std::cout << "Stop here" << std::endl;
+                //}
+                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, dbg);
+                //dbg = false;
+                count++;
+                if (count % 1000 == 0){
+                    std::cout << "----" << count << "----" << std::endl;
+                }
             }
         }
 
