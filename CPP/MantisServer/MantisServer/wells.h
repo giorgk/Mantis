@@ -374,6 +374,7 @@ namespace mantisServer{
         void calcWellWeights();
         void calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList);
         std::map<std::string ,WellList> FlowScenarios;
+        bool hasFlowScenario(std::string &flowScen);
     private:
         bool readWells(std::string filename, BMapCollection &Bmaps);
         bool readURFs(std::string filename);
@@ -383,6 +384,17 @@ namespace mantisServer{
                            double paramA, double paramB,
                            double paramC = 0, double paramD = 0);
     };
+
+    bool FlowWellCollection::hasFlowScenario(std::string &flowScen) {
+        std::map<std::string ,WellList>::iterator flowit;
+        flowit = FlowScenarios.find(flowScen);
+        if (flowit != FlowScenarios.end()){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
 
     void FlowWellCollection::calcWellWeights() {
         std::map<std::string ,WellList>::iterator flowit;

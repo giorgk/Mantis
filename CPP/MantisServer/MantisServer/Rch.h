@@ -54,9 +54,16 @@ namespace mantisServer{
         bool readData(std::string path, std::string filename, int Nr);
 
         bool getValue(std::string scenarioName, int lin_idx, double &rch, double &clean_prc);
+        bool hasRechargeMaps(std::string &rchmap);
 
         std::map<std::string, RechargeScenario> RechargeList;
     };
+
+    bool RechargeScenarioList::hasRechargeMaps(std::string &rchmap) {
+        std::map<std::string, RechargeScenario>::iterator it;
+        it = RechargeList.find(rchmap);
+        return it != RechargeList.end();
+    }
 
     bool RechargeScenarioList::readData(std::string path, std::string filename, int Nr) {
         auto start = std::chrono::high_resolution_clock::now();

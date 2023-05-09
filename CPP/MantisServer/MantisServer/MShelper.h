@@ -279,6 +279,7 @@ namespace mantisServer {
         double getNoDataValue(){return NoDataValue;}
         void multiply(double mult);
         void clear();
+        bool hasScenario(std::string &unsatName);
     private:
         std::map<std::string, int > ScenarioMap;
         std::vector<std::vector<double>> Data;
@@ -304,6 +305,10 @@ namespace mantisServer {
             return -1;
         else
             return it->second;
+    }
+    bool LinearData::hasScenario(std::string &unsatName){
+        std::map<std::string, int >::iterator it = ScenarioMap.find(unsatName);
+        return it != ScenarioMap.end();
     }
 
     void LinearData::multiply(double mult) {
@@ -620,6 +625,27 @@ namespace mantisServer {
         int yr_bef = StartYear+ (idx1 - 1)*Interval;
         t = static_cast<double>(iyr - yr_bef)/dInterval;
     }
+
+    void getStartEndIndices(int threadId, int nThreads, int N, int &startId, int &endId){
+        if (N <= nThreads){
+            if (threadId > 0){
+                startId = 0;
+                endId = 0;
+            }
+            else{
+                startId = 0;
+                endId = N;
+            }
+        }
+        else{
+            int n2calc = N / nThreads;
+            startId = threadId * n2calc;
+            endId = (threadId + 1) * n2calc;
+            if (threadId == nThreads - 1)
+                endId = N;
+        }
+    }
+
 }
 
 #endif //MANTISSERVER_MSHELPER_H

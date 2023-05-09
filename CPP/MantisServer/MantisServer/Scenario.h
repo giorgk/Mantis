@@ -198,18 +198,221 @@ namespace mantisServer {
             std::string test, tmp;
             counter++;
             ss >> test;
-        }
 
-        if (test == "Region") {
-            ss >> region;
-            continue;
-        }
+            if (test == "region") {
+                ss >> region;
+                continue;
+            }
+            if (test == "bMap") {
+                ss >> mapID;
+                continue;
+            }
+            if (test == "Nregions") {
+                int Nregions;
+                ss >> Nregions;
+                for (int i = 0; i < Nregions; i++) {
+                    ss >> test;
+                    regionIDs.push_back(test);
+                }
+                continue;
+            }
+            if (test == "RadSelect"){
+                bNarrowSelection = true;
+                useRadSelect = true;
+                double cx, cy, r;
+                ss >> cx;
+                ss >> cy;
+                ss >> r;
+                RadSelect.setData(cx,cy,r);
+                continue;
+            }
 
-        if (test == "bMap") {
-            ss >> mapID;
-            continue;
-        }
+            if (test == "RectSelect"){
+                bNarrowSelection = true;
+                useRectSelect = true;
+                double xmin, ymin, xmax, ymax;
+                ss >> xmin;
+                ss >> ymin;
+                ss >> xmax;
+                ss >> ymax;
+                RectSelect.setData(xmin, ymin, xmax, ymax);
+                continue;
+            }
 
+            if (test == "DepthRange"){
+                bNarrowSelection = true;
+                useDepthRange = true;
+                double dmin, dmax;
+                ss >> dmin;
+                ss >> dmax;
+                DepthRange.setData(dmin, dmax);
+                continue;
+            }
+
+            if (test == "ScreenLenRange"){
+                bNarrowSelection = true;
+                useScreenLenghtRange = true;
+                double slmin, slmax;
+                ss >> slmin;
+                ss >> slmax;
+                ScreenLengthRange.setData(slmin, slmax);
+                continue;
+            }
+            if (test == "flowScen") {
+                ss >> flowScen;
+                continue;
+            }
+            if (test == "wellType"){
+                ss >> wellType;
+                continue;
+            }
+            if (test == "unsatScen") {
+                ss >> unsatScenario;
+                continue;
+            }
+            if (test == "unsatWC") {
+                ss >> unsatZoneMobileWaterContent;
+                continue;
+            }
+            if (test == "rchMap"){
+                bUseFlowRch = false;
+                ss >> rchName;
+                continue;
+            }
+            if (test == "minRch") {
+                ss >> minRecharge;
+                continue;
+            }
+            if (test == "endSimYear") {
+                ss >> endSimulationYear;
+                continue;
+            }
+            if (test == "startRed" ) {
+                ss >> startReductionYear;
+                continue;
+            }
+            if (test == "endRed") {
+                ss >> endReductionYear;
+                continue;
+            }
+            if (test == "loadScen") {
+                ss >> loadScen;
+                continue;
+            }
+            if (test == "loadSubScen") {
+                ss >> loadSubScen;
+                continue;
+            }
+            if (test == "modifierName") {
+                ss >> modifierName;
+                continue;
+            }
+            if (test == "modifierType") {
+                ss >> tmp;
+                modifierType = string2RasterOperation(tmp);
+                continue;
+            }
+            if (test == "modifierUnit") {
+                ss >> tmp;
+                modifierUnit = string2LoadUnits(tmp);
+                continue;
+            }
+            if (test == "Ncrops") {
+                int Ncrops, cropid;
+                double perc;
+                ss >> Ncrops;
+                for (int i = 0; i < Ncrops; i++) {
+                    ss >> cropid;
+                    ss >> perc;
+                    if (cropid == -9){
+                        globalReduction = perc;
+                    }
+                    else{
+                        LoadReductionMap.insert(std::pair<int, double>(cropid, perc));
+                    }
+                }
+                continue;
+            }
+            if (test == "maxConc") {
+                ss >> maxConc;
+                continue;
+            }
+            if (test == "constRed"){
+                userSuppliedConstRed = true;
+                ss >> constReduction;
+                continue;
+            }
+            if (test == "loadTrans"){
+                ss >> LoadTransitionName;
+                ss >> LoadTransitionStart;
+                ss >> LoadTransitionEnd;
+                if (LoadTransitionName.compare("NONE") == 0){
+                    buseLoadTransition = false;
+                }
+                else{
+                    buseLoadTransition = true;
+                }
+
+                continue;
+            }
+
+            if (test == "SourceArea"){//TODO
+                int nPix, minPix, maxPix;
+                double percPix;
+                ss >> nPix;
+                ss >> minPix;
+                ss >> maxPix;
+                ss >> percPix;
+                SourceArea.setParameters(nPix, minPix, maxPix, percPix);
+                continue;
+            }
+            if (test ==  "PixelRadius") {//TODO
+                ss >> PixelRadius;
+                continue;
+            }
+            if (test == "getids"){
+                int tmp;
+                ss >> tmp;
+                printWellIds = tmp != 0;
+                continue;
+            }
+            if (test ==  "DebugID") {
+                ss >> debugID;
+                if (!debugID.empty())
+                    printAdditionalInfo = true;
+                continue;
+            }
+            /*
+            if (test == "RFset"){
+                scenario.bUseRuntimeRFsets = true;
+                scenario.bUseInitRFsets = false;
+                int Nsets;
+                ss >> Nsets;
+                for (int i = 0; i < Nsets; ++i){
+                    ss >> test;
+                    scenario.RFSets.push_back(test);
+                }
+            }
+            */
+            if (test == "ENDofMSG") {
+                out = true;
+                break;
+            }
+            if (test.empty()) {
+                outmsg += "0 ERROR: Empty message was found\n";
+                out = false;
+                break;
+            }
+            if (counter > 500) {
+                outmsg += "0 ERROR: After 200 iterations I cant find ENDofMSG flag\n";
+                out = false;
+                break;
+            }
+            outmsg += "0 ERROR: UNKNOWN option [" + test + "]\n";
+            out = false;
+            break;
+        }
+        return out;
     }
 
 }

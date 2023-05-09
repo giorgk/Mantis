@@ -12,9 +12,20 @@ namespace mantisServer{
         GeoUnit(){}
         void addWell(std::string flowScenarioName, int wellid);
         void getWells(std::string flowScenarioName, std::vector<int> &wellids);
+        bool hasFlowWellMap(std::string &fswName);
     private:
         std::map<std::string, std::vector<int> > FlowScenWellsMap;
     };
+    bool GeoUnit::hasFlowWellMap(std::string &fswName) {
+        std::map<std::string, std::vector<int> >::iterator it;
+        it = FlowScenWellsMap.find(fswName);
+        if (it != FlowScenWellsMap.end()){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
 
     void GeoUnit::addWell(std::string flowScenarioName, int wellid) {
         std::map<std::string, std::vector<int> >::iterator it;
@@ -45,10 +56,30 @@ namespace mantisServer{
                       std::string flowScenarioName, std::vector<int> &wellids);
         void addGeoUnit(std::string geoUnitName);
         bool hasGeoUnit(std::string geoUnitName);
+        bool hasGeoUnitFlowScenWell(std::string &gunitName, std::string &fswName, std::string &outmsg);
 
     private:
         std::map<std::string, GeoUnit> geoUnits;
     };
+
+    bool BMapLayer::hasGeoUnitFlowScenWell(std::string &gunitName, std::string &fswName, std::string &outmsg) {
+        std::map<std::string, GeoUnit>::iterator it;
+        it = geoUnits.find(gunitName);
+        if (it != geoUnits.end()){
+            if (it->second.hasFlowWellMap(fswName)){
+                return true;
+            }
+            else{
+                outmsg = "subregion [" + gunitName + "]";
+                outmsg += "does not have the flow scenario wells [" + fswName + "]";
+                return false;
+            }
+        }
+        else{
+            outmsg = "does not have the subregion [" + gunitName + "]";
+            return false;
+        }
+    }
 
     bool BMapLayer::hasGeoUnit(std::string geoUnitName) {
         std::map<std::string, GeoUnit>::iterator it;
@@ -88,7 +119,9 @@ namespace mantisServer{
         for (int i = 0; i < geoUnitNames.size(); ++i){
             it = geoUnits.find(geoUnitNames[0]);
             if (it != geoUnits.end()){
-                it->second.getWells(flowScenarioName,wellids);
+                std::vector<int> tmp;
+                it->second.getWells(flowScenarioName,tmp);
+                wellids.insert(wellids.end(), tmp.begin(), tmp.end());
             }
         }
     }
@@ -103,11 +136,58 @@ namespace mantisServer{
 
         bool readData(std::string filename);
         int Nbmaps(){return BMaps.size();}
+        bool hasMap(std::string &mapName);
+        bool hasMapRegion(std::string &mapName, std::string &regName);
+        bool validateMapsWells(std::string &mapName, std::vector<std::string> &regNames,
+                               std::string &flowWellScen, std::string &outmsg);
 
     private:
         std::map<std::string, BMapLayer> BMaps;
         void addGeoUnit(std::string LayerName, std::string GeoUnitName);
     };
+
+    bool BMapCollection::hasMap(std::string &mapName) {
+        std::map<std::string, BMapLayer>::iterator it;
+        it = BMaps.find(mapName);
+        if (it != BMaps.end()){
+            return true;
+        }
+        else{
+            return false;
+        }
+    }
+
+    bool BMapCollection::validateMapsWells(std::string &mapName, std::vector<std::string> &regNames,
+                                          std::string &flowWellScen, std::string &outmsg) {
+        std::map<std::string, BMapLayer>::iterator mapit;
+        mapit = BMaps.find(mapName);
+        if (mapit != BMaps.end()){
+            std::vector<std::string>::iterator it;
+            for (unsigned int i = 0; i < regNames.size(); ++i){
+                bool tf = mapit->second.hasGeoUnitFlowScenWell(regNames[i], flowWellScen, outmsg);
+                if (!tf){
+                    outmsg = "Map [" + mapName + "] " + outmsg;
+                    return false;
+                }
+            }
+        }
+        else{
+            outmsg = "does not have the map [" + mapName + "]";
+            return false;
+        }
+        return true;
+    }
+
+    bool BMapCollection::hasMapRegion(std::string &mapName, std::string &regName) {
+        std::map<std::string, BMapLayer>::iterator it;
+        it = BMaps.find(mapName);
+        if (it != BMaps.end()){
+            return it->second.hasGeoUnit(regName);
+        }
+        else{
+            return false;
+        }
+    }
 
     void BMapCollection::addGeoUnit(std::string LayerName, std::string GeoUnitName) {
         std::map<std::string, BMapLayer>::iterator it;
