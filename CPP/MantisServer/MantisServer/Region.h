@@ -180,6 +180,10 @@ namespace mantisServer{
     }
 
     bool Region::runSimulation(int threadid, Scenario &scenario){
+        double dLTs = static_cast<double>(scenario.LoadTransitionStart);
+        double dLTe = static_cast<double>(scenario.LoadTransitionEnd);
+        double dSY = static_cast<double>(scenario.startSimulationYear);
+
         std::vector<int> wellids;
         int NsimulationYears = scenario.endSimulationYear - 1945;
         Bmaps.getWells(scenario.mapID, scenario.regionIDs, scenario.flowWellScen, wellids);
@@ -212,6 +216,7 @@ namespace mantisServer{
                 std::vector<double> rch_val;
                 std::vector<double> cln_rch;
 
+                // Make a list of this streamline source area
                 for (std::map<int,cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
                     cell_lin_ind.push_back(cellit->first);
                     rchit->second.getValues(cellit->first, rch, clprc);
@@ -219,12 +224,44 @@ namespace mantisServer{
                     cln_rch.push_back(clprc);
                 }
 
+                //Build the main load
+                std::vector<double> mainload(NsimulationYears, 0);
+                mainLoadit->second.buildLoadingFromTimeSeries(cell_lin_ind,rch_val,cln_rch,mainload,scenario);
+                if (scenario.buseLoadTransition){
+                    std::vector<double> preload(NsimulationYears, 0);
+                    preLoadit->second.buildLoadingFromTimeSeries(cell_lin_ind,rch_val,cln_rch,preload,scenario);
+                    // blend the two
+                    double dYear = 0;
+                    for (int i = 0; i < NsimulationYears; ++i){
+                        if (i + scenario.startSimulationYear < scenario.LoadTransitionStart ){
+                            mainload[i] = preload[i];
+                        }
+                        else if (i + scenario.startSimulationYear > scenario.LoadTransitionEnd){
+                            break;
+                        }
+                        else{
+                            double u = (dYear+dSY - dLTs)/(dLTe - dLTs);
+                            mainload[i] = (1-u)*preload[i] + u*mainload[i];
+                        }
+                        dYear = dYear + 1;
+                    }
+                }
+
+                //Build the URF
+                URF urf(NsimulationYears, strmlit->second.mu, strmlit->second.std, URFTYPE::LGNRM);
+                std::vector<double> BTC(NsimulationYears, 0);
+                urf.convolute(mainload, BTC);
+
+
+
+
+
 
             }
 
 
         }
-
+        return true;
     }
 
 }

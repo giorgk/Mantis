@@ -94,8 +94,11 @@ namespace mantisServer{
                                     Scenario& scenario, std::vector<double> &rch);
 
 
-        bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex, std::vector<double>& LF,
-                                        Scenario& scenario, std::vector<double> &rch);
+        bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
+                                        std::vector<double> &rch,
+                                        std::vector<double> &clean_prc,
+                                        std::vector<double>& LF,
+                                        Scenario& scenario);
 
 
         LoadType getLtype() {
@@ -538,8 +541,11 @@ namespace mantisServer{
         return true;
     }
 
-    bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex, std::vector<double>& LF,
-                                           Scenario& scenario, std::vector<double> &rch){
+    bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
+                                           std::vector<double> &rch,
+                                           std::vector<double> &clean_prc,
+                                           std::vector<double>& LF,
+                                           Scenario& scenario){
         bool out = false;
 
         int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
@@ -646,7 +652,7 @@ namespace mantisServer{
             return out;
         }
         else{
-            out = buildLoadingFromTimeSeries(CVindex,LF,scenario,rch);
+            //out = buildLoadingFromTimeSeries(CVindex,LF,scenario,rch);
             return out;
         }
 
