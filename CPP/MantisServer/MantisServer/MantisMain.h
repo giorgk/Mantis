@@ -19,6 +19,7 @@
 #include "MShelper.h"
 #include "Rch.h"
 #include "runtimeWells.h"
+#include "Scenario.h"
 
 
 /**

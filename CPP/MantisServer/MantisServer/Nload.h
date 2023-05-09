@@ -5,6 +5,8 @@
 #ifndef MANTISSERVER_NLOAD_H
 #define MANTISSERVER_NLOAD_H
 
+#include "Scenario.h"
+
 namespace mantisServer{
     /*!
 	 * This is a list of available load types. Currently there are two types available.
