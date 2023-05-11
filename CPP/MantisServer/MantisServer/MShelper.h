@@ -581,6 +581,13 @@ namespace mantisServer {
     }
 
     void TSgrid::getIndices(int iyr, int &SY, int &EY, double &t) {
+        if (Nyears == 1){ // If there is only one time step return zero
+            SY = 0;
+            EY = 0;
+            t = 0.0;
+            return;
+        }
+
         if (XM == extrapMethod::NEAREST){
             if (iyr < StartYear){
                 SY = 0;
@@ -622,7 +629,7 @@ namespace mantisServer {
             }
         }
 
-        int yr_bef = StartYear+ (idx1 - 1)*Interval;
+        int yr_bef = StartYear+ (idx - 1)*Interval;
         t = static_cast<double>(iyr - yr_bef)/dInterval;
     }
 

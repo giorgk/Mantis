@@ -181,6 +181,13 @@ namespace mantisServer{
             return false;
         }
 
+        {// Loading validation
+            if (scenario.loadScen.compare(scenario.LoadTransitionName) == 0){
+                scenario.buseLoadTransition = false;
+            }
+
+        }
+
         return true;
     }
 
@@ -209,8 +216,6 @@ namespace mantisServer{
             preLoadit = NLL.NLoadMaps.find(scenario.LoadTransitionName);
         }
         std::map<std::string, RechargeScenario>::iterator rchit = Rch.RechargeList.find(scenario.rchName);
-
-
 
 
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);

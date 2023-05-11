@@ -128,9 +128,8 @@ namespace mantisServer{
         std::vector<std::vector<double> > Ndata;
         //! Container for the Land use data
         std::vector<std::vector<int> > LU;
-        //! A map between the CV active pixels and the Ndata
-        std::vector<int> NloadYears;
-        std::vector<int> LUYears;
+
+        //std::vector<int> LUYears;
         std::vector<int> Nidx;
         LinearData RasterLoading;
         int nRows;
@@ -160,12 +159,7 @@ namespace mantisServer{
         return 0;
     }
     void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
-        if (LUYears.size() == 1){
-            LUcS = getLU(index,0);
-            LUcE = getLU(index,0);
-            perc = 1.0;
-            return;
-        }
+
         int sy,ey;
         LUtsgrid.getIndices(iyr,sy, ey,perc);
         LUcS = getLU(index,sy);
@@ -232,12 +226,7 @@ namespace mantisServer{
     }
 
     void NLoad::getNload(int index, int iyr, double& N1, double& N2, double& u) {
-        if (NloadYears.size() == 1){
-            N1 = Ndata[0][index];
-            N2 = Ndata[0][index];
-            u = 1.0;
-            return;
-        }
+
         int sy, ey;
         Nloadtsgrid.getIndices(iyr,sy,ey,u);
         N1 = Ndata[sy][index];
