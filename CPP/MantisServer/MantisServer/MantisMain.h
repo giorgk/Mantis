@@ -566,6 +566,15 @@ namespace mantisServer {
             }
         }
 
+        if (scenario.unsatZoneMobileWaterContent <= 0) {
+            scenario.unsatZoneMobileWaterContent = 0.0;
+        }
+
+        if (scenario.userSuppliedConstRed){
+            scenario.LoadReductionMap.clear();
+            scenario.globalReduction = scenario.constReduction;
+        }
+
 
 
         /*if (scenario.wellType.compare("VM") == 0){
@@ -1919,6 +1928,14 @@ namespace mantisServer {
 	}
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
+
+        std::map<std::string, Region>::iterator regionit;
+        regionit = RegionList.find(scenario.region);
+        if (regionit != RegionList.end()){
+            regionit->second.runSimulation(id, options.nThreads, scenario, replymsg);
+            return;
+        }
+
 	    if (scenario.bUseMonitoringWells){
             simulate_RF_wells(id);
             return;

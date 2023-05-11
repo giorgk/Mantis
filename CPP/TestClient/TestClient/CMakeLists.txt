@@ -5,7 +5,7 @@ if (UNIX)
 endif(UNIX)
 ##set(CMAKE_CXX_STANDARD 11)
 ##set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_BUILD_TYPE Debug)
 
 project(MantisClient)
 

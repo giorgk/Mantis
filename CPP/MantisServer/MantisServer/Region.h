@@ -21,7 +21,9 @@ namespace mantisServer{
         Region(){}
         bool readRegionData(std::string inputfile);
         bool validateScenario(std::string &outmsg, Scenario &scenario);
-        bool runSimulation(int threadid, Scenario &scenario);
+        bool runSimulation(int threadid, int nThreads,
+                           Scenario &scenario,
+                           std::vector<std::string> &replymsg);
 
     private:
         std::string path;
@@ -31,7 +33,6 @@ namespace mantisServer{
         RechargeScenarioList Rch;
         FlowWellCollection FWC;
         NLoadList NLL;
-        int nThreads;
     };
 
     bool Region::readRegionData(std::string inputfile) {
@@ -157,7 +158,7 @@ namespace mantisServer{
         }
 
         //Test for the wells under the selected flow scenario
-        tf = FWC.hasFlowScenario(scenario.flowScen);
+        tf = FWC.hasFlowScenario(scenario.flowWellScen);
         if (!tf){
             outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
             outmsg += "does not have the flow Scenario [" + scenario.flowScen + "]";
@@ -165,11 +166,15 @@ namespace mantisServer{
         }
 
         //Test for recharge map
+        if (scenario.bUseFlowRch){
+            scenario.rchName = scenario.flowScen; //.substr(0,scenario.flowScen.size()-3);
+        }
         tf = Rch.hasRechargeMaps(scenario.rchName);
         if (!tf){
             outmsg += "0 ERROR: The recharge [" + scenario.rchName + "]  could not be found";
             return false;
         }
+        // Test for the Unsaturated option
         tf = Unsat.hasScenario((scenario.unsatScenario));
         if (!tf){
             outmsg += "0 ERROR: The Unsat [" + scenario.unsatScenario + "]  could not be found";
@@ -179,7 +184,9 @@ namespace mantisServer{
         return true;
     }
 
-    bool Region::runSimulation(int threadid, Scenario &scenario){
+    bool Region::runSimulation(int threadid, int nThreads,
+                               Scenario &scenario,
+                               std::vector<std::string> &replymsg){
         double dLTs = static_cast<double>(scenario.LoadTransitionStart);
         double dLTe = static_cast<double>(scenario.LoadTransitionEnd);
         double dSY = static_cast<double>(scenario.startSimulationYear);
@@ -209,6 +216,10 @@ namespace mantisServer{
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);
         for (int iw = startWell; iw < endWell; ++iw){
             wellit = fwcit->second.Wells.find(wellids[iw]);
+
+            if (!wellit->second.bsimulateThis(scenario))
+                continue;
+
             std::vector<double> WellBTC(NsimulationYears, 0);
 
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++ strmlit){
@@ -226,10 +237,10 @@ namespace mantisServer{
 
                 //Build the main load
                 std::vector<double> mainload(NsimulationYears, 0);
-                mainLoadit->second.buildLoadingFromTimeSeries(cell_lin_ind,rch_val,cln_rch,mainload,scenario);
+                mainLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,mainload,scenario);
                 if (scenario.buseLoadTransition){
                     std::vector<double> preload(NsimulationYears, 0);
-                    preLoadit->second.buildLoadingFromTimeSeries(cell_lin_ind,rch_val,cln_rch,preload,scenario);
+                    preLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,preload,scenario);
                     // blend the two
                     double dYear = 0;
                     for (int i = 0; i < NsimulationYears; ++i){
@@ -252,14 +263,16 @@ namespace mantisServer{
                 std::vector<double> BTC(NsimulationYears, 0);
                 urf.convolute(mainload, BTC);
 
-
-
-
-
-
+                for (unsigned int i = 0; i < BTC.size(); ++i){
+                    WellBTC[i] = WellBTC[i] + BTC[i] * strmlit->second.w;
+                    replymsg[threadid] += std::to_string(static_cast<float>(WellBTC[i]));
+                    replymsg[threadid] += " ";
+                }
             }
-
-
+            for (unsigned int i = 0; i < WellBTC.size(); ++i){
+                replymsg[threadid] += std::to_string(static_cast<float>(WellBTC[i]));
+                replymsg[threadid] += " ";
+            }
         }
         return true;
     }

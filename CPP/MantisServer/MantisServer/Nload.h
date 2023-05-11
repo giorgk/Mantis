@@ -88,10 +88,16 @@ namespace mantisServer{
          * @param mult this is the coefficient that converts the loading to concentration for the GNLM case.
          * For SWAT this must be 1
          */
-        bool buildLoadingFunction(std::vector<int>& CVindex, int startYear, int endYear, std::vector<double>& LF,
-                                  Scenario& scenario, std::vector<double> &rch);
-        bool buildLoadingFromRaster(std::vector<int>& CVindex, int startYear, int endYear, std::vector<double>& LF,
-                                    Scenario& scenario, std::vector<double> &rch);
+        bool buildLoadingFunction(std::vector<int>& CVindex,
+                                  std::vector<double> &rch,
+                                  std::vector<double> &clean_prc,
+                                  std::vector<double>& LF,
+                                  Scenario& scenario);
+        bool buildLoadingFromRaster(std::vector<int>& CVindex,
+                                    std::vector<double> &rch,
+                                    std::vector<double> &clean_prc,
+                                    std::vector<double>& LF,
+                                    Scenario& scenario);
 
 
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
@@ -485,8 +491,11 @@ namespace mantisServer{
         return true;
     }
 
-    bool NLoad::buildLoadingFromRaster(std::vector<int> &CVindex, int startYear, int endYear, std::vector<double> &LF,
-                                       Scenario &scenario, std::vector<double> &rch) {
+    bool NLoad::buildLoadingFromRaster(std::vector<int>& CVindex,
+                                       std::vector<double> &rch,
+                                       std::vector<double> &clean_prc,
+                                       std::vector<double>& LF,
+                                       Scenario& scenario) {
 
         double load_value = 0.0f;
         for (unsigned int j = 0; j < CVindex.size(); ++j){
@@ -521,12 +530,12 @@ namespace mantisServer{
             }
         }
 
-        int Nyears = endYear - startYear;
+        int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
         LF.clear();
         LF.resize(Nyears, load_value);
         if (scenario.userSuppliedConstRed){
-            int istartReduction = scenario.startReductionYear - startYear;
-            int iendReduction = scenario.endReductionYear - startYear;
+            int istartReduction = scenario.startReductionYear - scenario.startSimulationYear;
+            int iendReduction = scenario.endReductionYear - scenario.startSimulationYear;
             double dstartReduction = static_cast<double>(istartReduction);
             double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
             double adoptionCoeff = 0;
@@ -613,9 +622,9 @@ namespace mantisServer{
                     double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
                     double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                     if (loadUnits == LoadUnits::MASS){
-                        tmpLoad = tmpLoad*100 / rch[j];
+                        tmpLoad = tmpLoad*100 / (rch[j] * (1 - clean_prc[j]) );
                     }
-                    lf += tmpLoad;
+                    lf += tmpLoad*(1 - clean_prc[j]);
                 }
                 else{
                     if (loadUnits == LoadUnits::MASS){
@@ -640,24 +649,23 @@ namespace mantisServer{
     }
 
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
-                                     int startYear,
-                                     int endYear,
+                                     std::vector<double> &rch,
+                                     std::vector<double> &clean_prc,
                                      std::vector<double>& LF,
-                                     Scenario& scenario,
-                                     std::vector<double> &rch) {
+                                     Scenario& scenario) {
         bool out = false;
 
         if (loadType == LoadType::RASTER){
-            out = buildLoadingFromRaster(CVindex, startYear, endYear, LF, scenario, rch);
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, LF, scenario);
             return out;
         }
         else{
-            //out = buildLoadingFromTimeSeries(CVindex,LF,scenario,rch);
+            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, LF, scenario);
             return out;
         }
 
 
-        //int startYear = 1945;
+        /*int startYear = 1945;
         int istartReduction = scenario.startReductionYear - startYear;
         int iendReduction = scenario.endReductionYear - startYear;
         double dstartReduction = static_cast<double>(istartReduction);
@@ -668,7 +676,7 @@ namespace mantisServer{
 
         std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
         std::map<int, double>::iterator it;
-        if (loadType == LoadType::TGL/*SWAT*/) {
+        if (loadType == LoadType::TGL*//*SWAT*//*) {
             for (unsigned int i = 0; i < CVindex.size(); ++i){
                 int lucode = getLU(CVindex[i], 0);
                 it = scenario.LoadReductionMap.find(lucode);
@@ -687,7 +695,7 @@ namespace mantisServer{
 
             //std::cout << "a=" << adoptionCoeff;
 
-            if (loadType == LoadType::TGL/*GNLM*/) {
+            if (loadType == LoadType::TGL*//*GNLM*//*) {
                 double lf = 0;
                 if (CVindex.size() == 0){
                     LF[iyr] = 0;
@@ -751,7 +759,7 @@ namespace mantisServer{
                     }
                 }
             }
-            else if (loadType == LoadType::TGL/*SWAT*/) {
+            else if (loadType == LoadType::TGL*//*SWAT*//*) {
                 double lf = 0;
                 double NvalidCells = 0;
                 for (unsigned int j = 0; j < CVindex.size(); ++j){
@@ -786,7 +794,7 @@ namespace mantisServer{
                     LF[iyr] = scenario.maxConc;
                 }
             }
-        }
+        }*/
         return true;
     }
 

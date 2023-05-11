@@ -57,6 +57,7 @@ namespace mantisServer{
 #if _USEHF>0
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
+            std::cout << "Reading " << filename << std::endl;
             const std::string NameSet("Raster");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);

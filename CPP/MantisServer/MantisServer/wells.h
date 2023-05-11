@@ -132,6 +132,7 @@ namespace mantisServer{
 
         void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug = false);
         void calculateWeights();
+        bool bsimulateThis(Scenario &scenario);
 
         std::map<int, Streamline> streamlines;
         double xcoord;
@@ -173,7 +174,7 @@ namespace mantisServer{
 
     void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug) {
         bool tf;
-        int lin_ind, rs, cs, rn, cn, rasterValue;
+        int rs, cs, rn, cn, rasterValue;
         double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
         double SAxmin, SAxmax, SAymin, SAymax;
         double x1, x2, x3, x4, y1, y2, y3, y4;
@@ -194,6 +195,7 @@ namespace mantisServer{
             if (debug){
                 std::cout << itstrml->first << std::endl;
             }
+            // The value of the raster points to the right row on the data that have linear form
             rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
             if (rasterValue == -1){
                 // The source area is outside the active area therefore the loading will be zero
@@ -211,8 +213,7 @@ namespace mantisServer{
             if (!doCalc){
                 // If there is no need for source area calculation
                 // then assign as source area the cell of the urf
-                itstrml->second.addSourceAreaCell(braster.linear_index(itstrml->second.row, itstrml->second.col),
-                                                  itstrml->second.row, itstrml->second.col);
+                itstrml->second.addSourceAreaCell(rasterValue, itstrml->second.row, itstrml->second.col);
             }
             else{
                 int niter = 0;
@@ -252,8 +253,8 @@ namespace mantisServer{
                     std::map< int, cell> tested;
                     std::map< int, cell> next_round;
 
-                    lin_ind = braster.linear_index(itstrml->second.row, itstrml->second.col);
-                    for_test.insert(std::pair<int, cell>(lin_ind, cell(rs,cs)));
+                    //lin_ind = braster.linear_index(itstrml->second.row, itstrml->second.col);
+                    for_test.insert(std::pair<int, cell>(rasterValue, cell(rs,cs)));
 
                     Qtmp = 0.0;
                     Qtarget = std::abs(pumpingRate * itstrml->second.w);
@@ -274,12 +275,12 @@ namespace mantisServer{
                                     continue;
                                 }
                             }
-                            lin_ind = braster.IJ(itcell1->second.row, itcell1->second.col);
-                            if (lin_ind != -1){
-                                tf = rch.getValues(lin_ind, rch_v, dummy);
+                            rasterValue = braster.IJ(itcell1->second.row, itcell1->second.col);
+                            if (rasterValue != -1){
+                                tf = rch.getValues(rasterValue, rch_v, dummy);
                                 if (tf){
                                     if (rch_v > 10.0){
-                                        itstrml->second.addSourceAreaCell(lin_ind,itcell1->second);
+                                        itstrml->second.addSourceAreaCell(rasterValue,itcell1->second);
                                         Qtmp += (rch_v/365/1000)*cellArea;
                                     }
                                 }
@@ -303,12 +304,12 @@ namespace mantisServer{
                                     for (unsigned int i = 0; i < sp.size(); ++i){
                                         rn = itcell1->second.row + sp[i].row;
                                         cn = itcell1->second.col + sp[i].col;
-                                        if (braster.IJ(rn,cn) == -1)
+                                        rasterValue = braster.IJ(rn,cn);
+                                        if (rasterValue == -1)
                                             continue;
-                                        lin_ind = Nrow * cn + rn;
-                                        itcell2 = tested.find(lin_ind);
+                                        itcell2 = tested.find(rasterValue);
                                         if (itcell2 == tested.end()){
-                                            for_test.insert(std::pair<int,cell>(lin_ind, cell(rn,cn)));
+                                            for_test.insert(std::pair<int,cell>(rasterValue, cell(rn,cn)));
                                         }
                                     }
                                 }
@@ -332,6 +333,32 @@ namespace mantisServer{
                 }
             }
         }
+    }
+
+    bool Well::bsimulateThis(Scenario &scenario) {
+        if (scenario.bNarrowSelection == true){
+            if (scenario.useRadSelect){
+                if (!scenario.RadSelect.isPointIn(xcoord, ycoord)){
+                    return false;
+                }
+                if (scenario.useRectSelect){
+                    if (!scenario.RectSelect.isPointIn(xcoord, ycoord)){
+                        return false;
+                    }
+                }
+                if (scenario.useDepthRange){
+                    if (!scenario.DepthRange.isInRange(depth)){
+                        return false;
+                    }
+                }
+                if (scenario.useScreenLenghtRange){
+                    if (!scenario.ScreenLengthRange.isInRange(screenLength)){
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     class WellList{
@@ -420,7 +447,7 @@ namespace mantisServer{
             int count = 0;
             bool dbg = false;
             for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
-                std::cout << wellit->first << std::endl;
+                //std::cout << wellit->first << std::endl;
                 //if (wellit->first == 2893){
                 //    dbg = true;
                 //    std::cout << "Stop here" << std::endl;
