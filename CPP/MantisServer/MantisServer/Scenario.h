@@ -105,6 +105,11 @@ namespace mantisServer {
          * - debugID_well_btc.dat containts the averages BTC for the wells
          */
         std::string debugID;
+        std::string debugPath;
+        bool printLF = false;
+        bool printBTC = false;
+        bool printURF = false;
+        bool printWellBTC = false;
         //! If the #debugID is present then this is set to true;
         bool printAdditionalInfo = false;
 
@@ -161,12 +166,11 @@ namespace mantisServer {
         startSimulationYear = 1945;
         endSimulationYear = 2100;
         LoadReductionMap.clear();
-        printAdditionalInfo = false;
         globalReduction = 1.0;
         constReduction = 1.0;
         userSuppliedConstRed = false;
         unsatZoneMobileWaterContent = 0.0;
-        minRecharge = 0.000027; // 10 mm/year
+        minRecharge = 10;// mm/year
         maxConc = 250;
         PixelRadius = 0;
         RadSelect.clear();
@@ -185,6 +189,13 @@ namespace mantisServer {
         bUseMonitoringWells = false;
         bUseFlowRch = true;
         SourceArea.clear();
+        printWellIds = false;
+        debugID = "";
+        printLF = false;
+        printURF = false;
+        printBTC = false;
+        printWellBTC = false;
+        printAdditionalInfo = false;
     }
 
     bool Scenario::parse_incoming_msg(std::string &msg, std::string &outmsg){
@@ -378,8 +389,32 @@ namespace mantisServer {
             }
             if (test ==  "DebugID") {
                 ss >> debugID;
-                if (!debugID.empty())
-                    printAdditionalInfo = true;
+                //if (!debugID.empty())
+                //    printAdditionalInfo = true;
+                continue;
+            }
+            if (test == "printLF"){
+                int tmp;
+                ss >> tmp;
+                printLF = tmp != 0;
+                continue;
+            }
+            if (test == "printURF"){
+                int tmp;
+                ss >> tmp;
+                printURF = tmp != 0;
+                continue;
+            }
+            if (test == "printBTC"){
+                int tmp;
+                ss >> tmp;
+                printBTC = tmp != 0;
+                continue;
+            }
+            if (test == "printWellBTC"){
+                int tmp;
+                ss >> tmp;
+                printWellBTC = tmp != 0;
                 continue;
             }
             /*

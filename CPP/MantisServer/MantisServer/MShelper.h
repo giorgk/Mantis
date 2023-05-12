@@ -5,6 +5,7 @@
 
 #include <fstream>
 #include <iostream>
+#include <iomanip>
 #include <map>
 
 #if _USEHF > 0
@@ -24,6 +25,36 @@ namespace mantisServer {
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
     const double pi = std::atan(1)*4;
+
+    /*!
+     * num2Padstr converts an integer to string with padding zeros
+     * @param i is the integer to convert to string
+     * @param n is the number of zeros
+     * @return a string. For example num2Padstr(3,3) returns 003
+     */
+    std::string num2Padstr(int i, int n) {
+        std::stringstream ss;
+        ss << std::setw(n) << std::setfill('0') << i;
+        return ss.str();
+    }
+
+    /*!
+	 * This prints the vectors to screen formatted for matlab.
+	 * Simply copy paste the printed line to matlab workspace to create the variable
+	 * @tparam T is the vector type, integer or double
+	 * @param v this is the vector.
+	 * @param varname is what the variable name should be in matlab
+	 */
+    template<typename T>
+    void printVector(std::vector<T>& v, std::string varname) {
+        std::cout << std::endl;
+        std::cout << varname << " = [";
+        for (unsigned int i = 0; i < v.size(); ++i) {
+            std::cout << v[i] << " ";
+        }
+        std::cout << "];" << std::endl;
+        std::cout << std::endl;
+    }
 
     /**
 	 * @brief Enumeration for the type of the Unit Response function.

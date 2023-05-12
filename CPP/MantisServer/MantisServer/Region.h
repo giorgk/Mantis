@@ -23,7 +23,7 @@ namespace mantisServer{
         bool validateScenario(std::string &outmsg, Scenario &scenario);
         bool runSimulation(int threadid, int nThreads,
                            Scenario &scenario,
-                           std::vector<std::string> &replymsg);
+                           std::vector<std::string> &replymsg, int &nWellBTC);
 
     private:
         std::string path;
@@ -193,13 +193,37 @@ namespace mantisServer{
 
     bool Region::runSimulation(int threadid, int nThreads,
                                Scenario &scenario,
-                               std::vector<std::string> &replymsg){
+                               std::vector<std::string> &replymsg, int &nWellBTC){
         double dLTs = static_cast<double>(scenario.LoadTransitionStart);
         double dLTe = static_cast<double>(scenario.LoadTransitionEnd);
         double dSY = static_cast<double>(scenario.startSimulationYear);
+        std::ofstream urf_file;
+        std::ofstream lf_file;
+        std::ofstream btc_file;
+        std::ofstream well_btc_file;
+        if (scenario.printAdditionalInfo){
+            std::string root_name;
+            root_name = scenario.debugPath + "_" + scenario.debugID + "_" + num2Padstr(threadid, 2);
+            if (scenario.printLF){
+                std::string lf_file_name = root_name + "_lf.dat";
+                lf_file.open(lf_file_name.c_str());
+            }
+            if (scenario.printURF){
+                std::string urf_file_name = root_name + "_urf.dat";
+                urf_file.open(urf_file_name.c_str());
+            }
+            if (scenario.printBTC){
+                std::string btc_file_name = root_name + "_btc.dat";
+                btc_file.open(btc_file_name.c_str());
+            }
+            if (scenario.printWellBTC){
+                std::string well_btc_file_name = root_name + "_well_btc.dat";
+                well_btc_file.open(well_btc_file_name.c_str());
+            }
+        }
 
         std::vector<int> wellids;
-        int NsimulationYears = scenario.endSimulationYear - 1945;
+        int NsimulationYears = scenario.endSimulationYear - scenario.startSimulationYear;
         Bmaps.getWells(scenario.mapID, scenario.regionIDs, scenario.flowWellScen, wellids);
         int startWell = 0;
         int endWell = 0;
@@ -219,6 +243,7 @@ namespace mantisServer{
 
 
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);
+        nWellBTC = 0;
         for (int iw = startWell; iw < endWell; ++iw){
             wellit = fwcit->second.Wells.find(wellids[iw]);
 
@@ -236,6 +261,9 @@ namespace mantisServer{
                 for (std::map<int,cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
                     cell_lin_ind.push_back(cellit->first);
                     rchit->second.getValues(cellit->first, rch, clprc);
+                    if (rch < scenario.minRecharge){
+                        rch = scenario.minRecharge;
+                    }
                     rch_val.push_back(rch);
                     cln_rch.push_back(clprc);
                 }
@@ -263,21 +291,58 @@ namespace mantisServer{
                     }
                 }
 
+                if (scenario.printLF){
+                    lf_file << wellit->first << " " << strmlit->first << " ";
+                    for (int ii = 0; ii < NsimulationYears; ++ii)
+                        lf_file << std::scientific << std::setprecision(10) << mainload[ii] << " ";
+                    lf_file << std::endl;
+                }
+
                 //Build the URF
                 URF urf(NsimulationYears, strmlit->second.mu, strmlit->second.std, URFTYPE::LGNRM);
+                if (scenario.printURF){
+                    urf_file << wellit->first << " " << strmlit->first << " ";
+                    urf.print_urf(urf_file);
+                }
+
                 std::vector<double> BTC(NsimulationYears, 0);
                 urf.convolute(mainload, BTC);
 
+                if (scenario.printBTC){
+                    btc_file << wellit->first << " " << strmlit->first << " ";
+                    for (int ii = 0; ii < NsimulationYears; ++ii)
+                        btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
+                    btc_file << std::endl;
+                }
+
                 for (unsigned int i = 0; i < BTC.size(); ++i){
                     WellBTC[i] = WellBTC[i] + BTC[i] * strmlit->second.w;
-                    replymsg[threadid] += std::to_string(static_cast<float>(WellBTC[i]));
-                    replymsg[threadid] += " ";
                 }
             }
+            if (scenario.printWellBTC){
+                well_btc_file << wellit->first << " ";
+                for (int ii = 0; ii < NsimulationYears; ++ii)
+                    btc_file << std::scientific << std::setprecision(10) << WellBTC[ii] << " ";
+                well_btc_file << std::endl;
+            }
+
+            if (scenario.printWellIds){
+                replymsg[threadid] += std::to_string(wellit->first);
+                replymsg[threadid] += " ";
+            }
+
             for (unsigned int i = 0; i < WellBTC.size(); ++i){
                 replymsg[threadid] += std::to_string(static_cast<float>(WellBTC[i]));
                 replymsg[threadid] += " ";
             }
+            nWellBTC++;
+        }
+
+        if (scenario.printAdditionalInfo){
+            if (scenario.printLF){lf_file.close();}
+            if (scenario.printURF){urf_file.close();}
+            if (scenario.printBTC){btc_file.close();}
+            if (scenario.printWellBTC){well_btc_file.close();}
         }
         return true;
     }

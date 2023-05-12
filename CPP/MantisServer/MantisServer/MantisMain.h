@@ -34,35 +34,9 @@ namespace mantisServer {
     //const double pi = std::atan(1)*4;
     //std::vector<double> dummyVector(1,0);
 
-    /*!
-     * num2Padstr converts an integer to string with padding zeros
-     * @param i is the integer to convert to string
-     * @param n is the number of zeros
-     * @return a string. For example num2Padstr(3,3) returns 003
-     */
-	std::string num2Padstr(int i, int n) {
-		std::stringstream ss;
-		ss << std::setw(n) << std::setfill('0') << i;
-		return ss.str();
-	}
 
-	/*!
-	 * This prints the vectors to screen formatted for matlab.
-	 * Simply copy paste the printed line to matlab workspace to create the variable
-	 * @tparam T is the vector type, integer or double
-	 * @param v this is the vector.
-	 * @param varname is what the variable name should be in matlab
-	 */
-	template<typename T>
-	void printVector(std::vector<T>& v, std::string varname) {
-		std::cout << std::endl;
-		std::cout << varname << " = [";
-		for (unsigned int i = 0; i < v.size(); ++i) {
-			std::cout << v[i] << " ";
-		}
-		std::cout << "];" << std::endl;
-		std::cout << std::endl;
-	}
+
+
 
 
 
@@ -537,7 +511,9 @@ namespace mantisServer {
 	Mantis::Mantis(mantisServer::options options_in)
 		:
 		options(options_in)
-	{}
+	{
+        scenario.debugPath = options.DebugPrefix;
+    }
 
 	bool Mantis::validate_msg(std::string& outmsg) {
 		if ((scenario.endSimulationYear <= 2020) || (scenario.endSimulationYear > 2500))
@@ -575,7 +551,18 @@ namespace mantisServer {
             scenario.globalReduction = scenario.constReduction;
         }
 
-
+        if (scenario.debugID.empty()){
+            scenario.printLF = false;
+            scenario.printURF = false;
+            scenario.printBTC = false;
+            scenario.printWellBTC = false;
+            scenario.printAdditionalInfo = false;
+        }
+        else{
+            if (scenario.printLF | scenario.printURF | scenario.printBTC | scenario.printWellBTC){
+                scenario.printAdditionalInfo = true;
+            }
+        }
 
         /*if (scenario.wellType.compare("VM") == 0){
             if (scenario.mapID.compare("Townships") != 0 ){
@@ -1928,11 +1915,12 @@ namespace mantisServer {
 	}
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
-
         std::map<std::string, Region>::iterator regionit;
         regionit = RegionList.find(scenario.region);
         if (regionit != RegionList.end()){
-            regionit->second.runSimulation(id, options.nThreads, scenario, replymsg);
+            int nBTC = 0;
+            regionit->second.runSimulation(id, options.nThreads, scenario, replymsg, nBTC);
+            replyLength[id] = nBTC;
             return;
         }
 
@@ -2118,7 +2106,7 @@ namespace mantisServer {
 
 		outmsg += "1 ";
 		outmsg += std::to_string(nBTC);
-		int Nyears = scenario.endSimulationYear - 1945;
+		int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
 		if (scenario.printWellIds){
 		    Nyears++;
 		}

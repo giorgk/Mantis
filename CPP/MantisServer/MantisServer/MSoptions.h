@@ -200,7 +200,7 @@ namespace mantisServer {
             ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory depth")
             ("ServerOptions.logFile", "If it is empty the output will be printed in the terminal. You can include a full path")
             ("ServerOptions.logClearFreq", po::value<int>()->default_value(50), "Frequency to clear log file")
-            ("ServerOptions.Prefix", "Any output file will start with this prefix. You can include a full path")
+            ("ServerOptions.DebugPrefix", "Any output file will start with this prefix. You can include a full path")
 			;
 
 		if (vm_cmd.count("help")) {
@@ -280,8 +280,8 @@ namespace mantisServer {
 			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
             opt.RFmem = vm_cfg["ServerOptions.RFmem"].as<int>();
 
-			if (vm_cfg.count("ServerOptions.Prefix")) {
-				if (!get_option<std::string>("ServerOptions.Prefix", vm_cfg, opt.DebugPrefix))
+			if (vm_cfg.count("ServerOptions.DebugPrefix")) {
+				if (!get_option<std::string>("ServerOptions.DebugPrefix", vm_cfg, opt.DebugPrefix))
                     opt.DebugPrefix = "";
 			}
 			else{

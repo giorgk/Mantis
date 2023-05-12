@@ -575,13 +575,13 @@ namespace mantisServer{
 
             double NvalidCells = 0;
             for (unsigned int j = 0; j < cellIndex.size(); ++j){
-                int lus = 0;
-                int lue = 0;
-                double prc = 0.0;
                 double rs = 1.0;
                 double re = 1.0;
-                getLU(cellIndex[j], iyr + scenario.startSimulationYear, lus, lue, prc);
                 if (adoptionCoeff > 0){
+                    int lus = 0;
+                    int lue = 0;
+                    double prc = 0.0;
+                    getLU(cellIndex[j], iyr + scenario.startSimulationYear, lus, lue, prc);
                     rs = scenario.globalReduction;
                     it = scenario.LoadReductionMap.find(lus);
                     if (it != scenario.LoadReductionMap.end()){
@@ -611,15 +611,21 @@ namespace mantisServer{
                     double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
                     double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                     if (loadUnits == LoadUnits::MASS){
-                        tmpLoad = tmpLoad*100 / (rch[j] * (1 - clean_prc[j]) );
+                        tmpLoad = tmpLoad*100 / rch[j];
+                        lf += tmpLoad;
                     }
-                    lf += tmpLoad*(1 - clean_prc[j]);
+                    else{
+                        lf += tmpLoad*(1 - clean_prc[j]);
+                    }
                 }
                 else{
                     if (loadUnits == LoadUnits::MASS){
                         Nbase = Nbase*100 / rch[j];
+                        lf += Nbase;
                     }
-                    lf += Nbase;
+                    else{
+                        lf += Nbase*(1 - clean_prc[j]);
+                    }
                 }
 
                 if (NvalidCells < 0.00001){

@@ -117,7 +117,7 @@ namespace mantisServer{
                              std::string flowScenarioName, std::vector<int> &wellids){
         std::map<std::string, GeoUnit>::iterator it;
         for (int i = 0; i < geoUnitNames.size(); ++i){
-            it = geoUnits.find(geoUnitNames[0]);
+            it = geoUnits.find(geoUnitNames[i]);
             if (it != geoUnits.end()){
                 std::vector<int> tmp;
                 it->second.getWells(flowScenarioName,tmp);
