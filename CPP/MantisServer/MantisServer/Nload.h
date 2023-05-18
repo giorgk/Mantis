@@ -799,7 +799,17 @@ namespace mantisServer{
 
         std::map<std::string, NLoad> NLoadMaps;
         bool readData(std::string path, std::string filename);
+        bool hasLoading(std::string loadName);
     };
+
+    bool NLoadList::hasLoading(std::string loadName) {
+        std::map<std::string, NLoad>::iterator it;
+        it = NLoadMaps.find(loadName);
+        if (it == NLoadMaps.end()){
+            return false;
+        }
+        return true;
+    }
 
     bool NLoadList::readData(std::string path, std::string filename){
         auto start = std::chrono::high_resolution_clock::now();

@@ -16,7 +16,7 @@ endSimYear 2100
 # -----------------
 # loading options
 # -----------------
-loadScen GNLM
+loadScen SWAT1
 startRed 2020
 endRed 2030
 Ncrops 1
@@ -52,10 +52,10 @@ Ncrops 1
 # -----------------
 # Misc Options
 # -----------------
-getids 1
-DebugID 54321
-printLF 1
-printURF 1
-printBTC 1
-printWellBTC 0
+# getids 1
+# DebugID
+# printLF 1
+# printURF 1
+# printBTC 1
+# printWellBTC 0
 # PixelRadius

@@ -182,9 +182,25 @@ namespace mantisServer{
         }
 
         {// Loading validation
+            tf = NLL.hasLoading(scenario.loadScen);
+            if (!tf){
+                outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+                outmsg += "does not have the Loading Scenario [" + scenario.loadScen + "]";
+                return false;
+            }
             if (scenario.loadScen.compare(scenario.LoadTransitionName) == 0){
                 scenario.buseLoadTransition = false;
+            }else{
+                if (scenario.LoadTransitionName.compare("NONE") != 0){
+                    tf = NLL.hasLoading(scenario.LoadTransitionName);
+                    if (!tf){
+                        outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+                        outmsg += "does not have the Loading Scenario [" + scenario.LoadTransitionName + "]";
+                        return false;
+                    }
+                }
             }
+
 
         }
 
@@ -253,6 +269,13 @@ namespace mantisServer{
             std::vector<double> WellBTC(NsimulationYears, 0);
 
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++ strmlit){
+
+                // If the streamline has 0 mean and standard deviation then we assume zero loading
+                if (strmlit->second.mu < 0.000001  || strmlit->second.std < 0.000001){
+                    continue;
+                }
+
+
                 std::vector<int> cell_lin_ind;
                 std::vector<double> rch_val;
                 std::vector<double> cln_rch;
