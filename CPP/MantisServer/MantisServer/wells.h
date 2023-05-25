@@ -534,8 +534,8 @@ namespace mantisServer{
                 std::istringstream inp(line.c_str());
                 inp >> Nwells;
                 inp >> setName;
-                inp >> calcSource;
                 inp >> rch_scen;
+                inp >> calcSource;
                 wList.calcSourceArea = calcSource;
                 wList.rch_map = rch_scen;
             }
