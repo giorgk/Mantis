@@ -5,6 +5,8 @@
 #ifndef MANTISSERVER_WELLS_H
 #define MANTISSERVER_WELLS_H
 
+#include <algorithm>
+
 #include "MShelper.h"
 #include "BMaps.h"
 #include "BRaster.h"
@@ -130,7 +132,10 @@ namespace mantisServer{
                            double paramA, double paramB, double paramC = 0, double paramD = 0);
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 
-        void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug = false);
+        void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, bool debug = false);
+        void calculateSourceAreaType0(BackgroundRaster &braster, bool debug = false);
+        void calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
+        void calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
         void calculateWeights();
         bool bsimulateThis(Scenario &scenario);
 
@@ -172,7 +177,42 @@ namespace mantisServer{
         angle = a;
     }
 
-    void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, bool doCalc, bool debug) {
+    void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, bool debug){
+        if (doCalc == 0){
+            calculateSourceAreaType0(braster, debug);
+        }
+        else if (doCalc == 1){
+            calculateSourceAreaType1(braster, rch, debug);
+        }
+        else if (doCalc == 2){
+            calculateSourceAreaType2(braster, rch, debug);
+        }
+    }
+
+    void Well::calculateSourceAreaType0(BackgroundRaster &braster, bool debug){
+        std::map<int, Streamline>::iterator itstrml;
+        for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
+            int rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
+            if (rasterValue == -1){
+                // The source area is outside the active area therefore the loading will be zero
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+            if (itstrml->second.inRiver){
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+            itstrml->second.addSourceAreaCell(rasterValue, itstrml->second.row, itstrml->second.col);
+            if (debug){
+                std::cout << itstrml->first << std::endl;
+            }
+        }
+
+    }
+
+    void Well::calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug) {
         bool tf;
         int rs, cs, rn, cn, rasterValue;
         double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
@@ -210,127 +250,231 @@ namespace mantisServer{
                 continue;
             }
 
-            if (!doCalc){
-                // If there is no need for source area calculation
-                // then assign as source area the cell of the urf
-                itstrml->second.addSourceAreaCell(rasterValue, itstrml->second.row, itstrml->second.col);
-            }
-            else{
-                int niter = 0;
-                bool sourceFound = false;
-                while (niter < 20){
-                    rs = itstrml->second.row;
-                    cs = itstrml->second.col;
-                    braster.cellCoords(rs, cs, xs, ys);
-                    //xs = Xorig + cellSize/2 + cellSize*(cs);
-                    // For the Y the row numbers start from the top
-                    //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
-                    side1 = cellSize + cellSize * (itstrml->second.Npxl+niter);
-                    side2 = std::max(2.0*cellSize, side1/ratio/2.0);
-                    SAxmin = -side2 - 25;
-                    SAxmax =  side2 + 25;
-                    SAymin = -side1/2 - 25;
-                    SAymax =  side1/2 + 25;
 
-                    x1 = (cosd * SAxmin + sind * SAymin) + xs;
-                    y1 = (-sind * SAxmin + cosd * SAymin) + ys;
 
-                    x2 = (cosd * SAxmin + sind * SAymax) + xs;
-                    y2 = (-sind * SAxmin + cosd * SAymax) + ys;
+            int niter = 0;
+            bool sourceFound = false;
+            while (niter < 20){
+                rs = itstrml->second.row;
+                cs = itstrml->second.col;
+                braster.cellCoords(rs, cs, xs, ys);
+                //xs = Xorig + cellSize/2 + cellSize*(cs);
+                // For the Y the row numbers start from the top
+                //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
+                side1 = cellSize + cellSize * (itstrml->second.Npxl+niter);
+                side2 = std::max(2.0*cellSize, side1/ratio/2.0);
+                SAxmin = -side2 - 25;
+                SAxmax =  side2 + 25;
+                SAymin = -side1/2 - 25;
+                SAymax =  side1/2 + 25;
 
-                    x3 = (cosd * SAxmax + sind * SAymax) + xs;
-                    y3 = (-sind * SAxmax + cosd * SAymax) + ys;
+                x1 = (cosd * SAxmin + sind * SAymin) + xs;
+                y1 = (-sind * SAxmin + cosd * SAymin) + ys;
 
-                    x4 = (cosd * SAxmax + sind * SAymin) + xs;
-                    y4 = (-sind * SAxmax + cosd * SAymin) + ys;
+                x2 = (cosd * SAxmin + sind * SAymax) + xs;
+                y2 = (-sind * SAxmin + cosd * SAymax) + ys;
 
-                    if (debug){
-                        std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
-                                  << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
-                    }
+                x3 = (cosd * SAxmax + sind * SAymax) + xs;
+                y3 = (-sind * SAxmax + cosd * SAymax) + ys;
 
-                    std::map< int, cell> for_test;
-                    std::map< int, cell> tested;
-                    std::map< int, cell> next_round;
+                x4 = (cosd * SAxmax + sind * SAymin) + xs;
+                y4 = (-sind * SAxmax + cosd * SAymin) + ys;
 
-                    //lin_ind = braster.linear_index(itstrml->second.row, itstrml->second.col);
-                    for_test.insert(std::pair<int, cell>(rasterValue, cell(rs,cs)));
+                if (debug){
+                    std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
+                              << x3 << " " << y3 << "; " << x4 << " " << y4 << "]; " << std::endl;
+                }
 
-                    Qtmp = 0.0;
-                    Qtarget = std::abs(pumpingRate * itstrml->second.w);
+                std::map< int, cell> for_test;
+                std::map< int, cell> tested;
+                std::map< int, cell> next_round;
 
-                    while (true){
-                        for (itcell1 = for_test.begin(); itcell1 != for_test.end(); ++itcell1){
-                            tested.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
-                            braster.cellCoords(itcell1->second.row, itcell1->second.col, xtmp, ytmp);
-                            if (debug){
-                                std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
-                            }
+                //lin_ind = braster.linear_index(itstrml->second.row, itstrml->second.col);
+                for_test.insert(std::pair<int, cell>(rasterValue, cell(rs,cs)));
 
-                            // Check if the point is in the source area by testing the barycentric coordinates
-                            tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                Qtmp = 0.0;
+                Qtarget = std::abs(pumpingRate * itstrml->second.w);
+
+                while (true){
+                    for (itcell1 = for_test.begin(); itcell1 != for_test.end(); ++itcell1){
+                        tested.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                        braster.cellCoords(itcell1->second.row, itcell1->second.col, xtmp, ytmp);
+                        if (debug){
+                            std::cout << "plot(" << xtmp << "," << ytmp << ",'.k');" << std::endl;
+                        }
+
+                        // Check if the point is in the source area by testing the barycentric coordinates
+                        tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                        if (!tf){
+                            tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
                             if (!tf){
-                                tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
-                                if (!tf){
-                                    continue;
-                                }
-                            }
-                            rasterValue = braster.IJ(itcell1->second.row, itcell1->second.col);
-                            if (rasterValue != -1){
-                                tf = rch.getValues(rasterValue, rch_v, dummy);
-                                if (tf){
-                                    if (rch_v > 10.0){
-                                        itstrml->second.addSourceAreaCell(rasterValue,itcell1->second);
-                                        Qtmp += (rch_v/365/1000)*cellArea;
-                                    }
-                                }
-                                if (Qtmp >= Qtarget){
-                                    sourceFound = true;
-                                    break;
-                                }
-                                next_round.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
+                                continue;
                             }
                         }
-                        if (sourceFound){
-                            break;
-                        }
-                        else{
-                            if (next_round.empty()){
+                        rasterValue = braster.IJ(itcell1->second.row, itcell1->second.col);
+                        if (rasterValue != -1){
+                            tf = rch.getValues(rasterValue, rch_v, dummy);
+                            if (tf){
+                                if (rch_v > 10.0){
+                                    itstrml->second.addSourceAreaCell(rasterValue,itcell1->second);
+                                    Qtmp += (rch_v/365/1000)*cellArea;
+                                }
+                            }
+                            if (Qtmp >= Qtarget){
+                                sourceFound = true;
                                 break;
                             }
-                            else{
-                                for_test.clear();
-                                for (itcell1 = next_round.begin(); itcell1 != next_round.end(); ++itcell1){
-                                    for (unsigned int i = 0; i < sp.size(); ++i){
-                                        rn = itcell1->second.row + sp[i].row;
-                                        cn = itcell1->second.col + sp[i].col;
-                                        rasterValue = braster.IJ(rn,cn);
-                                        if (rasterValue == -1)
-                                            continue;
-                                        itcell2 = tested.find(rasterValue);
-                                        if (itcell2 == tested.end()){
-                                            for_test.insert(std::pair<int,cell>(rasterValue, cell(rn,cn)));
-                                        }
-                                    }
-                                }
-                                next_round.clear();
-                            }
+                            next_round.insert(std::pair<int,cell>(itcell1->first, itcell1->second));
                         }
                     }
                     if (sourceFound){
                         break;
                     }
-                    if (Qtmp < 0.0001){
-                        // If the source area of this iteration comes from a
-                        // zero recharge area we assume the water is clean
-                        // if the source area is sufficiently large
-                        if (itstrml->second.Npxl + niter > 21){
+                    else{
+                        if (next_round.empty()){
                             break;
                         }
+                        else{
+                            for_test.clear();
+                            for (itcell1 = next_round.begin(); itcell1 != next_round.end(); ++itcell1){
+                                for (unsigned int i = 0; i < sp.size(); ++i){
+                                    rn = itcell1->second.row + sp[i].row;
+                                    cn = itcell1->second.col + sp[i].col;
+                                    rasterValue = braster.IJ(rn,cn);
+                                    if (rasterValue == -1)
+                                        continue;
+                                    itcell2 = tested.find(rasterValue);
+                                    if (itcell2 == tested.end()){
+                                        for_test.insert(std::pair<int,cell>(rasterValue, cell(rn,cn)));
+                                    }
+                                }
+                            }
+                            next_round.clear();
+                        }
                     }
-                    niter++;
-                    itstrml->second.clearSourceArea();
                 }
+                if (sourceFound){
+                    break;
+                }
+                if (Qtmp < 0.0001){
+                    // If the source area of this iteration comes from a
+                    // zero recharge area we assume the water is clean
+                    // if the source area is sufficiently large
+                    if (itstrml->second.Npxl + niter > 21){
+                        break;
+                    }
+                }
+                niter++;
+                itstrml->second.clearSourceArea();
+            }
+
+        }
+    }
+
+    void Well::calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, bool debug){
+        std::map<int, Streamline>::iterator itstrml;
+        double Xcntr, Ycntr, xcell, ycell, rch_v, dummy;
+        //double SAxmin, SAxmax, SAymin, SAymax, minSrcXrt, minSrcYrt;
+        double Xorig, Yorig, cellSize;
+        braster.getGridLocation(Xorig, Yorig, cellSize);
+        double cellArea = cellSize*cellSize;
+        int Ncol = braster.Nc();
+        int Nrow = braster.Nr();
+
+        double M11, M12, M21, M22;//, Minv11, Minv12, Minv21, Minv22, Dinv;
+        M11 = cosd(angle); M12 = sind(angle);
+        M21 = -M12; M22 = M11;
+        //Dinv = 1/(M11*M22 - M12*M21);
+        //Minv11 = Dinv*M22; Minv12 = -Dinv*M12;
+        //Minv21 = -Dinv*M21; Minv22 = Dinv*M11;
+        std::vector<double> srcX, srcY, srcXrt, srcYrt;
+        std::vector<boost_point> srcPnts;
+        boost_poly srcPoly;
+
+
+        for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
+            if (itstrml->second.inRiver){
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+
+            double Qtarget = std::abs(pumpingRate * itstrml->second.w);
+            double Qtmp = 0.0;
+
+            double minSrcXrt = 999999999999.9; double minSrcYrt = 999999999999.9;
+            int row = itstrml->second.row;
+            int col = itstrml->second.col;
+            int count_iter = 0;
+            braster.cellCoords(row, col, Xcntr, Ycntr);
+            double Npxl = static_cast<double>(itstrml->second.Npxl);
+            if (Npxl == 1){
+                Npxl = 0;
+            }
+            while (count_iter < 20){
+                double lngth = cellSize + cellSize * Npxl;
+                double wdth = std::max(lngth/ratio/2.0, 25.0);
+                double SAxmin = -wdth;
+                double SAxmax =  wdth;
+                double SAymin = -lngth/2.0 - cellSize/2.0;
+                double SAymax =  lngth/2.0 + cellSize/2.0;
+                srcX.clear(); srcY.clear(); srcXrt.clear(), srcYrt.clear(); srcPnts.clear();
+                srcX.push_back(SAxmin); srcY.push_back(SAymin);
+                srcX.push_back(SAxmin); srcY.push_back(SAymax);
+                srcX.push_back(SAxmax); srcY.push_back(SAymax);
+                srcX.push_back(SAxmax); srcY.push_back(SAymin);
+
+                for (unsigned int i = 0; i < srcX.size(); ++i){
+                    srcXrt.push_back(M11 * srcX[i] + M12 * srcY[i] + Xcntr);
+                    srcYrt.push_back(M21 * srcX[i] + M22 * srcY[i] + Ycntr);
+                    if (srcXrt[i] < minSrcXrt){
+                        minSrcXrt = srcXrt[i];
+                    }
+                    if (srcYrt[i] < minSrcYrt){
+                        minSrcYrt = srcYrt[i];
+                    }
+                    srcPnts.push_back(boost_point(srcXrt[i], srcYrt[i]));
+
+                }
+                boost::geometry::assign_points(srcPoly, srcPnts);
+                boost::geometry::correct(srcPoly);
+
+                std::cout << "srcX = [" << srcXrt[0] << "," << srcXrt[1] << "," << srcXrt[2] << "," << srcXrt[3] << "]" << std::endl;
+                std::cout << "scrY = [" << srcYrt[0] << "," << srcYrt[1] << "," << srcYrt[2] << "," << srcYrt[3] << "]" << std::endl;
+
+                int dJ = static_cast<int>(std::ceil((Xcntr - minSrcXrt)/cellSize));
+                int dI = static_cast<int>(std::ceil((Ycntr - minSrcYrt)/cellSize));
+                int JgridStart = std::max(1, col - dJ);
+                int JgridEnd = std::min(Ncol, col + dJ);
+                int IgridStart = std::max(1, row - dI);
+                int IgridEnd = std::min(Ncol, row + dI);
+
+                for (int i = IgridStart; i <= IgridEnd; ++i){
+                    for (int j = JgridStart; j <= JgridEnd; ++j){
+                        braster.cellCoords(i, j, xcell, ycell);
+                        std::cout << xcell << "," << ycell << std::endl;
+                        bool tf = boost::geometry::within(boost_point(xcell, ycell), srcPoly);
+                        //bool tf = isInTriangle(scrXrt[0], scrYrt[0], scrXrt[1], scrYrt[1], scrXrt[2], scrYrt[2], xcell, ycell);
+                        //if (!tf){
+                        //    tf = isInTriangle(scrXrt[0], scrYrt[0], scrXrt[2], scrYrt[2], scrXrt[3], scrYrt[3], xcell, ycell);
+                        //}
+                        if (tf){
+                            int rasterValue = braster.IJ(i, j);
+                            if (rasterValue != -1){
+                                tf = rch.getValues(rasterValue, rch_v, dummy);
+                                if (rch_v > 10.0){
+                                    itstrml->second.addSourceAreaCell(rasterValue, i, j);
+                                    Qtmp += (rch_v/365/1000)*cellArea;
+                                }
+                            }
+                        }
+                    }
+                }
+                if (Qtmp >= Qtarget){
+                    break;
+                }
+                Npxl = Npxl + 1.0;
+                count_iter++;
             }
         }
     }
@@ -369,7 +513,7 @@ namespace mantisServer{
                            int npxl, URFTYPE type, int riv,
                            double paramA, double paramB,
                            double paramC = 0, double paramD = 0);
-        bool calcSourceArea = false;
+        int calcSourceArea = false;
         std::string rch_map;
         std::map<int, Well> Wells;
     };

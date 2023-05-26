@@ -8,6 +8,12 @@
 #include <iomanip>
 #include <map>
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/algorithms/within.hpp>
+
+
 #if _USEHF > 0
 #include <highfive/H5DataSet.hpp>
 #include <highfive/H5DataSpace.hpp>
@@ -25,6 +31,16 @@ namespace mantisServer {
     const double sqrt2pi = std::sqrt(2*std::acos(-1));
     //! Set the pi as constant
     const double pi = std::atan(1)*4;
+
+    double deg2rad(double d){
+        return d*pi/180.0;
+    }
+    double cosd(double dang){
+        return std::cos(deg2rad(dang));
+    }
+    double sind(double dang){
+        return std::sin(deg2rad(dang));
+    }
 
     /*!
      * num2Padstr converts an integer to string with padding zeros
@@ -55,6 +71,9 @@ namespace mantisServer {
         std::cout << "];" << std::endl;
         std::cout << std::endl;
     }
+
+    typedef boost::geometry::model::d2::point_xy<double> boost_point;
+    typedef boost::geometry::model::polygon<boost_point> boost_poly;
 
     /**
 	 * @brief Enumeration for the type of the Unit Response function.
@@ -152,20 +171,35 @@ namespace mantisServer {
         return tokens.back();
     }
 
-    bool isInTriangle(double x1, double y1, double x2, double y2, double x3, double y3, double x, double y){
-        double det = (y2 - y3)*(x1 - x3) + (x3 - x2)*(y1 - y3);
-        if (std::abs(det) < 0.0000000001){
+    bool isInTriangle(double ax, double ay, double bx, double by, double cx, double cy, double px, double py){
+        // https://ceng2.ktu.edu.tr/~cakir/files/grafikler/Texture_Mapping.pdf page 47
+        double v0x = bx - ax; double v0y = by - ay;
+        double v1x = cx - ax; double v1y = cy - ay;
+        double v2x = px - ax; double v2y = py - ay;
+
+        double d00 = v0x*v0x + v0y*v0y;
+        double d01 = v0x*v1x + v0y*v1y;
+        double d11 = v1x*v1x + v1y*v1y;
+        double d20 = v2x*v0x + v2y*v0y;
+        double d21 = v2x*v1x + v2y*v1y;
+        double denom = d00*d11 - d01*d01;
+
+
+        if (std::abs(denom) < 0.0000000001){
             return false;
         }
-        double bc1 = (y2 - y3)*(x - x3) + (x3 - x2)*(y - y3);
-        double bc2 = (y3 - y1)*(x - x3) + (x1 - x3)*(y - y3);
-        bc1 = bc1/det;
-        bc2 = bc2/det;
-        double bc3 = 1 - bc1 - bc2;
-        if (bc1 >= 0 && bc1 <= 1 && bc2 >= 0 && bc2 <= 1 && bc3 >= 0 && bc3 <= 1)
+        double u = (d11*d20 - d01*d21)/denom;
+        double v = (d00*d21 - d01*d20)/denom;
+        double w = 1.0 - u - v;
+
+        if (u > -0.0001 && u < 1.0001 &&
+            v > -0.0001 && v < 1.0001 &&
+            w > -0.0001 && w < 1.0001){
             return true;
-        else
+        }
+        else{
             return false;
+        }
     }
 
     class numericRange{
