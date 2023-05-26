@@ -281,9 +281,9 @@ namespace mantisServer{
                 std::vector<double> cln_rch;
 
                 // Make a list of this streamline source area
-                for (std::map<int,cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
-                    cell_lin_ind.push_back(cellit->first);
-                    rchit->second.getValues(cellit->first, rch, clprc);
+                for (std::vector<cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
+                    cell_lin_ind.push_back(cellit->lin_ind);
+                    rchit->second.getValues(cellit->lin_ind, rch, clprc);
                     if (rch < scenario.minRecharge){
                         rch = scenario.minRecharge;
                     }

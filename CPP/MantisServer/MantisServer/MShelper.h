@@ -75,6 +75,7 @@ namespace mantisServer {
     typedef boost::geometry::model::d2::point_xy<double> boost_point;
     typedef boost::geometry::model::polygon<boost_point> boost_poly;
 
+
     /**
 	 * @brief Enumeration for the type of the Unit Response function.
 	 *
@@ -140,7 +141,13 @@ namespace mantisServer {
         }
         int row;
         int col;
+        int lin_ind;
+        double dist;
     };
+
+    bool compareCellByDistance(const cell &a, const cell &b){
+        return a.dist < b.dist;
+    }
 
     std::vector<cell> SearchPattern(){
         std::vector<cell> c;

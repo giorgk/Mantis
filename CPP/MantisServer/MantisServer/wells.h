@@ -35,8 +35,8 @@ namespace mantisServer{
 		*/
         void setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
                         double paramA, double paramB, double paramC = 0, double paramD = 0);
-        void addSourceAreaCell(int lin_ind, int row, int col);
-        void addSourceAreaCell(int lin_ind, cell c);
+        //void addSourceAreaCell(int lin_ind, int row, int col);
+        void addSourceAreaCell(cell c);
         void clearSourceArea();
 
         void print();
@@ -70,23 +70,29 @@ namespace mantisServer{
 
         int Npxl;
 
-        std::map<int,cell> SourceArea;
+        //std::map<int,cell> SourceArea;
+        std::vector<cell> SourceArea;
     };
 
     void Streamline::clearSourceArea() {
         SourceArea.clear();
     }
 
-    void Streamline::addSourceAreaCell(int lin_ind, int row, int col) {
-        addSourceAreaCell(lin_ind, cell(row,col));
-    }
+    //void Streamline::addSourceAreaCell(int lin_ind, int row, int col) {
+    //    addSourceAreaCell(lin_ind, cell(row,col));
+    //}
 
-    void Streamline::addSourceAreaCell(int lin_ind, cell c) {
-        std::map<int,cell>::iterator it;
-        it = SourceArea.find(lin_ind);
-        if (it == SourceArea.end()){
-            SourceArea.insert(std::pair<int, cell>(lin_ind, c));
+    void Streamline::addSourceAreaCell(cell c) {
+        for (unsigned int i = 0; i < SourceArea.size(); ++i){
+            if (SourceArea[i].lin_ind == c.lin_ind)
+                return;
         }
+        SourceArea.push_back(c);
+        //std::map<int,cell>::iterator it;
+        //it = SourceArea.find(lin_ind);
+        //if (it == SourceArea.end()){
+        //    SourceArea.insert(std::pair<int, cell>(lin_ind, c));
+        //}
     }
 
     void Streamline::print() {
@@ -204,7 +210,12 @@ namespace mantisServer{
                 itstrml->second.std = 0.0;
                 continue;
             }
-            itstrml->second.addSourceAreaCell(rasterValue, itstrml->second.row, itstrml->second.col);
+            cell c;
+            c.row = itstrml->second.row;
+            c.col = itstrml->second.col;
+            c.lin_ind = rasterValue;
+            c.dist = 0.0;
+            itstrml->second.addSourceAreaCell(c);
             if (debug){
                 std::cout << itstrml->first << std::endl;
             }
@@ -216,7 +227,7 @@ namespace mantisServer{
         bool tf;
         int rs, cs, rn, cn, rasterValue;
         double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
-        double SAxmin, SAxmax, SAymin, SAymax;
+        //double SAxmin, SAxmax, SAymin, SAymax;
         double x1, x2, x3, x4, y1, y2, y3, y4;
         double Qtmp, Qtarget, xtmp, ytmp, rch_v, dummy;
         braster.getGridLocation(Xorig, Yorig, cellSize);
@@ -229,6 +240,9 @@ namespace mantisServer{
         std::map<int, Streamline>::iterator itstrml;
         std::map< int, cell>::iterator itcell1, itcell2;
         std::vector<cell> sp = SearchPattern();
+
+        std::vector<boost_point> srcPnts;
+        boost_poly srcPoly;
 
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
@@ -257,28 +271,37 @@ namespace mantisServer{
             while (niter < 20){
                 rs = itstrml->second.row;
                 cs = itstrml->second.col;
+                double drs = static_cast<double>(rs);
+                double dcs = static_cast<double>(cs);
+
                 braster.cellCoords(rs, cs, xs, ys);
                 //xs = Xorig + cellSize/2 + cellSize*(cs);
                 // For the Y the row numbers start from the top
                 //ys =  Yorig + cellSize*dNr - cellSize/2 - cellSize*(rs);
                 side1 = cellSize + cellSize * (itstrml->second.Npxl+niter);
                 side2 = std::max(2.0*cellSize, side1/ratio/2.0);
-                SAxmin = -side2 - 25;
-                SAxmax =  side2 + 25;
-                SAymin = -side1/2 - 25;
-                SAymax =  side1/2 + 25;
+                double SAxmin = -side2 - 25;
+                double SAxmax =  side2 + 25;
+                double SAymin = -side1/2 - 25;
+                double SAymax =  side1/2 + 25;
 
                 x1 = (cosd * SAxmin + sind * SAymin) + xs;
                 y1 = (-sind * SAxmin + cosd * SAymin) + ys;
+                srcPnts.push_back(boost_point(x1, y1));
 
                 x2 = (cosd * SAxmin + sind * SAymax) + xs;
                 y2 = (-sind * SAxmin + cosd * SAymax) + ys;
+                srcPnts.push_back(boost_point(x2, y2));
 
                 x3 = (cosd * SAxmax + sind * SAymax) + xs;
                 y3 = (-sind * SAxmax + cosd * SAymax) + ys;
+                srcPnts.push_back(boost_point(x3, y3));
 
                 x4 = (cosd * SAxmax + sind * SAymin) + xs;
                 y4 = (-sind * SAxmax + cosd * SAymin) + ys;
+                srcPnts.push_back(boost_point(x4, y4));
+                boost::geometry::assign_points(srcPoly, srcPnts);
+                boost::geometry::correct(srcPoly);
 
                 if (debug){
                     std::cout << "pp=[" << x1 << " " << y1 << "; " << x2 << " " << y2 << "; "
@@ -304,19 +327,26 @@ namespace mantisServer{
                         }
 
                         // Check if the point is in the source area by testing the barycentric coordinates
-                        tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                        tf = boost::geometry::within(boost_point(xtmp, ytmp), srcPoly);
                         if (!tf){
-                            tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
-                            if (!tf){
-                                continue;
-                            }
+                            continue;
                         }
+                        //tf = isInTriangle(x1, y1, x2, y2, x3, y3, xtmp, ytmp);
+                        //if (!tf){
+                        //    tf = isInTriangle(x1, y1, x3, y3, x4, y4, xtmp, ytmp);
+                        //    if (!tf){
+                        //        continue;
+                        //    }
+                        //}
                         rasterValue = braster.IJ(itcell1->second.row, itcell1->second.col);
                         if (rasterValue != -1){
                             tf = rch.getValues(rasterValue, rch_v, dummy);
                             if (tf){
                                 if (rch_v > 10.0){
-                                    itstrml->second.addSourceAreaCell(rasterValue,itcell1->second);
+                                    itcell1->second.lin_ind = rasterValue;
+                                    itcell1->second.dist = (drs - static_cast<double>(itcell1->second.row))*(drs - static_cast<double>(itcell1->second.row)) +
+                                                           (dcs - static_cast<double>(itcell1->second.col))*(dcs - static_cast<double>(itcell1->second.col));
+                                    itstrml->second.addSourceAreaCell(itcell1->second);
                                     Qtmp += (rch_v/365/1000)*cellArea;
                                 }
                             }
@@ -413,11 +443,11 @@ namespace mantisServer{
             }
             while (count_iter < 20){
                 double lngth = cellSize + cellSize * Npxl;
-                double wdth = std::max(lngth/ratio/2.0, 25.0);
+                double wdth = std::max(lngth/ratio/1.95, cellSize/1.95);
                 double SAxmin = -wdth;
                 double SAxmax =  wdth;
-                double SAymin = -lngth/2.0 - cellSize/2.0;
-                double SAymax =  lngth/2.0 + cellSize/2.0;
+                double SAymin = -lngth/1.95 - cellSize/1.95;
+                double SAymax =  lngth/1.95 + cellSize/1.95;
                 srcX.clear(); srcY.clear(); srcXrt.clear(), srcYrt.clear(); srcPnts.clear();
                 srcX.push_back(SAxmin); srcY.push_back(SAymin);
                 srcX.push_back(SAxmin); srcY.push_back(SAymax);
@@ -439,8 +469,8 @@ namespace mantisServer{
                 boost::geometry::assign_points(srcPoly, srcPnts);
                 boost::geometry::correct(srcPoly);
 
-                std::cout << "srcX = [" << srcXrt[0] << "," << srcXrt[1] << "," << srcXrt[2] << "," << srcXrt[3] << "]" << std::endl;
-                std::cout << "scrY = [" << srcYrt[0] << "," << srcYrt[1] << "," << srcYrt[2] << "," << srcYrt[3] << "]" << std::endl;
+                //std::cout << "srcX = [" << srcXrt[0] << "," << srcXrt[1] << "," << srcXrt[2] << "," << srcXrt[3] << "]" << std::endl;
+                //std::cout << "scrY = [" << srcYrt[0] << "," << srcYrt[1] << "," << srcYrt[2] << "," << srcYrt[3] << "]" << std::endl;
 
                 int dJ = static_cast<int>(std::ceil((Xcntr - minSrcXrt)/cellSize));
                 int dI = static_cast<int>(std::ceil((Ycntr - minSrcYrt)/cellSize));
@@ -449,26 +479,44 @@ namespace mantisServer{
                 int IgridStart = std::max(1, row - dI);
                 int IgridEnd = std::min(Ncol, row + dI);
 
+                //Debug only
+                int cnt_cells = 0;
+                bool done_that = false;
+
                 for (int i = IgridStart; i <= IgridEnd; ++i){
                     for (int j = JgridStart; j <= JgridEnd; ++j){
                         braster.cellCoords(i, j, xcell, ycell);
-                        std::cout << xcell << "," << ycell << std::endl;
+                        //std::cout << xcell << "," << ycell << std::endl;
                         bool tf = boost::geometry::within(boost_point(xcell, ycell), srcPoly);
-                        //bool tf = isInTriangle(scrXrt[0], scrYrt[0], scrXrt[1], scrYrt[1], scrXrt[2], scrYrt[2], xcell, ycell);
-                        //if (!tf){
-                        //    tf = isInTriangle(scrXrt[0], scrYrt[0], scrXrt[2], scrYrt[2], scrXrt[3], scrYrt[3], xcell, ycell);
-                        //}
+
                         if (tf){
                             int rasterValue = braster.IJ(i, j);
                             if (rasterValue != -1){
                                 tf = rch.getValues(rasterValue, rch_v, dummy);
                                 if (rch_v > 10.0){
-                                    itstrml->second.addSourceAreaCell(rasterValue, i, j);
+                                    cell c;
+                                    c.row = i;
+                                    c.col = j;
+                                    c.lin_ind = rasterValue;
+                                    c.dist = static_cast<double>((i-row)*(i-row) + (j-col)*(j-col));
+                                    itstrml->second.addSourceAreaCell(c);
                                     Qtmp += (rch_v/365/1000)*cellArea;
+
+                                    // Remove these lines
+                                    cnt_cells++;
+                                    if (cnt_cells > 3){
+                                        done_that = true;
+                                    }
                                 }
                             }
                         }
+                        // Remove these lines
+                        if (done_that)
+                            break;
                     }
+                    // Remove these lines
+                    if (done_that)
+                        break;
                 }
                 if (Qtmp >= Qtarget){
                     break;
@@ -476,6 +524,7 @@ namespace mantisServer{
                 Npxl = Npxl + 1.0;
                 count_iter++;
             }
+            std::sort(itstrml->second.SourceArea.begin(), itstrml->second.SourceArea.end(), compareCellByDistance);
         }
     }
 
