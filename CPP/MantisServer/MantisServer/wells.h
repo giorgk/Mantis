@@ -755,7 +755,7 @@ namespace mantisServer{
                     inp >> regionCode;
                     tf = Bmaps.addwell(regionCode,setName,Eid);
                     if (!tf){
-                        std::cout << "I cannot find a region with name [ " << regionCode << " ]" << std::endl;
+                        std::cout << "I cannot find a modelArea with name [ " << regionCode << " ]" << std::endl;
                         return false;
                     }
                 }

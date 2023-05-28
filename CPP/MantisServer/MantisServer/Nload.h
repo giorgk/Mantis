@@ -15,7 +15,7 @@ namespace mantisServer{
 	 *
 	 */
     enum class LoadType {
-        TGL,
+        GTL,
         RASTER
     };
 
@@ -309,7 +309,7 @@ namespace mantisServer{
         double value = 0.0;
         switch (loadType)
         {
-            case mantisServer::LoadType::TGL:// GNLM:
+            case mantisServer::LoadType::GTL:// GNLM:
             {
                 std::cout << "You can't call this method for GNLM loading type" << std::endl;
                 break;
@@ -671,7 +671,7 @@ namespace mantisServer{
 
         std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
         std::map<int, double>::iterator it;
-        if (loadType == LoadType::TGL*//*SWAT*//*) {
+        if (loadType == LoadType::GTL*//*SWAT*//*) {
             for (unsigned int i = 0; i < CVindex.size(); ++i){
                 int lucode = getLU(CVindex[i], 0);
                 it = scenario.LoadReductionMap.find(lucode);
@@ -690,7 +690,7 @@ namespace mantisServer{
 
             //std::cout << "a=" << adoptionCoeff;
 
-            if (loadType == LoadType::TGL*//*GNLM*//*) {
+            if (loadType == LoadType::GTL*//*GNLM*//*) {
                 double lf = 0;
                 if (CVindex.size() == 0){
                     LF[iyr] = 0;
@@ -754,7 +754,7 @@ namespace mantisServer{
                     }
                 }
             }
-            else if (loadType == LoadType::TGL*//*SWAT*//*) {
+            else if (loadType == LoadType::GTL*//*SWAT*//*) {
                 double lf = 0;
                 double NvalidCells = 0;
                 for (unsigned int j = 0; j < CVindex.size(); ++j){
@@ -848,8 +848,8 @@ namespace mantisServer{
                 NLoad NL;
                 NLoadMaps.insert(std::pair<std::string, NLoad>(Lname,NL));
                 bool tf;
-                if (Ltype.compare("TGL") == 0){
-                    tf = NLoadMaps[Lname].readData(Lfile, LoadType::TGL ,loadunit, xm);
+                if (Ltype.compare("GTL") == 0){
+                    tf = NLoadMaps[Lname].readData(Lfile, LoadType::GTL , loadunit, xm);
                 }
                 //else if (Ltype.compare("RASTER") == 0){
                 //    bool tf = NLoadMaps[Lname].readData(Lfile, LoadType::RASTER, loadunit, options.Npixels);

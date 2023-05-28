@@ -1,13 +1,13 @@
 # -----------------
 # GUI Scenario Options
 # -----------------
-region Modesto
+modelArea CentralValley
 bMap Townships
 Nregions 1
 24M06S12E 
 #39M02S09E
 #39M02S10E
-flowScen Modesto
+flowScen C2VSIM_III_03
 wellType VI
 unsatScen C2VSIM_SPRING_2000
 unsatWC 0.01
@@ -29,8 +29,9 @@ Ncrops 1
 # maxConc 250
 # constRed 1.0
 # LoadTransitionName GNLM
-# LoadTransitionStart = 2005;
-# LoadTransitionEnd = 2015;
+# LoadTransitionStart = 2005
+# LoadTransitionEnd = 2015
+# startSimYear = 1945
 
 # -----------------
 # Filter Options

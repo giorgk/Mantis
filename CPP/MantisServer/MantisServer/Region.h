@@ -145,7 +145,7 @@ namespace mantisServer{
         // Test for background map
         tf = Bmaps.hasMap(scenario.mapID);
         if (!tf){
-            outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+            outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
             outmsg += "does not have the map [" + scenario.mapID + "]";
             return false;
         }
@@ -160,7 +160,7 @@ namespace mantisServer{
         //Test for the wells under the selected flow scenario
         tf = FWC.hasFlowScenario(scenario.flowWellScen);
         if (!tf){
-            outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+            outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
             outmsg += "does not have the flow Scenario [" + scenario.flowScen + "]";
             return false;
         }
@@ -184,7 +184,7 @@ namespace mantisServer{
         {// Loading validation
             tf = NLL.hasLoading(scenario.loadScen);
             if (!tf){
-                outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+                outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
                 outmsg += "does not have the Loading Scenario [" + scenario.loadScen + "]";
                 return false;
             }
@@ -194,7 +194,7 @@ namespace mantisServer{
                 if (scenario.LoadTransitionName.compare("NONE") != 0){
                     tf = NLL.hasLoading(scenario.LoadTransitionName);
                     if (!tf){
-                        outmsg += "0 ERROR: The Region [" + scenario.region + "] ";
+                        outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
                         outmsg += "does not have the Loading Scenario [" + scenario.LoadTransitionName + "]";
                         return false;
                     }
@@ -270,8 +270,8 @@ namespace mantisServer{
 
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++ strmlit){
 
-                // If the streamline has 0 mean and standard deviation then we assume zero loading
-                if (strmlit->second.mu < 0.000001  || strmlit->second.std < 0.000001){
+                // If the streamline has 0 mean then we assume zero loading
+                if (std::abs(strmlit->second.mu) < 0.000001 || strmlit->second.inRiver){
                     continue;
                 }
 

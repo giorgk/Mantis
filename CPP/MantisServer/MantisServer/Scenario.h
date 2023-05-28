@@ -23,7 +23,7 @@ namespace mantisServer {
         bool parse_incoming_msg(std::string &msg, std::string &outmsg);
 
 
-        std::string region;
+        std::string modelArea;
 
         //! mapID is the id of selected background map.
         std::string mapID;
@@ -150,7 +150,7 @@ namespace mantisServer {
      *
      */
     void Scenario::clear() {
-        region = "";
+        modelArea = "";
         mapID = "";
         flowScen = "";
         loadScen = "";
@@ -210,8 +210,8 @@ namespace mantisServer {
             counter++;
             ss >> test;
 
-            if (test == "region") {
-                ss >> region;
+            if (test == "modelArea") {
+                ss >> modelArea;
                 continue;
             }
             if (test == "bMap") {
@@ -292,6 +292,10 @@ namespace mantisServer {
             }
             if (test == "minRch") {
                 ss >> minRecharge;
+                continue;
+            }
+            if (test == "startSimYear") {
+                ss >> startSimulationYear;
                 continue;
             }
             if (test == "endSimYear") {

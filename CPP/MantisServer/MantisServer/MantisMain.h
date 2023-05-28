@@ -341,7 +341,7 @@ namespace mantisServer {
 		Scenario Name: This is a code name that is printed in the files that are read by readWellSet and readURFs
 		MapID: The id of the background map
 		Nregions: The number of regions to include in the simulation
-		Region ids: These are the region ids. The message should containt exactly Nregions ids.
+		Region ids: These are the modelArea ids. The message should containt exactly Nregions ids.
 		Ncategories: The number of crops to reduce the loading. 
 		Then Repeat Ncategories times the following line
 		CropID LoadPercentage (Integer, double)
@@ -516,10 +516,12 @@ namespace mantisServer {
     }
 
 	bool Mantis::validate_msg(std::string& outmsg) {
-		if ((scenario.endSimulationYear <= 2020) || (scenario.endSimulationYear > 2500))
-			scenario.endSimulationYear = 2100;
-		if (scenario.startReductionYear < 1945 || scenario.startReductionYear > scenario.endSimulationYear)
-			scenario.startReductionYear = 2020;
+		if ((scenario.endSimulationYear <= scenario.startSimulationYear) || (scenario.endSimulationYear > 2500)){
+            scenario.startSimulationYear = 1945;
+            scenario.endSimulationYear = 2100;
+        }
+		if (scenario.startReductionYear < scenario.startSimulationYear || scenario.startReductionYear > scenario.endSimulationYear)
+			scenario.startReductionYear = scenario.endSimulationYear; //This desables the reduction
 		if (scenario.startReductionYear >= scenario.endReductionYear)
             scenario.endReductionYear = scenario.startReductionYear + 1;
 		if (scenario.endReductionYear > scenario.endSimulationYear)
@@ -527,10 +529,10 @@ namespace mantisServer {
         bool tf;
 
         {// Validate Region
-            std::map<std::string, Region>::iterator regionit = RegionList.find(scenario.region);
+            std::map<std::string, Region>::iterator regionit = RegionList.find(scenario.modelArea);
             if (regionit == RegionList.end()){
                 outmsg += "0 ERROR: The Region [";
-                outmsg += scenario.region;
+                outmsg += scenario.modelArea;
                 outmsg += "] could not be found";
                 return false;
             }
@@ -1060,7 +1062,7 @@ namespace mantisServer {
 				std::map<std::string, Polyregion> RegionMap;
 				for (int irg = 0; irg < Nregions; ++irg) {
 					std::string RegionKey;
-					//int Npoly; //number of polygons for this region
+					//int Npoly; //number of polygons for this modelArea
 
 					{// Get the Key for the Subregion of the background map and the number of polygons it consists from
 						std::getline(MAPSdatafile, line);
@@ -1309,7 +1311,7 @@ namespace mantisServer {
                             }
                         }
                         else{
-                            std::cout << "Cannot find region " <<  regionCode << " in background map " << backgroundMapNames[j] << std::endl;
+                            std::cout << "Cannot find modelArea " <<  regionCode << " in background map " << backgroundMapNames[j] << std::endl;
                         }
                     }
                     else{
@@ -1916,7 +1918,7 @@ namespace mantisServer {
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
         std::map<std::string, Region>::iterator regionit;
-        regionit = RegionList.find(scenario.region);
+        regionit = RegionList.find(scenario.modelArea);
         if (regionit != RegionList.end()){
             int nBTC = 0;
             regionit->second.runSimulation(id, options.nThreads, scenario, replymsg, nBTC);
@@ -1977,7 +1979,7 @@ namespace mantisServer {
 				continue;
 			}
 
-			// Number of wells in the selected region
+			// Number of wells in the selected modelArea
 			int Nwells = static_cast<int>(wellscenit->second.size());
 			if (Nwells == 0)
 				continue;
@@ -1993,7 +1995,7 @@ namespace mantisServer {
 			std::cout << "Thread " << id << " will simulate from [" << startWell << " to " << endWell << ")" << std::endl;
 			int wellid;
 			
-			for (int iw = startWell; iw < endWell; ++iw) { //---------LOOP THROUGH the wells of the region------
+			for (int iw = startWell; iw < endWell; ++iw) { //---------LOOP THROUGH the wells of the modelArea------
 				wellid = wellscenit->second[iw];
 				//std::cout << wellid << std::endl;
 				wellit = wellscenNameit->second.Wells.find(wellid);
