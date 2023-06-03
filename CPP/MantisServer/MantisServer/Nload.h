@@ -627,16 +627,21 @@ namespace mantisServer{
                         lf += Nbase*(1 - clean_prc[j]);
                     }
                 }
+            }
+            if (NvalidCells < 0.00001){
+                out = false;
+                return out;
+            }
+            else if (std::abs(NvalidCells - 1) < 0.000001){
+                LF[iyr] = lf;
+            }
+            else if (NvalidCells > 1){
+                LF[iyr] = lf/NvalidCells;
+            }
 
-                if (NvalidCells < 0.00001){
-                    out = false;
-                    return out;
-                }
-                else if (std::abs(NvalidCells - 1) < 0.000001){
-                    LF[iyr] = lf;
-                }
-                else if (NvalidCells > 1){
-                    LF[iyr] = lf/NvalidCells;
+            if (scenario.maxConc > 0){
+                if (LF[iyr] > scenario.maxConc){
+                    LF[iyr] = scenario.maxConc;
                 }
             }
         }

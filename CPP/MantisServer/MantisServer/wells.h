@@ -138,10 +138,10 @@ namespace mantisServer{
                            double paramA, double paramB, double paramC = 0, double paramD = 0);
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
 
-        void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, bool debug = false);
+        void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateSourceAreaType0(BackgroundRaster &braster, bool debug = false);
         void calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
-        void calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
+        void calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateWeights();
         bool bsimulateThis(Scenario &scenario);
 
@@ -183,7 +183,7 @@ namespace mantisServer{
         angle = a;
     }
 
-    void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, bool debug){
+    void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, std::ofstream &WSAstrm, bool debug, bool printWSA){
         if (doCalc == 0){
             calculateSourceAreaType0(braster, debug);
         }
@@ -191,11 +191,12 @@ namespace mantisServer{
             calculateSourceAreaType1(braster, rch, debug);
         }
         else if (doCalc == 2){
-            calculateSourceAreaType2(braster, rch, debug);
+            calculateSourceAreaType2(braster, rch, WSAstrm, debug, printWSA);
         }
     }
 
     void Well::calculateSourceAreaType0(BackgroundRaster &braster, bool debug){
+
         std::map<int, Streamline>::iterator itstrml;
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
             int rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
@@ -218,6 +219,22 @@ namespace mantisServer{
             itstrml->second.addSourceAreaCell(c);
             if (debug){
                 std::cout << itstrml->first << std::endl;
+            }
+
+            // This is used only for debugging
+            for (int i = -1; i < 2; ++i){
+                for (int j = -1; j < 2; ++j){
+                    cell tmp;
+                    tmp.row = itstrml->second.row + i;
+                    tmp.col = itstrml->second.col + j;
+                    int rval = braster.IJ(tmp.row, tmp.col);
+                    if (rval == -1){
+                        continue;
+                    }
+                    tmp.lin_ind = rval;
+                    tmp.dist = 0.0;
+                    itstrml->second.addSourceAreaCell(tmp);
+                }
             }
         }
 
@@ -401,7 +418,7 @@ namespace mantisServer{
         }
     }
 
-    void Well::calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, bool debug){
+    void Well::calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug, bool printWSA){
         std::map<int, Streamline>::iterator itstrml;
         double Xcntr, Ycntr, xcell, ycell, rch_v, dummy;
         //double SAxmin, SAxmax, SAymin, SAymax, minSrcXrt, minSrcYrt;
@@ -418,14 +435,27 @@ namespace mantisServer{
         //Minv11 = Dinv*M22; Minv12 = -Dinv*M12;
         //Minv21 = -Dinv*M21; Minv22 = Dinv*M11;
         std::vector<double> srcX, srcY, srcXrt, srcYrt;
-        std::vector<boost_point> srcPnts;
-        boost_poly srcPoly;
+        //std::vector<boost_point> srcPnts;
+        //boost_poly srcPoly;
 
+        //int maxcells = 0;
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
-            if (itstrml->second.inRiver){
+            if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
                 itstrml->second.mu = 0.0;
                 itstrml->second.std = 0.0;
+                //int rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
+                //if (rasterValue >= 0){
+                //    cell c;
+                //    c.row = itstrml->second.row;
+                //    c.col = itstrml->second.col;
+                //    c.lin_ind = rasterValue;
+                //    c.dist = 0.0;
+                //    itstrml->second.addSourceAreaCell(c);
+                //    if (itstrml->second.SourceArea.size() > maxcells){
+                //        maxcells = itstrml->second.SourceArea.size();
+                //    }
+                //}
                 continue;
             }
 
@@ -441,14 +471,16 @@ namespace mantisServer{
             if (Npxl == 1){
                 Npxl = 0;
             }
-            while (count_iter < 20){
+            while (count_iter < 50){
+                itstrml->second.SourceArea.clear();
+                Qtmp = 0.0;
                 double lngth = cellSize + cellSize * Npxl;
                 double wdth = std::max(lngth/ratio/1.95, cellSize/1.95);
                 double SAxmin = -wdth;
                 double SAxmax =  wdth;
                 double SAymin = -lngth/1.95 - cellSize/1.95;
                 double SAymax =  lngth/1.95 + cellSize/1.95;
-                srcX.clear(); srcY.clear(); srcXrt.clear(), srcYrt.clear(); srcPnts.clear();
+                srcX.clear(); srcY.clear(); srcXrt.clear(), srcYrt.clear(); //srcPnts.clear();
                 srcX.push_back(SAxmin); srcY.push_back(SAymin);
                 srcX.push_back(SAxmin); srcY.push_back(SAymax);
                 srcX.push_back(SAxmax); srcY.push_back(SAymax);
@@ -463,11 +495,11 @@ namespace mantisServer{
                     if (srcYrt[i] < minSrcYrt){
                         minSrcYrt = srcYrt[i];
                     }
-                    srcPnts.push_back(boost_point(srcXrt[i], srcYrt[i]));
+                    //srcPnts.push_back(boost_point(srcXrt[i], srcYrt[i]));
 
                 }
-                boost::geometry::assign_points(srcPoly, srcPnts);
-                boost::geometry::correct(srcPoly);
+                //boost::geometry::assign_points(srcPoly, srcPnts);
+                //boost::geometry::correct(srcPoly);
 
                 //std::cout << "srcX = [" << srcXrt[0] << "," << srcXrt[1] << "," << srcXrt[2] << "," << srcXrt[3] << "]" << std::endl;
                 //std::cout << "scrY = [" << srcYrt[0] << "," << srcYrt[1] << "," << srcYrt[2] << "," << srcYrt[3] << "]" << std::endl;
@@ -477,7 +509,7 @@ namespace mantisServer{
                 int JgridStart = std::max(1, col - dJ);
                 int JgridEnd = std::min(Ncol, col + dJ);
                 int IgridStart = std::max(1, row - dI);
-                int IgridEnd = std::min(Ncol, row + dI);
+                int IgridEnd = std::min(Nrow, row + dI);
 
                 //Debug only
                 int cnt_cells = 0;
@@ -487,7 +519,14 @@ namespace mantisServer{
                     for (int j = JgridStart; j <= JgridEnd; ++j){
                         braster.cellCoords(i, j, xcell, ycell);
                         //std::cout << xcell << "," << ycell << std::endl;
-                        bool tf = boost::geometry::within(boost_point(xcell, ycell), srcPoly);
+                        //bool tf = boost::geometry::within(boost_point(xcell, ycell), srcPoly);
+                        bool tf = isInTriangle(srcXrt[0], srcYrt[0], srcXrt[1], srcYrt[1], srcXrt[2], srcYrt[2], xcell, ycell);
+                        if (!tf){
+                            tf = isInTriangle(srcXrt[0], srcYrt[0], srcXrt[2], srcYrt[2], srcXrt[3], srcYrt[3], xcell, ycell);
+                            if (!tf){
+                                continue;
+                            }
+                        }
 
                         if (tf){
                             int rasterValue = braster.IJ(i, j);
@@ -503,10 +542,10 @@ namespace mantisServer{
                                     Qtmp += (rch_v/365/1000)*cellArea;
 
                                     // Remove these lines
-                                    cnt_cells++;
-                                    if (cnt_cells > 3){
-                                        done_that = true;
-                                    }
+                                    //cnt_cells++;
+                                    //if (cnt_cells > 3){
+                                    //    done_that = true;
+                                    //}
                                 }
                             }
                         }
@@ -523,8 +562,16 @@ namespace mantisServer{
                 }
                 Npxl = Npxl + 1.0;
                 count_iter++;
+
             }
             std::sort(itstrml->second.SourceArea.begin(), itstrml->second.SourceArea.end(), compareCellByDistance);
+            if (printWSA){
+                WSAstrm << itstrml->first << " " << std::setprecision(2) << std::fixed
+                        << srcXrt[0] << " " << srcYrt[0] << " "
+                        << srcXrt[1] << " " << srcYrt[1] << " "
+                        << srcXrt[2] << " " << srcYrt[2] << " "
+                        << srcXrt[3] << " " << srcYrt[3] << std::endl;
+            }
         }
     }
 
@@ -639,18 +686,34 @@ namespace mantisServer{
             }
             int count = 0;
             bool dbg = false;
+            bool printWSA = false;
+            std::string WSAfn = flowit->first + "WSA.dat";
+            std::ofstream WSAstrm;
+            if (flowit->second.calcSourceArea == 2 && printWSA){
+                WSAstrm.open(WSAfn.c_str());
+            }
+
             for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
                 //std::cout << wellit->first << std::endl;
-                //if (wellit->first == 2893){
+                //if (wellit->first == 9341){
                 //    dbg = true;
                 //    std::cout << "Stop here" << std::endl;
                 //}
-                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, dbg);
+                //if (count == 5851){
+                //    std::cout << "Stop here" << std::endl;
+                //}
+                if (flowit->second.calcSourceArea == 2 && printWSA){
+                    WSAstrm << -9 << " " << wellit->first <<  " 0 0 0 0 0 0 0" << std::endl;
+                }
+                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, WSAstrm, dbg, printWSA);
                 //dbg = false;
                 count++;
                 if (count % 1000 == 0){
                     std::cout << "----" << count << "----" << std::endl;
                 }
+            }
+            if (flowit->second.calcSourceArea == 2 && printWSA){
+                WSAstrm.close();
             }
         }
 

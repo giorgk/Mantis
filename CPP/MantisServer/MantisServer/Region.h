@@ -289,6 +289,9 @@ namespace mantisServer{
                     }
                     rch_val.push_back(rch);
                     cln_rch.push_back(clprc);
+                    if (rch_val.size() > scenario.maxSourceCells){
+                        break;
+                    }
                 }
 
                 //Build the main load

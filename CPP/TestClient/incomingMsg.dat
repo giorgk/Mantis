@@ -2,9 +2,10 @@
 # GUI Scenario Options
 # -----------------
 modelArea CentralValley
-bMap Townships
+bMap Basins
 Nregions 1
-24M06S12E 
+TulareLakeBasin
+#24M06S12E 
 #39M02S09E
 #39M02S10E
 flowScen C2VSIM_III_03
@@ -16,9 +17,9 @@ endSimYear 2100
 # -----------------
 # loading options
 # -----------------
-loadScen SWAT1
-startRed 2020
-endRed 2030
+loadScen GNLM
+startRed 2025
+endRed 2035
 Ncrops 1
 -9 0.85
 
@@ -27,11 +28,12 @@ Ncrops 1
 # -----------------
 # minRch 10
 # maxConc 250
+maxSourceCells 200
 # constRed 1.0
 # LoadTransitionName GNLM
-# LoadTransitionStart = 2005
-# LoadTransitionEnd = 2015
-# startSimYear = 1945
+# LoadTransitionStart 2005
+# LoadTransitionEnd 2015
+# startSimYear 1925
 
 # -----------------
 # Filter Options
