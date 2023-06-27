@@ -610,6 +610,7 @@ namespace mantisServer{
                            double paramA, double paramB,
                            double paramC = 0, double paramD = 0);
         int calcSourceArea = false;
+        int printSourceArea = false;
         std::string rch_map;
         std::map<int, Well> Wells;
     };
@@ -686,10 +687,9 @@ namespace mantisServer{
             }
             int count = 0;
             bool dbg = false;
-            bool printWSA = false;
             std::string WSAfn = flowit->first + "WSA.dat";
             std::ofstream WSAstrm;
-            if (flowit->second.calcSourceArea == 2 && printWSA){
+            if (flowit->second.calcSourceArea == 2 && flowit->second.printSourceArea == 1){
                 WSAstrm.open(WSAfn.c_str());
             }
 
@@ -702,17 +702,17 @@ namespace mantisServer{
                 //if (count == 5851){
                 //    std::cout << "Stop here" << std::endl;
                 //}
-                if (flowit->second.calcSourceArea == 2 && printWSA){
+                if (flowit->second.calcSourceArea == 2 && flowit->second.printSourceArea == 1){
                     WSAstrm << -9 << " " << wellit->first <<  " 0 0 0 0 0 0 0" << std::endl;
                 }
-                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, WSAstrm, dbg, printWSA);
+                wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, WSAstrm, dbg, flowit->second.printSourceArea);
                 //dbg = false;
                 count++;
                 if (count % 1000 == 0){
                     std::cout << "----" << count << "----" << std::endl;
                 }
             }
-            if (flowit->second.calcSourceArea == 2 && printWSA){
+            if (flowit->second.calcSourceArea == 2 && flowit->second.printSourceArea == 1){
                 WSAstrm.close();
             }
         }
@@ -782,7 +782,7 @@ namespace mantisServer{
         }
         else{
             std::cout << "Reading " << filename << std::endl;
-            int Nwells, Eid, calcSource;
+            int Nwells, Eid, calcSource, printSource;
             std::string setName, line, rch_scen;
             WellList wList;
             {
@@ -792,7 +792,9 @@ namespace mantisServer{
                 inp >> setName;
                 inp >> rch_scen;
                 inp >> calcSource;
+                inp >> printSource;
                 wList.calcSourceArea = calcSource;
+                wList.printSourceArea = printSource;
                 wList.rch_map = rch_scen;
             }
 
