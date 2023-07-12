@@ -180,6 +180,9 @@ namespace mantisServer{
             outmsg += "0 ERROR: The Unsat [" + scenario.unsatScenario + "]  could not be found";
             return false;
         }
+        else{
+            scenario.unsatScenarioID = Unsat.ScenarioIndex(scenario.unsatScenario);
+        }
 
         {// Loading validation
             tf = NLL.hasLoading(scenario.loadScen);
@@ -251,6 +254,7 @@ namespace mantisServer{
         std::map<int, Well>::iterator wellit;
         std::map<int, Streamline>::iterator strmlit;
         std::map<std::string, NLoad>::iterator mainLoadit, preLoadit;
+
         mainLoadit = NLL.NLoadMaps.find(scenario.loadScen);
         if (scenario.buseLoadTransition){
             preLoadit = NLL.NLoadMaps.find(scenario.LoadTransitionName);
@@ -279,6 +283,7 @@ namespace mantisServer{
                 std::vector<int> cell_lin_ind;
                 std::vector<double> rch_val;
                 std::vector<double> cln_rch;
+                std::vector<int> tauOffset;
 
                 // Make a list of this streamline source area
                 for (std::vector<cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
@@ -289,17 +294,26 @@ namespace mantisServer{
                     }
                     rch_val.push_back(rch);
                     cln_rch.push_back(clprc);
-                    if (rch_val.size() > scenario.maxSourceCells){
+
+                    double tau = Unsat.getValue(scenario.unsatScenarioID,cellit->lin_ind);
+                    tau = tau * scenario.unsatZoneMobileWaterContent;
+                    tau = std::ceil(tau);
+                    if (tau < 0){
+                        tau = 0.0;
+                    }
+                    tauOffset.push_back(static_cast<int>(tau));
+
+                    if (rch_val.size() >= scenario.maxSourceCells){
                         break;
                     }
                 }
 
                 //Build the main load
                 std::vector<double> mainload(NsimulationYears, 0);
-                mainLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,mainload,scenario);
+                mainLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,tauOffset,mainload,scenario);
                 if (scenario.buseLoadTransition){
                     std::vector<double> preload(NsimulationYears, 0);
-                    preLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,preload,scenario);
+                    preLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,tauOffset,preload,scenario);
                     // blend the two
                     double dYear = 0;
                     for (int i = 0; i < NsimulationYears; ++i){

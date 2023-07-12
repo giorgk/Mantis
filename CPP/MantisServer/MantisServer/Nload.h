@@ -91,11 +91,13 @@ namespace mantisServer{
         bool buildLoadingFunction(std::vector<int>& CVindex,
                                   std::vector<double> &rch,
                                   std::vector<double> &clean_prc,
+                                  std::vector<int> &tauOffset,
                                   std::vector<double>& LF,
                                   Scenario& scenario);
         bool buildLoadingFromRaster(std::vector<int>& CVindex,
                                     std::vector<double> &rch,
                                     std::vector<double> &clean_prc,
+                                    std::vector<int> &tauOffset,
                                     std::vector<double>& LF,
                                     Scenario& scenario);
 
@@ -103,6 +105,7 @@ namespace mantisServer{
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                         std::vector<double> &rch,
                                         std::vector<double> &clean_prc,
+                                        std::vector<int> &tauOffset,
                                         std::vector<double>& LF,
                                         Scenario& scenario);
 
@@ -483,6 +486,7 @@ namespace mantisServer{
     bool NLoad::buildLoadingFromRaster(std::vector<int>& CVindex,
                                        std::vector<double> &rch,
                                        std::vector<double> &clean_prc,
+                                       std::vector<int> &tauOffset,
                                        std::vector<double>& LF,
                                        Scenario& scenario) {
 
@@ -542,6 +546,7 @@ namespace mantisServer{
     bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                            std::vector<double> &rch,
                                            std::vector<double> &clean_prc,
+                                           std::vector<int> &tauOffset,
                                            std::vector<double>& LF,
                                            Scenario& scenario){
         bool out = false;
@@ -560,6 +565,7 @@ namespace mantisServer{
         double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
         double adoptionCoeff = 0;
         std::map<int, double>::iterator it;
+        int lfidx;
 
         for (int iyr = 0; iyr < Nyears; iyr++){
             double lf = 0;
@@ -573,8 +579,11 @@ namespace mantisServer{
                 adoptionCoeff = 0;
             }
 
-            double NvalidCells = 0;
             for (unsigned int j = 0; j < cellIndex.size(); ++j){
+                lfidx = iyr + tauOffset[j];
+                if (lfidx >= Nyears){
+                    continue;
+                }
                 double rs = 1.0;
                 double re = 1.0;
                 if (adoptionCoeff > 0){
@@ -603,7 +612,7 @@ namespace mantisServer{
                 int nload_idx = Nidx[cellIndex[j]];
                 if (nload_idx < 0)
                     continue;
-                NvalidCells = NvalidCells + 1.0;
+
                 double N1 = 0, N2 = 0, u = 0;
                 getNload(nload_idx, iyr + scenario.startSimulationYear, N1, N2, u);
                 double Nbase = N1* (1 - u) + N2* u;
@@ -612,33 +621,27 @@ namespace mantisServer{
                     double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
                     if (loadUnits == LoadUnits::MASS){
                         tmpLoad = tmpLoad*100 / rch[j];
-                        lf += tmpLoad;
+                        lf = tmpLoad;
                     }
                     else{
-                        lf += tmpLoad*(1 - clean_prc[j]);
+                        lf = tmpLoad*(1 - clean_prc[j]);
                     }
                 }
                 else{
                     if (loadUnits == LoadUnits::MASS){
                         Nbase = Nbase*100 / rch[j];
-                        lf += Nbase;
+                        lf = Nbase;
                     }
                     else{
-                        lf += Nbase*(1 - clean_prc[j]);
+                        lf = Nbase*(1 - clean_prc[j]);
                     }
                 }
+                LF[lfidx] = LF[lfidx] + lf;
             }
-            if (NvalidCells < 0.00001){
-                out = false;
-                return out;
-            }
-            else if (std::abs(NvalidCells - 1) < 0.000001){
-                LF[iyr] = lf;
-            }
-            else if (NvalidCells > 1){
-                LF[iyr] = lf/NvalidCells;
-            }
-
+        }
+        double nLoadValues = static_cast<double>(cellIndex.size());
+        for (int iyr = 0; iyr < Nyears; iyr++){
+            LF[iyr] = LF[iyr]/nLoadValues;
             if (scenario.maxConc > 0){
                 if (LF[iyr] > scenario.maxConc){
                     LF[iyr] = scenario.maxConc;
@@ -651,16 +654,17 @@ namespace mantisServer{
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
                                      std::vector<double> &rch,
                                      std::vector<double> &clean_prc,
+                                     std::vector<int> &tauOffset,
                                      std::vector<double>& LF,
                                      Scenario& scenario) {
         bool out = false;
 
         if (loadType == LoadType::RASTER){
-            out = buildLoadingFromRaster(CVindex, rch, clean_prc, LF, scenario);
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, tauOffset, LF, scenario);
             return out;
         }
         else{
-            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, LF, scenario);
+            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, tauOffset, LF, scenario);
             return out;
         }
 
