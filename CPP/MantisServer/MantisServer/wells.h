@@ -142,6 +142,7 @@ namespace mantisServer{
         void calculateSourceAreaType0(BackgroundRaster &braster, bool debug = false);
         void calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
         void calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
+        void calculateSourceAreaType3(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateWeights();
         bool bsimulateThis(Scenario &scenario);
 
@@ -192,6 +193,9 @@ namespace mantisServer{
         }
         else if (doCalc == 2){
             calculateSourceAreaType2(braster, rch, WSAstrm, debug, printWSA);
+        }
+        else if (doCalc == 3){
+            calculateSourceAreaType3(braster, rch, WSAstrm, debug, printWSA);
         }
     }
 
@@ -572,6 +576,95 @@ namespace mantisServer{
                         << srcXrt[2] << " " << srcYrt[2] << " "
                         << srcXrt[3] << " " << srcYrt[3] << std::endl;
             }
+        }
+    }
+
+    void Well::calculateSourceAreaType3(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug, bool printWSA){
+        std::map<int, Streamline>::iterator itstrml;
+        double Xcntr, Ycntr, xcell, ycell, rch_v, dummy;
+        double Xorig, Yorig, cellSize;
+        braster.getGridLocation(Xorig, Yorig, cellSize);
+        int Ncol = braster.Nc();
+        int Nrow = braster.Nr();
+
+        double M11, M12, M21, M22;
+        M11 = cosd(angle); M12 = sind(angle);
+        M21 = -M12; M22 = M11;
+
+        std::vector<double> srcX, srcY, srcXrt, srcYrt;
+
+        for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
+            //std::cout << itstrml->first << std::endl;
+            if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
+                itstrml->second.mu = 0.0;
+                itstrml->second.std = 0.0;
+                continue;
+            }
+            double minSrcXrt = 999999999999.9; double minSrcYrt = 999999999999.9;
+
+            int row = itstrml->second.row;
+            int col = itstrml->second.col;
+            braster.cellCoords(row, col, Xcntr, Ycntr);
+            double Npxl = static_cast<double>(itstrml->second.Npxl);
+            itstrml->second.SourceArea.clear();
+            double lngth = cellSize + cellSize * Npxl;
+            double wdth = std::max(lngth/ratio, cellSize);
+            double SAxmin = -wdth;
+            double SAxmax =  wdth;
+            double SAymin = -lngth - cellSize;
+            double SAymax =  lngth + cellSize;
+            srcX.clear(); srcY.clear(); srcXrt.clear(), srcYrt.clear(); //srcPnts.clear();
+            srcX.push_back(SAxmin); srcY.push_back(SAymin);
+            srcX.push_back(SAxmin); srcY.push_back(SAymax);
+            srcX.push_back(SAxmax); srcY.push_back(SAymax);
+            srcX.push_back(SAxmax); srcY.push_back(SAymin);
+
+            for (unsigned int i = 0; i < srcX.size(); ++i){
+                srcXrt.push_back(M11 * srcX[i] + M12 * srcY[i] + Xcntr);
+                srcYrt.push_back(M21 * srcX[i] + M22 * srcY[i] + Ycntr);
+                if (srcXrt[i] < minSrcXrt){
+                    minSrcXrt = srcXrt[i];
+                }
+                if (srcYrt[i] < minSrcYrt){
+                    minSrcYrt = srcYrt[i];
+                }
+            }
+            int dJ = static_cast<int>(std::ceil((Xcntr - minSrcXrt)/cellSize));
+            int dI = static_cast<int>(std::ceil((Ycntr - minSrcYrt)/cellSize));
+            int JgridStart = std::max(1, col - dJ);
+            int JgridEnd = std::min(Ncol, col + dJ);
+            int IgridStart = std::max(1, row - dI);
+            int IgridEnd = std::min(Nrow, row + dI);
+            for (int i = IgridStart; i <= IgridEnd; ++i){
+                for (int j = JgridStart; j <= JgridEnd; ++j){
+                    braster.cellCoords(i, j, xcell, ycell);
+                    bool tf = isInTriangle(srcXrt[0], srcYrt[0], srcXrt[1], srcYrt[1], srcXrt[2], srcYrt[2], xcell, ycell);
+                    if (!tf){
+                        tf = isInTriangle(srcXrt[0], srcYrt[0], srcXrt[2], srcYrt[2], srcXrt[3], srcYrt[3], xcell, ycell);
+                        if (!tf){
+                            continue;
+                        }
+                    }
+
+                    if (tf){
+                        int rasterValue = braster.IJ(i, j);
+                        if (rasterValue != -1){
+                            tf = rch.getValues(rasterValue, rch_v, dummy);
+                            if (rch_v > 0.0){
+                                cell c;
+                                c.row = i;
+                                c.col = j;
+                                c.lin_ind = rasterValue;
+                                c.dist = static_cast<double>((i-row)*(i-row) + (j-col)*(j-col));
+                                itstrml->second.addSourceAreaCell(c);
+                            }
+                        }
+                    }
+                }
+            }
+            //if (itstrml->second.SourceArea.size() == 0){
+            //    std::cout << "Streamline Sid: " << itstrml->first << "has no source area" << std::endl;
+            //}
         }
     }
 
