@@ -197,7 +197,7 @@ namespace mantisServer {
         printBTC = false;
         printWellBTC = false;
         printAdditionalInfo = false;
-        maxSourceCells = 1;
+        maxSourceCells = 1000;
     }
 
     bool Scenario::parse_incoming_msg(std::string &msg, std::string &outmsg){

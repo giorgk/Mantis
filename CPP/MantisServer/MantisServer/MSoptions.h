@@ -115,7 +115,7 @@ namespace mantisServer {
         int nTimesPrinted = 0;
 
 		int RFmem;
-        std::string version = "2.0.01";
+        std::string version = "2.0.02";
 
 	};
 
@@ -157,7 +157,7 @@ namespace mantisServer {
 
 		if (vm_cmd.size() == 0) {
 			std::cout << " To run MantisServer specify the configuration file and run as" << std::endl;
-			std::cout << "mantisServer -c configfilename" << std::endl << std::endl;;
+			std::cout << "mantisServer -c configfilename" << std::endl << std::endl;
 			std::cout << "Other command line options are:" << std::endl;
 			std::cout << commandLineOptions << std::endl;
 			return false;
