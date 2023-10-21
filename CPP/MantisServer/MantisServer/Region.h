@@ -272,7 +272,7 @@ namespace mantisServer{
 
             std::vector<double> WellBTC(NsimulationYears, 0);
 
-            for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++ strmlit){
+            for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++strmlit){
 
                 // If the streamline has 0 mean then we assume zero loading
                 if (std::abs(strmlit->second.mu) < 0.000001 || strmlit->second.inRiver){
@@ -375,7 +375,7 @@ namespace mantisServer{
                 replymsg[threadid] += std::to_string(static_cast<float>(WellBTC[i]));
                 replymsg[threadid] += " ";
             }
-            nWellBTC++;
+            nWellBTC = nWellBTC + 1;
         }
 
         if (scenario.printAdditionalInfo){

@@ -76,8 +76,8 @@ namespace mantisServer {
 		int yr = startYear;
 		while (true) {
 			yearIndexMap.insert(boost::bimap<int, int>::value_type(yr, index));
-			index++;
-			yr++;
+			index = index + 1;
+			yr = yr + 1;
 			if (index > nYears)
 				break;
 		}
@@ -2110,7 +2110,7 @@ namespace mantisServer {
 		outmsg += std::to_string(nBTC);
 		int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
 		if (scenario.printWellIds){
-		    Nyears++;
+		    Nyears = Nyears + 1;
 		}
 		outmsg += " " + std::to_string(Nyears);
 
@@ -2331,7 +2331,7 @@ namespace mantisServer {
 	}
 
 	void Mantis::postReplyActions() {
-        options.nTimesPrinted++;
+        options.nTimesPrinted = options.nTimesPrinted + 1;
         //manageRFSets();
         resetLogfile();
 	}

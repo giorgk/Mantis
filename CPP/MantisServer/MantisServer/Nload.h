@@ -532,7 +532,7 @@ namespace mantisServer{
             double dstartReduction = static_cast<double>(istartReduction);
             double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
             double adoptionCoeff = 0;
-            for (int iyr = 0; iyr < Nyears; iyr++){
+            for (int iyr = 0; iyr < Nyears; ++iyr){
                 if ((iyr >= istartReduction) && (iyr <= iendReduction))
                     adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
                 else if (iyr > iendReduction)
@@ -567,7 +567,7 @@ namespace mantisServer{
         std::map<int, double>::iterator it;
         int lfidx;
 
-        for (int iyr = 0; iyr < Nyears; iyr++){
+        for (int iyr = 0; iyr < Nyears; ++iyr){
             double lf = 0;
             if ((iyr >= istartReduction) && (iyr <= iendReduction)) {
                 adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
@@ -640,7 +640,7 @@ namespace mantisServer{
             }
         }
         double nLoadValues = static_cast<double>(cellIndex.size());
-        for (int iyr = 0; iyr < Nyears; iyr++){
+        for (int iyr = 0; iyr < Nyears; ++iyr){
             LF[iyr] = LF[iyr]/nLoadValues;
             if (scenario.maxConc > 0){
                 if (LF[iyr] > scenario.maxConc){

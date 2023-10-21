@@ -415,7 +415,7 @@ namespace mantisServer{
                         break;
                     }
                 }
-                niter++;
+                niter = niter + 1;
                 itstrml->second.clearSourceArea();
             }
 
@@ -565,7 +565,7 @@ namespace mantisServer{
                     break;
                 }
                 Npxl = Npxl + 1.0;
-                count_iter++;
+                count_iter = count_iter + 1;
 
             }
             std::sort(itstrml->second.SourceArea.begin(), itstrml->second.SourceArea.end(), compareCellByDistance);
@@ -800,7 +800,7 @@ namespace mantisServer{
                 }
                 wellit->second.calculateSourceArea(braster, rchit->second, flowit->second.calcSourceArea, WSAstrm, dbg, flowit->second.printSourceArea);
                 //dbg = false;
-                count++;
+                count = count + 1;
                 if (count % 1000 == 0){
                     std::cout << "----" << count << "----" << std::endl;
                 }

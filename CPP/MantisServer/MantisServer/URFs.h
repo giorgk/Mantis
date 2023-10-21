@@ -197,7 +197,7 @@ namespace mantisServer{
                     BTC[k] = BTC[k] + urf[k - shift] * LF[i];
                 }
             }
-            shift++;
+            shift = shift + 1;
         }
     }
 }

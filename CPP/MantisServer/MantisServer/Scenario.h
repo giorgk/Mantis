@@ -209,7 +209,7 @@ namespace mantisServer {
         int counter = 0;
         while (true){
             std::string test, tmp;
-            counter++;
+            counter = counter + 1;
             ss >> test;
 
             if (test == "modelArea") {
@@ -223,7 +223,7 @@ namespace mantisServer {
             if (test == "Nregions") {
                 int Nregions;
                 ss >> Nregions;
-                for (int i = 0; i < Nregions; i++) {
+                for (int i = 0; i < Nregions; ++i) {
                     ss >> test;
                     regionIDs.push_back(test);
                 }
@@ -338,7 +338,7 @@ namespace mantisServer {
                 int Ncrops, cropid;
                 double perc;
                 ss >> Ncrops;
-                for (int i = 0; i < Ncrops; i++) {
+                for (int i = 0; i < Ncrops; ++i) {
                     ss >> cropid;
                     ss >> perc;
                     if (cropid == -9){
