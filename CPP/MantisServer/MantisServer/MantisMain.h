@@ -502,8 +502,7 @@ namespace mantisServer {
 
 		//void manageRFSets();
 
-
-
+        void test_simulation(int threadId, int nThreads);
 	};
 
 
@@ -516,6 +515,10 @@ namespace mantisServer {
     }
 
 	bool Mantis::validate_msg(std::string& outmsg) {
+        if (options.testMode){
+            return true;
+        }
+
 		if ((scenario.endSimulationYear <= scenario.startSimulationYear) || (scenario.endSimulationYear > 2500)){
             scenario.startSimulationYear = 1945;
             scenario.endSimulationYear = 2100;
@@ -1082,6 +1085,10 @@ namespace mantisServer {
 	}*/
 
 	bool Mantis::readInputs() {
+
+        if (options.testMode){
+            return true;
+        }
 
         bool tf = readRegionList();
         if (!tf) { std::cout << "Error reading Region list file" << std::endl; return false; }
@@ -1917,6 +1924,11 @@ namespace mantisServer {
 	}
 
 	void Mantis::simulate_with_threads(int id) {//, , std::string &outmsg
+        if (options.testMode){
+            test_simulation(id, options.nThreads);
+            return;
+        }
+
         std::map<std::string, Region>::iterator regionit;
         regionit = RegionList.find(scenario.modelArea);
         if (regionit != RegionList.end()){
@@ -2358,6 +2370,28 @@ namespace mantisServer {
                 logStream.open(options.logFile.c_str(), std::ios::out);
                 std::cout.rdbuf(logStream.rdbuf());
             }
+        }
+    }
+
+    void Mantis::test_simulation(int threadId, int nThreads) {
+        boost::random::uniform_int_distribution<> dist(50, 200);
+
+        int Nwells = dist(gen);
+        unsigned int Nyears = 150;
+        int nBTCs = 0;
+        if (options.testMode){
+            int startId, endId;
+            getStartEndIndices(threadId, nThreads, Nwells, startId, endId);
+            boost::random::uniform_real_distribution<> distf(0.0, 100.0);
+            for (int iw = startId; iw < endId; ++iw){
+                for (unsigned int i = 0; i < Nyears; ++i){
+                    double v = distf(gen);
+                    replymsg[threadId] += std::to_string(static_cast<float>(v));
+                    replymsg[threadId] += " ";
+                }
+                nBTCs = nBTCs + 1;
+            }
+            replyLength[threadId] = nBTCs;
         }
     }
 }

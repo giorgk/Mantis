@@ -31,7 +31,7 @@ std::vector<std::string> split(const std::string& str, const std::string& delim)
 
 int main(int argc, char* argv[])
 {
-	std::cout << "Running version 2.0.01" << std::endl;
+	std::cout << "Running version 2.0.04" << std::endl;
 	// Test random numbers
 	//for (int i = 0; i < 10; ++i)
 	//	std::cout << static_cast<double>(std::rand() % 100)/10 << std::endl;
@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
             msg += " unsatWC 0.0";
             msg += " bMap Subregions";
             msg += " Nregions 1 Subregion11";
-            msg += " isLoadConc 1";
+            //msg += " isLoadConc 1";
             //msg += " RadSelect -91791 -33506 10000"; // X Y radius
             //msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0"; // Xmin Ymin Xmax Ymax
             //msg += " DepthRange 0 100"; // min max
