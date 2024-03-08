@@ -92,11 +92,16 @@ int main(int argc, char *argv[])
                 continue;
 			}
 
+            std::cout << " MSG Recieved" << std::endl;
 			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
+            std::cout << " MSG Parsed" << std::endl;
 			if (bvalidMsg) {
+                std::cout << "Validate MSG" << std::endl;
 				bvalidMsg = M.validate_msg(outmsg);
+                std::cout << " MSG Validated" << std::endl;
 			}
 			if (bvalidMsg) {
+                std::cout << " Prepare Simulation" << std::endl;
 				M.resetReply();
 				auto start = std::chrono::high_resolution_clock::now();
 				std::vector<std::thread> T;
