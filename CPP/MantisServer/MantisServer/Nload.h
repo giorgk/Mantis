@@ -91,7 +91,7 @@ namespace mantisServer{
         bool buildLoadingFunction(std::vector<int>& CVindex,
                                   std::vector<double> &rch,
                                   std::vector<double> &clean_prc,
-                                  std::vector<int> &tauOffset,
+                                  std::vector<int> &unsatDepth,
                                   std::vector<double>& LF,
                                   Scenario& scenario);
         bool buildLoadingFromRaster(std::vector<int>& CVindex,
@@ -105,7 +105,7 @@ namespace mantisServer{
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                         std::vector<double> &rch,
                                         std::vector<double> &clean_prc,
-                                        std::vector<int> &tauOffset,
+                                        std::vector<int> &unsatDepth,
                                         std::vector<double>& LF,
                                         Scenario& scenario);
 
@@ -546,7 +546,7 @@ namespace mantisServer{
     bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                            std::vector<double> &rch,
                                            std::vector<double> &clean_prc,
-                                           std::vector<int> &tauOffset,
+                                           std::vector<int> &unsatDepth,
                                            std::vector<double>& LF,
                                            Scenario& scenario){
         bool out = false;
@@ -580,7 +580,11 @@ namespace mantisServer{
             }
 
             for (unsigned int j = 0; j < cellIndex.size(); ++j){
-                lfidx = iyr + tauOffset[j];
+                // Check the units of Depth and recharge
+                double tau = scenario.unsatZoneMobileWaterContent*
+                        ( (scenario.unsatDepthOffset + scenario.unsatDepthMult * unsatDepth[j]) /
+                        (scenario.unsatRchOffset + scenario.unsatRchMult * rch[j]) );
+                lfidx = iyr + tau;
                 if (lfidx >= Nyears){
                     continue;
                 }
@@ -654,17 +658,17 @@ namespace mantisServer{
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
                                      std::vector<double> &rch,
                                      std::vector<double> &clean_prc,
-                                     std::vector<int> &tauOffset,
+                                     std::vector<int> &unsatDepth,
                                      std::vector<double>& LF,
                                      Scenario& scenario) {
         bool out = false;
 
         if (loadType == LoadType::RASTER){
-            out = buildLoadingFromRaster(CVindex, rch, clean_prc, tauOffset, LF, scenario);
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth, LF, scenario);
             return out;
         }
         else{
-            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, tauOffset, LF, scenario);
+            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth, LF, scenario);
             return out;
         }
 

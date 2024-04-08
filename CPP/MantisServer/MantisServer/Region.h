@@ -30,6 +30,7 @@ namespace mantisServer{
         BackgroundRaster raster;
         BMapCollection Bmaps;
         LinearData Unsat;
+        LinearData UnsDepth;
         RechargeScenarioList Rch;
         FlowWellCollection FWC;
         NLoadList NLL;
@@ -51,7 +52,8 @@ namespace mantisServer{
             // Data Options
             ("Data.BMAPS", po::value<std::string>(), "The name with the background maps")
             ("Data.NO3", po::value<std::string>(), "The main input file for Nitrate loading")
-            ("Data.UNSAT", po::value<std::string>(), "The file with the unsaturated data")
+            //("Data.UNSAT", po::value<std::string>(), "The file with the unsaturated data")
+            ("Data.UNSDEPTH", po::value<std::string>(), "The file with the Depth of unsaturated zone")
             ("Data.WELLS", po::value<std::string>(), "The main input file for Wells")
             ("Data.URFS", po::value<std::string>(), "The main input file for URFs")
             ("Data.RCH", po::value<std::string>(), "The main input file for Recharge")
@@ -87,10 +89,17 @@ namespace mantisServer{
         }
 
         {//Read Unsaturated data
-            std::cout << "-------- Unsaturated travel time --------" << std::endl;
-            std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
-            Unsat.setNoDataValue(0.0);
-            bool tf = Unsat.readData(unsatfile,raster.Ncell());
+            //std::cout << "-------- Unsaturated travel time --------" << std::endl;
+            //std::string unsatfile =  path + vm_ro["Data.UNSAT"].as<std::string>();
+            //Unsat.setNoDataValue(0.0);
+            //bool tf = Unsat.readData(unsatfile,raster.Ncell());
+            //if (!tf)
+            //    return false;
+
+            std::cout << "-------- Unsaturated Depth --------" << std::endl;
+            std::string unsDepthfile =  path + vm_ro["Data.UNSDEPTH"].as<std::string>();
+            UnsDepth.setNoDataValue(0.0);
+            bool tf = UnsDepth.readData(unsDepthfile,raster.Ncell());
             if (!tf)
                 return false;
         }
@@ -283,7 +292,7 @@ namespace mantisServer{
                 std::vector<int> cell_lin_ind;
                 std::vector<double> rch_val;
                 std::vector<double> cln_rch;
-                std::vector<int> tauOffset;
+                std::vector<int> depth_val;
 
                 // Make a list of this streamline source area
                 for (std::vector<cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
@@ -295,13 +304,13 @@ namespace mantisServer{
                     rch_val.push_back(rch);
                     cln_rch.push_back(clprc);
 
-                    double tau = Unsat.getValue(scenario.unsatScenarioID,cellit->lin_ind);
-                    tau = tau * scenario.unsatZoneMobileWaterContent;
-                    tau = std::ceil(tau);
-                    if (tau < 0){
-                        tau = 0.0;
+                    double depth = UnsDepth.getValue(scenario.unsatScenarioID,cellit->lin_ind);
+                    //tau = tau * scenario.unsatZoneMobileWaterContent;
+                    //tau = std::ceil(tau);
+                    if (depth < scenario.unsatMinDepth){
+                        depth = scenario.unsatMinDepth;
                     }
-                    tauOffset.push_back(static_cast<int>(tau));
+                    depth_val.push_back(static_cast<int>(depth));
 
                     if (rch_val.size() >= scenario.maxSourceCells){
                         break;
@@ -310,10 +319,10 @@ namespace mantisServer{
 
                 //Build the main load
                 std::vector<double> mainload(NsimulationYears, 0);
-                mainLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,tauOffset,mainload,scenario);
+                mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario);
                 if (scenario.buseLoadTransition){
                     std::vector<double> preload(NsimulationYears, 0);
-                    preLoadit->second.buildLoadingFunction(cell_lin_ind,rch_val,cln_rch,tauOffset,preload,scenario);
+                    preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario);
                     // blend the two
                     double dYear = 0;
                     for (int i = 0; i < NsimulationYears; ++i){

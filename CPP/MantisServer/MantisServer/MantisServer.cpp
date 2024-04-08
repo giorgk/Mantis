@@ -73,8 +73,10 @@ int main(int argc, char *argv[])
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);
 			acceptor.accept(socket);
+            std::cout << " After SOCKET" << std::endl;
 			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, boost::placeholders::_1, boost::placeholders::_2)));
-			std::string msg(buff, bytes);
+            std::cout << " After read_complete" << std::endl;
+            std::string msg(buff, bytes);
 			std::string outmsg;
 			if (msg.compare("quit\n") == 0) {
 				std::cout << "Received request to quit" << std::endl;

@@ -96,6 +96,13 @@ namespace mantisServer {
         //! Typical values are 0.05,0.1 ,0.15 and 0.20
         double unsatZoneMobileWaterContent;
 
+        double unsatMinDepth = 1.0;
+        double unsatDepthOffset = 0.0;
+        double unsatDepthMult = 1.0;
+        double unsatMinRch = 10.0;
+        double unsatRchOffset = 0.0;
+        double unsatRchMult = 1;
+
         /**
          * This is an id for the current scenario. e.g. test001.
          * If this variable is present then during the simulation the following files will be printed
