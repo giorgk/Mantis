@@ -91,13 +91,13 @@ namespace mantisServer{
         bool buildLoadingFunction(std::vector<int>& CVindex,
                                   std::vector<double> &rch,
                                   std::vector<double> &clean_prc,
-                                  std::vector<int> &unsatDepth,
+                                  std::vector<double> &unsatDepth,
                                   std::vector<double>& LF,
                                   Scenario& scenario);
         bool buildLoadingFromRaster(std::vector<int>& CVindex,
                                     std::vector<double> &rch,
                                     std::vector<double> &clean_prc,
-                                    std::vector<int> &tauOffset,
+                                    std::vector<double> &unsatDepth,
                                     std::vector<double>& LF,
                                     Scenario& scenario);
 
@@ -105,7 +105,7 @@ namespace mantisServer{
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                         std::vector<double> &rch,
                                         std::vector<double> &clean_prc,
-                                        std::vector<int> &unsatDepth,
+                                        std::vector<double> &unsatDepth,
                                         std::vector<double>& LF,
                                         Scenario& scenario);
 
@@ -168,64 +168,6 @@ namespace mantisServer{
         LUcS = getLU(index,sy);
         LUcE = getLU(index,ey);
 
-        /*
-        if (iyr <= LUYears[0]){
-            LUcS = getLU(index,0);
-            LUcE = getLU(index,0);
-            perc = 1.0;
-        }
-        else if (iyr >= LUYears[LUYears.size()-1]){
-            LUcS = getLU(index,LUYears.size()-1);
-            LUcE = getLU(index,LUYears.size()-1);
-            perc = 0.0;
-        }
-        else{
-            for(int i = 0; i < LUYears.size()-1; ++i){
-                if (iyr == LUYears[i]){
-                    LUcS = getLU(index,i);
-                    LUcE = getLU(index,i);
-                    perc = 0;
-                }
-                else if (iyr > LUYears[i] && iyr < LUYears[i+1]){
-                    LUcS = getLU(index,LUYears[i]);
-                    LUcE = getLU(index,LUYears[i+1]);
-                    perc = static_cast<double>((iyr - LUYears[i])) / static_cast<double>(LUYears[i+1] - LUYears[i]);
-                }
-            }
-        }
-        */
-
-        /*switch (loadType)
-        {
-            case mantisServer::LoadType::GNLM:
-            {
-                if (iyr < 1945) {
-                    LUcS = getLU(index,0);
-                    LUcE = getLU(index,0);
-                    perc = 1.0;
-                }
-                else if (iyr >= 2005) {
-                    LUcS = getLU(index,4);
-                    LUcE = getLU(index,4);
-                    perc = 0.0;
-                }
-                else {
-                    int isN = static_cast<int>( std::floor((iyr - 1945) / 15) );
-                    int ieN = isN + 1;
-                    LUcS = getLU(index,isN);
-                    LUcE = getLU(index,ieN);
-                    perc = static_cast<double>((iyr - 1945) % 15) / 15.0;
-                }
-                break;
-            }
-            case mantisServer::LoadType::SWAT:
-            {
-                std::cout << "You cant call this method for SWAT loading type" << std::endl;
-                break;
-            }
-            default:
-                break;
-        }*/
     }
 
     void NLoad::getNload(int index, int iyr, double& N1, double& N2, double& u) {
@@ -235,77 +177,6 @@ namespace mantisServer{
         N1 = Ndata[sy][index];
         N2 = Ndata[ey][index];
 
-
-        /*
-        if (extMeth == extrapMethod::REPEAT){
-            if (iyr < NloadYears[0]){
-
-            }
-            else if (iyr > NloadYears[NloadYears.size() - 1]){
-
-            }
-        }
-
-        if (iyr <= NloadYears[0]){
-            if (extMeth == extrapMethod::REPEAT){
-
-            }
-            else if (extMeth == extrapMethod::NEAREST){
-                N1 = Ndata[0][index];
-                N2 = Ndata[0][index];
-                u = 1.0;
-            }
-        }
-        else if (iyr >= NloadYears[NloadYears.size() - 1]){
-            if (extMeth == extrapMethod::REPEAT){
-
-            }
-            else if (extMeth == extrapMethod::NEAREST){
-                N1 = Ndata[NloadYears.size() - 1][index];
-                N2 = Ndata[NloadYears.size() - 1][index];
-                u = 1.0;
-            }
-        }
-
-
-
-        switch (loadType)
-        {
-            case mantisServer::LoadType::GNLM:
-            {
-                //std::cout << " index=" << index << " iyr=" << iyr;
-                if (iyr < 1945) {
-                    N1 = Ndata[0][index];
-                    N2 = Ndata[0][index];
-                    u = 1.0;
-                }
-                else if (iyr >= 2050) {
-                    N1 = Ndata[7][index];
-                    N2 = Ndata[7][index];
-                    u = 0.0;
-                }
-                else {
-
-                    int isN = static_cast<int>(std::floor((iyr - 1945) / 15)); //index of starting year
-                    int ieN = isN + 1; // index of starting year
-                    //std::cout << " isN=" << isN << " ieN=" << ieN;
-                    u = static_cast<double>((iyr - 1945) % 15) / 15.f;
-                    N1 = Ndata[isN][index];
-                    N2 = Ndata[ieN][index];
-                    //std::cout << " u=" << u;
-                    //std::cout << " N1=" << N1 << " N2=" << N2;
-                }
-                break;
-            }
-            case mantisServer::LoadType::SWAT:
-            {
-                std::cout << "You can't call this method for SWAT loading type" << std::endl;
-                break;
-            }
-            default:
-                break;
-        }
-        */
     }
 
     double NLoad::getNload(int index, int iyr) {
@@ -483,61 +354,105 @@ namespace mantisServer{
         return true;
     }
 
-    bool NLoad::buildLoadingFromRaster(std::vector<int>& CVindex,
+    bool NLoad::buildLoadingFromRaster(std::vector<int>& cellIndex,
                                        std::vector<double> &rch,
                                        std::vector<double> &clean_prc,
-                                       std::vector<int> &tauOffset,
+                                       std::vector<double> &unsatDepth,
                                        std::vector<double>& LF,
                                        Scenario& scenario) {
 
-        double load_value = 0.0f;
-        for (unsigned int j = 0; j < CVindex.size(); ++j){
+        bool out = false;
+        int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
+        LF.clear();
+        LF.resize(Nyears, 0.0);
+
+        if (cellIndex.size() == 0){
+            out = true;
+            return out;
+        }
+
+        //double load_value = 0.0f;
+        std::vector<double> load_vals;
+        std::vector<double> tau_vals;
+        for (unsigned int j = 0; j < cellIndex.size(); ++j){
+            // Calculate the Unsaturated travel time
+            double tau = scenario.unsatZoneMobileWaterContent*
+                         ( (scenario.unsatDepthOffset + scenario.unsatDepthMult * unsatDepth[j]) /
+                           (scenario.unsatRchOffset + scenario.unsatRchMult * rch[j]/1000.0) );
+            tau_vals.push_back(static_cast<int>(std::ceil(tau)));
+
+            // Find the loading value for each source area cell
             if (scenario.modifierType == RasterOperation::DONTUSE){// Use the scenario from the Raster Initialization Data
-                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
+                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, cellIndex[j]);
                 if (loadUnits == LoadUnits::MASS){
                     scen_value = scen_value*100 / rch[j];
                 }
-                load_value += scen_value;
+                load_vals.push_back(scen_value);
+                //load_value += scen_value;
             }
             else if (scenario.modifierType == RasterOperation::Replace){// Replace the value with the user data
-                double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
+                double user_value = scenario.userRasterLoad.getValue(0, cellIndex[j]);
                 if (scenario.modifierUnit == LoadUnits::MASS){
                     user_value = user_value*100 / rch[j];
                 }
-                load_value += user_value;
+                load_vals.push_back(user_value);
+                //load_value += user_value;
             }
             else if (scenario.modifierType == RasterOperation::Multiply){// Multiply the user value with the initialization scenario Raster
-                double user_value = scenario.userRasterLoad.getValue(0, CVindex[j]);
-                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, CVindex[j]);
+                double user_value = scenario.userRasterLoad.getValue(0, cellIndex[j]);
+                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, cellIndex[j]);
                 if (loadUnits == LoadUnits::MASS){
                     scen_value = scen_value*100 / rch[j];
                 }
-                load_value += scen_value*user_value;
+                load_vals.push_back(scen_value*user_value);
+                //load_value += scen_value*user_value;
             }
         }
-        load_value = load_value/static_cast<double>(CVindex.size());
+        //load_value = load_value/static_cast<double>(cellIndex.size());
 
-        if (scenario.maxConc > 0){
-            if (load_value > scenario.maxConc){
-                load_value = scenario.maxConc;
-            }
-        }
+        //if (scenario.maxConc > 0){
+        //    if (load_value > scenario.maxConc){
+        //        load_value = scenario.maxConc;
+        //    }
+        //}
 
-        int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
-        LF.clear();
-        LF.resize(Nyears, load_value);
-        if (scenario.userSuppliedConstRed){
-            int istartReduction = scenario.startReductionYear - scenario.startSimulationYear;
-            int iendReduction = scenario.endReductionYear - scenario.startSimulationYear;
-            double dstartReduction = static_cast<double>(istartReduction);
-            double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
-            double adoptionCoeff = 0;
-            for (int iyr = 0; iyr < Nyears; ++iyr){
-                if ((iyr >= istartReduction) && (iyr <= iendReduction))
+        //int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
+        //LF.clear();
+        //LF.resize(Nyears, load_value);
+
+        int istartReduction = scenario.startReductionYear - scenario.startSimulationYear;
+        int iendReduction = scenario.endReductionYear - scenario.startSimulationYear;
+        double dstartReduction = static_cast<double>(istartReduction);
+        double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
+        double adoptionCoeff = 0.0;
+
+        for (int iyr = 0; iyr < Nyears; ++iyr){
+            if (scenario.userSuppliedConstRed){
+                if ((iyr >= istartReduction) && (iyr <= iendReduction)) {
                     adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
-                else if (iyr > iendReduction)
+                }
+                else if (iyr > iendReduction){
                     adoptionCoeff = 1.0;
-                LF[iyr] = LF[iyr] * (1 - adoptionCoeff) + LF[iyr]*scenario.constReduction * adoptionCoeff;
+                }
+                else{
+                    adoptionCoeff = 0.0;
+                }
+            }
+            for (int i = 0; i < load_vals.size(); ++i){
+                int lfidx = iyr + tau_vals[i];
+                if (lfidx >= Nyears){
+                    continue;
+                }
+                LF[lfidx] = LF[lfidx] + load_vals[i]*(1-adoptionCoeff) + load_vals[i]*adoptionCoeff;
+            }
+        }
+        double nLoadValues = static_cast<double>(cellIndex.size());
+        for (int iyr = 0; iyr < Nyears; ++iyr){
+            LF[iyr] = LF[iyr]/nLoadValues;
+            if (scenario.maxConc > 0){
+                if (LF[iyr] > scenario.maxConc){
+                    LF[iyr] = scenario.maxConc;
+                }
             }
         }
         return true;
@@ -546,7 +461,7 @@ namespace mantisServer{
     bool NLoad::buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
                                            std::vector<double> &rch,
                                            std::vector<double> &clean_prc,
-                                           std::vector<int> &unsatDepth,
+                                           std::vector<double> &unsatDepth,
                                            std::vector<double>& LF,
                                            Scenario& scenario){
         bool out = false;
@@ -567,6 +482,9 @@ namespace mantisServer{
         std::map<int, double>::iterator it;
         int lfidx;
 
+        bool bIstauCalc = false;
+        std::vector<int> tauVal;
+
         for (int iyr = 0; iyr < Nyears; ++iyr){
             double lf = 0;
             if ((iyr >= istartReduction) && (iyr <= iendReduction)) {
@@ -580,11 +498,23 @@ namespace mantisServer{
             }
 
             for (unsigned int j = 0; j < cellIndex.size(); ++j){
-                // Check the units of Depth and recharge
-                double tau = scenario.unsatZoneMobileWaterContent*
-                        ( (scenario.unsatDepthOffset + scenario.unsatDepthMult * unsatDepth[j]) /
-                        (scenario.unsatRchOffset + scenario.unsatRchMult * rch[j]) );
-                lfidx = iyr + tau;
+                int tauShift = 0;
+                if (!bIstauCalc){
+                    double tau = scenario.unsatZoneMobileWaterContent*
+                                 ( (scenario.unsatDepthOffset + scenario.unsatDepthMult * unsatDepth[j]) /
+                                   (scenario.unsatRchOffset + scenario.unsatRchMult * rch[j]/1000.0) );
+
+                    tauShift = static_cast<int>(std::ceil(tau));
+                    tauVal.push_back(tauShift);
+                    if (j == cellIndex.size()-1){
+                        bIstauCalc = true;
+                    }
+                }
+                else{
+                    tauShift = tauVal[j];
+                }
+
+                lfidx = iyr + tauShift;
                 if (lfidx >= Nyears){
                     continue;
                 }
@@ -658,7 +588,7 @@ namespace mantisServer{
     bool NLoad::buildLoadingFunction(std::vector<int>& CVindex,
                                      std::vector<double> &rch,
                                      std::vector<double> &clean_prc,
-                                     std::vector<int> &unsatDepth,
+                                     std::vector<double> &unsatDepth,
                                      std::vector<double>& LF,
                                      Scenario& scenario) {
         bool out = false;
@@ -671,139 +601,6 @@ namespace mantisServer{
             out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth, LF, scenario);
             return out;
         }
-
-
-        /*int startYear = 1945;
-        int istartReduction = scenario.startReductionYear - startYear;
-        int iendReduction = scenario.endReductionYear - startYear;
-        double dstartReduction = static_cast<double>(istartReduction);
-        double dReductionRange = static_cast<double>(iendReduction) - dstartReduction;
-        int Nyears = endYear - startYear;
-        double adoptionCoeff = 0;
-        LF.resize(Nyears, 0.0);
-
-        std::vector<double> percReduction(CVindex.size(), scenario.globalReduction);
-        std::map<int, double>::iterator it;
-        if (loadType == LoadType::GTL*//*SWAT*//*) {
-            for (unsigned int i = 0; i < CVindex.size(); ++i){
-                int lucode = getLU(CVindex[i], 0);
-                it = scenario.LoadReductionMap.find(lucode);
-                if (it != scenario.LoadReductionMap.end()) {
-                    percReduction[i] = it->second;
-                }
-            }
-        }
-
-        for (int iyr = 0; iyr < Nyears; iyr++) {
-            //std::cout << "i=" << i << " Y=" << i + startYear << std::endl;
-            if ((iyr >= istartReduction) && (iyr <= iendReduction))
-                adoptionCoeff = (static_cast<double>(iyr) - dstartReduction) / dReductionRange;
-            else if (iyr > iendReduction)
-                adoptionCoeff = 1.0;
-
-            //std::cout << "a=" << adoptionCoeff;
-
-            if (loadType == LoadType::GTL*//*GNLM*//*) {
-                double lf = 0;
-                if (CVindex.size() == 0){
-                    LF[iyr] = 0;
-                }
-                else{
-                    double NvalidCells = 0;
-                    for (unsigned int j = 0; j < CVindex.size(); ++j){
-                        int lus = 0;
-                        int lue = 0;
-                        double prc = 0.0;
-                        double rs = 1.0;
-                        double re = 1.0;
-                        getLU(CVindex[j], iyr + startYear, lus, lue, prc);
-                        if (adoptionCoeff > 0) {
-                            rs = scenario.globalReduction;
-                            it = scenario.LoadReductionMap.find(lus);
-                            if (it != scenario.LoadReductionMap.end()) {
-                                rs = it->second;
-                                //std::cout << " rs=" << rs;
-                            }
-                            re = scenario.globalReduction;
-                            it = scenario.LoadReductionMap.find(lue);
-                            if (it != scenario.LoadReductionMap.end()) {
-                                re = it->second;
-                                //std::cout << " rs=" << rs;
-                            }
-                        }
-                        double N1 = 0, N2 = 0, u = 0;
-                        int nload_idx = Nidx[CVindex[j]];
-                        if (nload_idx < 0)
-                            continue;
-                        NvalidCells = NvalidCells + 1.0;
-                        getNload(nload_idx, iyr + startYear, N1, N2, u);
-                        double Nbase = N1* (1 - u) + N2* u;
-                        if ((adoptionCoeff > 0) && ((std::abs(1 - rs) > 0.000000001) || (std::abs(1 - re) > 0.000000001))) {
-                            double Nred = (N1 * rs) * (1 - u) + (N2 * re) * u;
-                            //std::cout << " Nred=" << Nred;
-                            double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
-                            if (loadUnits == LoadUnits::MASS){
-                                tmpLoad = tmpLoad*100 / rch[j];
-                            }
-                            lf += tmpLoad;
-                        }
-                        else{
-                            if (loadUnits == LoadUnits::MASS){
-                                Nbase = Nbase*100 / rch[j];
-                            }
-                            lf += Nbase;
-                        }
-                    }
-
-                    if (NvalidCells < 0.00001){
-                        out = false;
-                        return out;
-                    }
-                    else if (std::abs(NvalidCells - 1) < 0.000001){
-                        LF[iyr] = lf;
-                    }
-                    else if (NvalidCells > 1){
-                        LF[iyr] = lf/NvalidCells;
-                    }
-                }
-            }
-            else if (loadType == LoadType::GTL*//*SWAT*//*) {
-                double lf = 0;
-                double NvalidCells = 0;
-                for (unsigned int j = 0; j < CVindex.size(); ++j){
-                    int nload_idx = Nidx[CVindex[j]];
-                    if (nload_idx < 0)
-                        continue;
-                    NvalidCells = NvalidCells + 1.0;
-                    double Nbase = getNload(nload_idx, iyr + startYear);
-                    double Nred = percReduction[j] * Nbase;
-                    double tmpLoad = (Nbase * (1 - adoptionCoeff) + Nred * adoptionCoeff);
-                    if (loadUnits == LoadUnits::MASS){
-                        tmpLoad = tmpLoad*100 / rch[j];
-                    }
-                    lf += tmpLoad;
-                    //std::cout << Nbase << ", " << Nred << std::endl;
-                }
-
-                if (NvalidCells < 0.000001){
-                    out = false;
-                    return out;
-                }
-                else if (std::abs(NvalidCells - 1) < 0.000001){
-                    LF[iyr] = lf;
-                }
-                else if (NvalidCells > 1){
-                    LF[iyr] = lf/NvalidCells;
-                }
-            }
-
-            if (scenario.maxConc > 0){
-                if (LF[iyr] > scenario.maxConc){
-                    LF[iyr] = scenario.maxConc;
-                }
-            }
-        }*/
-        return true;
     }
 
     class NLoadList{

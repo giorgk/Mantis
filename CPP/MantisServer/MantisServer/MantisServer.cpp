@@ -32,7 +32,6 @@ size_t read_complete(char * buff, const boost::system::error_code & err, size_t 
 }
 
 
-
 int main(int argc, char *argv[])
 {
 	mantisServer::options msOptions;
@@ -69,13 +68,13 @@ int main(int argc, char *argv[])
         ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::address::from_string(msOptions.ip), msOptions.port));
         std::cout << "   IP: " << acceptor.local_endpoint().address().to_string() << std::endl;
         std::cout << "   PORT: " << acceptor.local_endpoint().port() << std::endl;
-		char buff[4096];
+		char buff[8192];
 		while (true) {
 			ba::ip::tcp::socket socket(io_service);
 			acceptor.accept(socket);
-            std::cout << " After SOCKET" << std::endl;
+            //std::cout << " After SOCKET" << std::endl;
 			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, boost::placeholders::_1, boost::placeholders::_2)));
-            std::cout << " After read_complete" << std::endl;
+            //std::cout << " After read_complete" << std::endl;
             std::string msg(buff, bytes);
 			std::string outmsg;
 			if (msg.compare("quit\n") == 0) {
@@ -94,13 +93,13 @@ int main(int argc, char *argv[])
                 continue;
 			}
 
-            std::cout << " MSG Recieved" << std::endl;
+            //std::cout << " MSG Recieved" << std::endl;
 			bool bvalidMsg = M.parse_incoming_msg(msg, outmsg);
-            std::cout << " MSG Parsed" << std::endl;
+            //std::cout << " MSG Parsed" << std::endl;
 			if (bvalidMsg) {
-                std::cout << "Validate MSG" << std::endl;
+                //std::cout << "Validate MSG" << std::endl;
 				bvalidMsg = M.validate_msg(outmsg);
-                std::cout << " MSG Validated" << std::endl;
+                //std::cout << " MSG Validated" << std::endl;
 			}
 			if (bvalidMsg) {
                 std::cout << " Prepare Simulation" << std::endl;

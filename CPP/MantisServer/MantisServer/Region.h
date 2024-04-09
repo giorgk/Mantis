@@ -29,7 +29,7 @@ namespace mantisServer{
         std::string path;
         BackgroundRaster raster;
         BMapCollection Bmaps;
-        LinearData Unsat;
+        //LinearData Unsat;
         LinearData UnsDepth;
         RechargeScenarioList Rch;
         FlowWellCollection FWC;
@@ -122,8 +122,7 @@ namespace mantisServer{
         }
 
         {// Read the Urfs
-            std::cout << "-------- URFs --------" << std::endl;
-            std::string urfsfile =  vm_ro["Data.URFS"].as<std::string>();
+            std::cout << "-------- URFs --------" << std::endl;std::string urfsfile =  vm_ro["Data.URFS"].as<std::string>();
             bool tf = FWC.readMainfile(path, urfsfile, false, Bmaps);
             if (!tf)
                 return false;
@@ -184,13 +183,13 @@ namespace mantisServer{
             return false;
         }
         // Test for the Unsaturated option
-        tf = Unsat.hasScenario((scenario.unsatScenario));
+        tf = UnsDepth.hasScenario((scenario.unsatScenario));
         if (!tf){
             outmsg += "0 ERROR: The Unsat [" + scenario.unsatScenario + "]  could not be found";
             return false;
         }
         else{
-            scenario.unsatScenarioID = Unsat.ScenarioIndex(scenario.unsatScenario);
+            scenario.unsatScenarioID = UnsDepth.ScenarioIndex(scenario.unsatScenario);
         }
 
         {// Loading validation
@@ -292,7 +291,7 @@ namespace mantisServer{
                 std::vector<int> cell_lin_ind;
                 std::vector<double> rch_val;
                 std::vector<double> cln_rch;
-                std::vector<int> depth_val;
+                std::vector<double> depth_val;
 
                 // Make a list of this streamline source area
                 for (std::vector<cell>::iterator cellit = strmlit->second.SourceArea.begin(); cellit != strmlit->second.SourceArea.end(); ++cellit){
@@ -310,7 +309,7 @@ namespace mantisServer{
                     if (depth < scenario.unsatMinDepth){
                         depth = scenario.unsatMinDepth;
                     }
-                    depth_val.push_back(static_cast<int>(depth));
+                    depth_val.push_back(depth);
 
                     if (rch_val.size() >= scenario.maxSourceCells){
                         break;
@@ -333,10 +332,10 @@ namespace mantisServer{
                             break;
                         }
                         else{
-                            double u = (dYear+dSY - dLTs)/(dLTe - dLTs);
+                            double u = (dYear + dSY - dLTs)/(dLTe - dLTs);
                             mainload[i] = (1-u)*preload[i] + u*mainload[i];
                         }
-                        dYear = dYear + 1;
+                        dYear = dYear + 1.0;
                     }
                 }
 

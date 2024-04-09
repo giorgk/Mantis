@@ -13,6 +13,11 @@
 #include "Rch.h"
 
 namespace mantisServer{
+
+    // These are tmp for deletion
+    int n_noSource = 0;
+    int n_total = 0;
+
     /**
 	 * @brief Stores data for each streamline.
 	 *
@@ -189,14 +194,14 @@ namespace mantisServer{
             calculateSourceAreaType0(braster, debug);
         }
         else if (doCalc == 1){
-            calculateSourceAreaType1(braster, rch, debug);
-        }
-        else if (doCalc == 2){
             calculateSourceAreaType2(braster, rch, WSAstrm, debug, printWSA);
         }
-        else if (doCalc == 3){
-            calculateSourceAreaType3(braster, rch, WSAstrm, debug, printWSA);
-        }
+        //else if (doCalc == 2){
+        //    calculateSourceAreaType2(braster, rch, WSAstrm, debug, printWSA);
+        //}
+        //else if (doCalc == 3){
+        //    calculateSourceAreaType3(braster, rch, WSAstrm, debug, printWSA);
+        //}
     }
 
     void Well::calculateSourceAreaType0(BackgroundRaster &braster, bool debug){
@@ -472,10 +477,10 @@ namespace mantisServer{
             int count_iter = 0;
             braster.cellCoords(row, col, Xcntr, Ycntr);
             double Npxl = static_cast<double>(itstrml->second.Npxl);
-            if (Npxl == 1){
-                Npxl = 0;
+            if (Npxl == 0){
+                Npxl = 1;
             }
-            while (count_iter < 50){
+            while (count_iter < 1){
                 itstrml->second.SourceArea.clear();
                 Qtmp = 0.0;
                 double lngth = cellSize + cellSize * Npxl;
@@ -545,29 +550,22 @@ namespace mantisServer{
                                     itstrml->second.addSourceAreaCell(c);
                                     Qtmp += (rch_v/365/1000)*cellArea;
 
-                                    // Remove these lines
-                                    //cnt_cells++;
-                                    //if (cnt_cells > 3){
-                                    //    done_that = true;
-                                    //}
                                 }
                             }
                         }
-                        // Remove these lines
-                        if (done_that)
-                            break;
                     }
-                    // Remove these lines
-                    if (done_that)
-                        break;
                 }
                 if (Qtmp >= Qtarget){
                     break;
                 }
-                Npxl = Npxl + 1.0;
+                // Double the source area and try again
+                Npxl = Npxl * 2;
                 count_iter = count_iter + 1;
-
             }
+            if (itstrml->second.SourceArea.size() == 0){
+                n_noSource++;
+            }
+            n_total++;
             std::sort(itstrml->second.SourceArea.begin(), itstrml->second.SourceArea.end(), compareCellByDistance);
             if (printWSA){
                 WSAstrm << itstrml->first << " " << std::setprecision(2) << std::fixed
@@ -769,6 +767,9 @@ namespace mantisServer{
     }
 
     void FlowWellCollection::calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList) {
+
+
+
         std::map<std::string ,WellList>::iterator flowit;
         std::map<int, Well>::iterator wellit;
         std::map<std::string, RechargeScenario>::iterator rchit;
@@ -785,6 +786,8 @@ namespace mantisServer{
             if (flowit->second.calcSourceArea == 2 && flowit->second.printSourceArea == 1){
                 WSAstrm.open(WSAfn.c_str());
             }
+            n_noSource = 0;
+            n_total = 0;
 
             for (wellit = flowit->second.Wells.begin(); wellit != flowit->second.Wells.end(); ++ wellit){
                 //std::cout << wellit->first << std::endl;
@@ -808,6 +811,7 @@ namespace mantisServer{
             if (flowit->second.calcSourceArea == 2 && flowit->second.printSourceArea == 1){
                 WSAstrm.close();
             }
+            std::cout << n_noSource << " | " << n_total << std::endl;
         }
 
 
@@ -841,8 +845,15 @@ namespace mantisServer{
         else{
             std::string line, filename1;
             while (getline(mainfile, line)){
+                filename1.clear();
+                if (line.empty())
+                    continue;
+                if (line.front() == '#')
+                    continue;
+
                 std::istringstream inp(line.c_str());
                 inp >> filename1;
+
                 if (filename1.empty())
                     continue;
                 if (filename1.front() == '#')
