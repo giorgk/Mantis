@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
                 //std::cout << " MSG Validated" << std::endl;
 			}
 			if (bvalidMsg) {
-                std::cout << " Prepare Simulation" << std::endl;
+                //std::cout << " Prepare Simulation" << std::endl;
 				M.resetReply();
 				auto start = std::chrono::high_resolution_clock::now();
 				std::vector<std::thread> T;
