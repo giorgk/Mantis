@@ -27,24 +27,26 @@ namespace mantisServer{
     class Streamline{
     public:
         Streamline(){};
-        /*! \brief streamlineClass constructor expects the parameters that define a streamline
-		\param row_ind is the index in GNLM loading where this streamline starts from near the land surface.
-		\param col_ind is the index in SWAT loading where this streamline starts from near the land surface.
-		\param w_in is the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
-		\param rch_in is the groundwater recharge rate in m/day according to the flow model
-		\param type_in is the type of the unit response function
-		\param paramA this is either the mean value or the streamline length.
-		\param paramB this is either the standard deviation or the velocity.
-		\param paramC if the type is both this is mean, while A and B are length and velocity
-		\param paramD if the type is both this is standard deviation
-		*/
-        void setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
-                        double paramA, double paramB, double paramC = 0, double paramD = 0);
+        /*!
+         *
+         * @param row_ind URF ending point row index
+         * @param col_ind URF ending point column index
+         * @param riv_in True if source comes from river
+         * @param npxl_in Number of source area pixels
+         * @param w_in weight
+         * @param len_in lenth of streamline
+         * @param mean_in a list of fitted means
+         * @param std_in a list of fitted stds
+         * @param age_in a list of travel times
+         */
+        void setParameters(int row_ind, int col_ind, int riv_in, int npxl_in, double w_in,  double len_in,
+                           std::vector<double> &mean_in, std::vector<double> &std_in, std::vector<double> &age_in);
+
         //void addSourceAreaCell(int lin_ind, int row, int col);
         void addSourceAreaCell(cell c);
         void clearSourceArea();
 
-        void print();
+        void print(int i);
 
         //! the row number of the pixel where this streamline starts from near the land surface.
         int row;
@@ -53,27 +55,32 @@ namespace mantisServer{
         int col;
 
         //! the mean value of the fitted unit response function.
-        double mu;
+        std::vector<double> mu;
 
         //! the standard deviation of the fitted unit response function.
-        double std;
+        std::vector<double> std;
+
+        std::vector<double> age;
 
         //!the weight of this streamline. This is proportional to the velocity at the well side of the streamline.
         double w;
 
         //! The streamline length
-        double sl;
+        double len;
 
         //! the mean velocity along the streamline
-        double vel;
+        //std::vector<double> vel;
 
         //! This is true for the streamlines that start from rivers
         bool inRiver;
 
         //! The type of streamline
-        URFTYPE type;
+        //URFTYPE type;
 
         int Npxl;
+
+
+        bool bisZeroLoading = false;
 
         //std::map<int,cell> SourceArea;
         std::vector<cell> SourceArea;
@@ -100,49 +107,29 @@ namespace mantisServer{
         //}
     }
 
-    void Streamline::print() {
-        std::cout << "r: " << row << ", c: " << col << ", m: " << mu << ", s: " << std << ", w: " << w << ", riv: " << inRiver << ", N: " << Npxl << std::endl;
+    void Streamline::print(int i) {
+        std::cout << "r: " << row << ", c: " << col << ", m: " << mu[i] << ", s: " << std[i] << ", w: " << w << ", riv: " << inRiver << ", N: " << Npxl << std::endl;
     }
 
-    void Streamline::setParameters(int row_ind, int col_ind, double w_in, int npxl_in, URFTYPE type_in, int Riv,
-                                     double paramA, double paramB, double paramC, double paramD) {
+    void Streamline::setParameters(int row_ind, int col_ind, int riv_in, int npxl_in, double w_in,  double len_in,
+                                   std::vector<double> &mean_in, std::vector<double> &std_in, std::vector<double> &age_in) {
         row = row_ind;
         col = col_ind;
-        w = w_in;
+        inRiver = riv_in == 1;
         Npxl = npxl_in;
-        type = type_in;
-        inRiver = Riv == 1;
-        switch (type)
-        {
-            case URFTYPE::LGNRM:
-                mu = paramA;
-                std = paramB;
-                sl = paramC;
-                vel = paramD;
-                break;
-            case URFTYPE::ADE:
-                sl = paramA;
-                vel = paramB;
-                mu = paramC;
-                std = paramD;
-                break;
-            case URFTYPE::BOTH:
-                sl = paramA;
-                vel = paramB;
-                mu = paramC;
-                std = paramD;
-                break;
-            default:
-                break;
-        }
+        w = w_in;
+        len = len_in;
+        mu = mean_in;
+        std = std_in;
+        age = age_in;
     }
 
     class Well{
     public:
-        void addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
-                           double paramA, double paramB, double paramC = 0, double paramD = 0);
+        //Sid, row_ind, col_ind, riv, npxl, w, len,mean, std, age
+        void addStreamline(int Sid, int row_ind, int col_ind, int riv, int npxl, double w, double len,
+                           std::vector<double> &mean, std::vector<double> &std, std::vector<double> &age);
         void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
-
         void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateSourceAreaType0(BackgroundRaster &braster, bool debug = false);
         void calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
@@ -172,10 +159,10 @@ namespace mantisServer{
         }
     }
 
-    void Well::addStreamline(int Sid, int row_ind, int col_ind, double w, int npxl, URFTYPE type, int riv,
-                                  double paramA, double paramB, double paramC, double paramD) {
+    void Well::addStreamline(int Sid, int row_ind, int col_ind, int riv, int npxl, double w, double len,
+                             std::vector<double> &mean, std::vector<double> &std, std::vector<double> &age) {
         Streamline s;
-        s.setParameters(row_ind, col_ind, w, npxl, type, riv, paramA, paramB, paramC, paramD);
+        s.setParameters(row_ind, col_ind, riv,npxl, w, len, mean, std, age);
         streamlines.insert(std::pair<int, Streamline>(Sid, s));
     }
 
@@ -211,13 +198,15 @@ namespace mantisServer{
             int rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
             if (rasterValue == -1){
                 // The source area is outside the active area therefore the loading will be zero
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 continue;
             }
             if (itstrml->second.inRiver){
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 continue;
             }
             cell c;
@@ -279,14 +268,16 @@ namespace mantisServer{
             rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
             if (rasterValue == -1){
                 // The source area is outside the active area therefore the loading will be zero
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 continue;
             }
 
             if (itstrml->second.inRiver){
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 continue;
             }
 
@@ -450,9 +441,11 @@ namespace mantisServer{
         //int maxcells = 0;
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
-            if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+            //if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
+            if (itstrml->second.inRiver){
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 //int rasterValue = braster.IJ(itstrml->second.row, itstrml->second.col);
                 //if (rasterValue >= 0){
                 //    cell c;
@@ -593,9 +586,11 @@ namespace mantisServer{
 
         for (itstrml = streamlines.begin(); itstrml != streamlines.end(); ++itstrml){
             //std::cout << itstrml->first << std::endl;
-            if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
-                itstrml->second.mu = 0.0;
-                itstrml->second.std = 0.0;
+            //if (itstrml->second.inRiver || std::abs(itstrml->second.mu) < 0.0001){
+            if (itstrml->second.inRiver){
+                itstrml->second.bisZeroLoading = true;
+                //itstrml->second.mu = 0.0;
+                //itstrml->second.std = 0.0;
                 continue;
             }
             double minSrcXrt = 999999999999.9; double minSrcYrt = 999999999999.9;
@@ -696,28 +691,32 @@ namespace mantisServer{
     public:
         WellList(){}
         void addWell(int Eid, Well w);
-        bool addstreamline(int Eid,int Sid, int row_ind, int col_ind, double w,
-                           int npxl, URFTYPE type, int riv,
-                           double paramA, double paramB,
-                           double paramC = 0, double paramD = 0);
+        bool addstreamline(int Eid,int Sid, int row_ind, int col_ind, int riv, int npxl, double w, double len,
+                           std::vector<double> mean, std::vector<double> std, std::vector<double> age);
+        void setPorosityIndices(std::vector<int> &por);
         int calcSourceArea = false;
         int printSourceArea = false;
         std::string rch_map;
         std::map<int, Well> Wells;
+        std::map<int,int> PorosityIndex;
     };
+    //wellid, Sid ,row_ind, col_ind, riv, npxl, w, len, mean, std, age
+    bool WellList::addstreamline(int Eid,int Sid, int row_ind, int col_ind, int riv, int npxl, double w, double len,
+                                 std::vector<double> mean, std::vector<double> std, std::vector<double> age){
 
-    bool WellList::addstreamline(int Eid,int Sid, int row_ind, int col_ind, double w,
-                                 int npxl, URFTYPE type, int riv,
-                                 double paramA, double paramB,
-                                 double paramC, double paramD){
         std::map<int, Well>::iterator eidit;
         eidit = Wells.find(Eid);
         if (eidit == Wells.end()){
             std::cout << "I can't find a well with id [ " << Eid << " ]" << "in the list" << std::endl;
             return false;
         }
-        eidit->second.addStreamline(Sid,row_ind,col_ind,w,npxl,type,riv,paramA,paramB,paramC,paramD);
+        eidit->second.addStreamline(Sid, row_ind, col_ind, riv, npxl, w, len,mean, std, age);
         return true;
+    }
+    void WellList::setPorosityIndices(std::vector<int> &por) {
+        for (unsigned int i = 0; i < por.size(); ++i){
+            PorosityIndex.insert(std::pair<int, int>(por[i],i));
+        }
     }
 
     void WellList::addWell(int Eid, Well w) {
@@ -733,22 +732,30 @@ namespace mantisServer{
         void calcWellWeights();
         void calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList);
         std::map<std::string ,WellList> FlowScenarios;
-        bool hasFlowScenario(std::string &flowScen);
+        bool hasFlowScenario(std::string &flowScen, int por, int &porind);
     private:
         bool readWells(std::string filename, BMapCollection &Bmaps);
         bool readURFs(std::string filename);
+        //addStreamline(name, eid, sid, r, c, riv, npxl, w, len, M, S, A)
         bool addStreamline(std::string flowScenName, int wellid,
-                           int Sid, int row_ind, int col_ind, double w,
-                           int npxl, URFTYPE type, int riv,
-                           double paramA, double paramB,
-                           double paramC = 0, double paramD = 0);
+                           int Sid, int row_ind, int col_ind, int riv, int npxl,double w, double len,
+                            std::vector<double> &mean, std::vector<double> &std, std::vector<double> &age);
+        bool addPorosityScenarios(std::string flowScenName, std::vector<int> &por);
     };
 
-    bool FlowWellCollection::hasFlowScenario(std::string &flowScen) {
+    bool FlowWellCollection::hasFlowScenario(std::string &flowScen, int por, int &porind) {
         std::map<std::string ,WellList>::iterator flowit;
         flowit = FlowScenarios.find(flowScen);
         if (flowit != FlowScenarios.end()){
-            return true;
+            std::map<int,int>::iterator porit;
+            porit = flowit->second.PorosityIndex.find(por);
+            if (porit != flowit->second.PorosityIndex.end()){
+                porind = porit->second;
+                return true;
+            }
+            else{
+                return false;
+            }
         }
         else{
             return false;
@@ -819,17 +826,27 @@ namespace mantisServer{
     }
 
     bool FlowWellCollection::addStreamline(std::string flowScenName, int wellid,
-                                           int Sid, int row_ind, int col_ind, double w,
-                                           int npxl, URFTYPE type, int riv,
-                                           double paramA, double paramB,
-                                           double paramC, double paramD){
+                                           int Sid, int row_ind, int col_ind, int riv, int npxl,double w, double len,
+                                           std::vector<double> &mean, std::vector<double> &std, std::vector<double> &age){
         std::map<std::string ,WellList>::iterator flowit;
         flowit = FlowScenarios.find(flowScenName);
         if (flowit == FlowScenarios.end()){
             std::cout << "I can't find wells under the [ " << flowScenName << " ] flow scenario" << std::endl;
             return false;
         }
-        flowit->second.addstreamline(wellid,Sid,row_ind,col_ind,w,npxl,type,riv,paramA,paramB,paramC,paramD);
+        //addStreamline(eid, sid, r, c, riv, npxl, w, len, M, S, A)
+        flowit->second.addstreamline(wellid, Sid ,row_ind, col_ind, riv, npxl, w, len, mean, std, age);
+        return true;
+    }
+
+    bool FlowWellCollection::addPorosityScenarios(std::string flowScenName, std::vector<int> &por) {
+        std::map<std::string ,WellList>::iterator flowit;
+        flowit = FlowScenarios.find(flowScenName);
+        if (flowit == FlowScenarios.end()){
+            std::cout << "I can't find wells under the [ " << flowScenName << " ] flow scenario" << std::endl;
+            return false;
+        }
+        flowit->second.setPorosityIndices(por);
         return true;
     }
 
@@ -948,50 +965,48 @@ namespace mantisServer{
         if (ext.compare("h5") == 0){
             const std::string NamesNameSet("Names");
             const std::string IntsNameSet("ESIJRN");
-            const std::string FloatNameSet("MSW");
+            const std::string FloatNameSet("WMSA");
+            const std::string PORNameSet("POR");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
             HighFive::DataSet datasetInts = HDFfile.getDataSet(IntsNameSet);
             HighFive::DataSet datasetFloat = HDFfile.getDataSet(FloatNameSet);
+            HighFive::DataSet datasetPor = HDFfile.getDataSet(PORNameSet);
             std::vector<std::string> names;
             std::vector<std::vector<int>> IDS;
             std::vector<std::vector<double>> DATA;
+            std::vector<int> POR;
             datasetNames.read(names);
             datasetInts.read(IDS);
             datasetFloat.read(DATA);
-            if (names.size() != 2){
-                std::cout << "2 names are needed for the URFset. " << names.size() << " provided" << std::endl;
-                return false;
-            }
+            datasetPor.read(POR);
+
             if (IDS[0].size() != DATA[0].size()){
                 std::cout << "The rows of integer and float data do not match" << std::endl;
                 return false;
             }
-            if (IDS.size() != 6 || DATA.size() != 3){
-                std::cout << "Incorrect number of columns" << std::endl;
-                std::cout << "The size of integers must be 6 and for the floats 3" << std::endl;
-                return false;
-            }
-
-            URFTYPE urftype;
-            if (names[1].compare("LGNRM") == 0)
-                urftype = URFTYPE::LGNRM;
-            else if (names[1].compare("ADE") == 0)
-                urftype = URFTYPE::ADE;
-            else if (names[1].compare("BOTH") == 0)
-                urftype = URFTYPE::BOTH;
-            else{
-                std::cout << "The URF type " << names[1] << " is not valid" << std::endl;
-                return false;
-            }
 
             int eid, sid, r, c, riv, npxl;
-            double m, s, w;
+            double w, len;
             bool tf;
             for (unsigned int i = 0; i < IDS[0].size(); ++i){
-                tf = addStreamline(names[0], IDS[0][i], IDS[1][i], IDS[2][i], IDS[3][i],
-                              DATA[2][i], IDS[5][i], urftype, IDS[4][i],
-                              DATA[0][i], DATA[1][i]);
+                eid = IDS[0][i];
+                sid = IDS[1][i];
+                r = IDS[2][i];
+                c = IDS[3][i];
+                riv = IDS[4][i];
+                npxl = IDS[5][i];
+                w = DATA[0][i];
+                len = DATA[1][i];
+                int idx = 2;
+                std::vector<double> M,S,A;
+                for (unsigned int j = 0; j < POR.size(); ++j){
+                    M.push_back(DATA[idx][i]);
+                    S.push_back(DATA[idx+1][i]);
+                    A.push_back(DATA[idx+2][i]);
+                    idx = idx + 3;
+                }
+                tf = addStreamline(names[0], eid, sid, r, c, riv, npxl, w, len, M, S, A);
                 if (!tf){
                     std::cout << "Error while inserting the streamline for flow scenario [ "
                               << names[0] << " ] with Eid: " << IDS[0][i] << ", Sid: " << IDS[1][i] << std::endl;
@@ -1004,59 +1019,103 @@ namespace mantisServer{
             return true;
         }
 #endif
-        std::ifstream ifile;
-        ifile.open(filename);
-        if (!ifile.is_open()){
-            std::cout << "Cant open file: " << filename << std::endl;
+        std::ifstream ifile1, ifile2;
+        std::string filename1 = filename + "_data.mnts";
+        std::string filename2 = filename + "_msa.mnts";
+        ifile1.open(filename1);
+        bool bfilesGood = true;
+        // Test the first file
+        if (!ifile1.is_open()){
+            std::cout << "Cant open file: " << filename1 << std::endl;
+            bfilesGood = false;
+        }
+        if (!bfilesGood){
             return false;
         }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            std::string line;
-            int Nurfs;
-            URFTYPE urftype;
-            std::string name, type;
-            {// Read the header
-                getline(ifile, line);
-                std::istringstream inp(line.c_str());
-                inp >> Nurfs;
-                inp >> name;
-                inp >> type;
+        // Test the second file
+        ifile2.open(filename2);
+        if (!ifile2.is_open()){
+            std::cout << "Cant open file: " << filename2 << std::endl;
+            bfilesGood = false;
+        }
+        if (!bfilesGood){
+            return false;
+        }
 
-                if (type.compare("LGNRM") == 0)
-                    urftype = URFTYPE::LGNRM;
-                else if (type.compare("ADE") == 0)
-                    urftype = URFTYPE::ADE;
-                else if (type.compare("BOTH") == 0)
-                    urftype = URFTYPE::BOTH;
-                else{
-                    std::cout << "The URF type " << type << " is not valid" << std::endl;
-                    return false;
-                }
+        std::cout << "Reading " << filename1 << " and " << filename2 << std::endl;
+        std::string line1, line2;
+        int Nurfs, Npor;
+        URFTYPE urftype;
+        std::string name, type;
+        {// Read the header from the first file
+            getline(ifile1, line1);
+            std::istringstream inp(line1.c_str());
+            inp >> Nurfs;
+            inp >> name;
+            inp >> Npor;
+
+            //if (type.compare("LGNRM") == 0)
+            //    urfType = URFTYPE::LGNRM;
+            //else if (type.compare("ADE") == 0)
+            //    urfType = URFTYPE::ADE;
+            //else if (type.compare("BOTH") == 0)
+            //   urfType = URFTYPE::BOTH;
+            //else{
+            //    std::cout << "The URF type " << type << " is not valid" << std::endl;
+            //    return false;
+            //}
+        }
+        {// Read porosity data from the first file
+            bool tf;
+            std::vector<int> por;
+            getline(ifile1, line1);
+            std::istringstream inp(line1.c_str());
+            int p;
+            for (int i = 0; i < Npor; ++i){
+                inp >> p;
+                por.push_back(p);
             }
+            tf = addPorosityScenarios(name, por);
+            if (!tf){
+                std::cout << "Error while inserting the porosity indices for flow scenario [ "
+                          << name << " ]" << std::endl;
+                return false;
+            }
+        }
 
-            {// Read the data
-                int eid, sid, r, c, riv, npxl;
-                double m, s, w;
-                bool tf;
-                for (int i = 0; i < Nurfs; ++i){
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> eid;
-                    inp >> sid;
-                    inp >> r;
-                    inp >> c;
-                    inp >> riv;
-                    inp >> m;
-                    inp >> s;
-                    inp >> w;
-                    inp >> npxl;
-                    tf = addStreamline(name, eid, sid, r, c, w, npxl, urftype, riv, m, s);
-                    if (!tf){
-                        std::cout << "Error while inserting the streamline for flow scenario [ "
-                                  << name << " ] with Eid: " << eid << ", Sid: " << sid << std::endl;
-                        return false;
-                    }
+        {// Read the data from both files
+            int eid, sid, r, c, riv, npxl;
+            double m, s, w, age, len;
+            bool tf;
+            for (int i = 0; i < Nurfs; ++i){
+                getline(ifile1, line1);
+                getline(ifile2, line2);
+                std::istringstream inp1(line1.c_str());
+                inp1 >> eid;
+                inp1 >> sid;
+                inp1 >> r;
+                inp1 >> c;
+                inp1 >> riv;
+                inp1 >> w;
+                inp1 >> len;
+                inp1 >> npxl;
+                std::vector<double> M, S, A;
+                std::istringstream inp2(line2.c_str());
+                for (int j = 0; j < Npor; ++j){
+                    inp2 >> m;
+                    inp2 >> s;
+                    inp2 >> age;
+                    M.push_back(m);
+                    S.push_back(s);
+                    A.push_back(age);
+                }
+
+
+                tf = addStreamline(name, eid, sid, r, c, riv, npxl, w, len, M, S, A);
+                if (!tf){
+                    std::cout << "Error while inserting the streamline for flow scenario [ "
+                              << name << " ] with Eid: " << eid << ", Sid: " << sid << std::endl;
+                    return false;
                 }
             }
         }

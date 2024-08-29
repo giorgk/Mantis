@@ -92,6 +92,9 @@ namespace mantisServer {
         std::string unsatScenario;
         int unsatScenarioID;
 
+        int porosity = 10;
+        int porosityIndex = 0;
+
         //! This is the unsaturated zone mobile water content (m3/m3)
         //! Typical values are 0.05,0.1 ,0.15 and 0.20
         double unsatZoneMobileWaterContent;
@@ -151,6 +154,7 @@ namespace mantisServer {
 
         sourceArea SourceArea;
         int maxSourceCells;
+        URFTYPE urfType = URFTYPE::LGNRM;
     };
 
 /**
@@ -196,6 +200,8 @@ namespace mantisServer {
         LoadTransitionEnd = 2015;
         bUseMonitoringWells = false;
         bUseFlowRch = true;
+        porosity = 10;
+        porosityIndex = 0;
         SourceArea.clear();
         printWellIds = false;
         debugID = "";
@@ -205,6 +211,7 @@ namespace mantisServer {
         printWellBTC = false;
         printAdditionalInfo = false;
         maxSourceCells = 1000;
+        urfType = URFTYPE::LGNRM;
     }
 
     bool Scenario::parse_incoming_msg(std::string &msg, std::string &outmsg){
@@ -378,6 +385,17 @@ namespace mantisServer {
                 }
 
                 continue;
+            }
+
+            if (test == "por"){
+                ss >> porosity;
+                continue;
+            }
+
+            if (test == "urfType"){
+                std::string tmp;
+                ss >> tmp;
+                urfType = string2URFTYPE(tmp);
             }
 
             if (test == "maxSourceCells") {

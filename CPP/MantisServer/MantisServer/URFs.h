@@ -40,6 +40,7 @@ namespace mantisServer{
 	*/
     class URF {
     public:
+        URF(){}
         /**
          * @brief Construct a new URF object
          *
@@ -51,10 +52,10 @@ namespace mantisServer{
          * @param type If the type is URFTYPE::LGNRM paramA is the mean and paramB is the standard deviation
          * If the type is URFTYPE::ADE, paramA is the screen length and paramB is the velocity.
          */
-        URF(int Nyrs, double paramA, double paramB, URFTYPE type, ADEoptions ade_opt = ADEoptions());
+        void init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt = ADEoptions());
 
         //! calc_conc returns the concentration for a given year. This is actuall used internaly by \ref calc_urf method.
-        double calc_conc(double t, ADEoptions ade_opt = ADEoptions());
+        double calc_conc(double t);
 
         /**
         \brief convolute executes the convolution of the urf with the loading function.
@@ -80,7 +81,7 @@ namespace mantisServer{
         //! This is a vector where the expanded values of the urfs will be stored.
         std::vector<double> urf;
         //! calc_urf expands the urf. This takes place during contruction.
-        void calc_urf(ADEoptions ade_opt = ADEoptions());
+        void calc_urf();
         /**
          A hard coded threshold. Loading values lower than this threshold are treated as zero
          therefore the convolution can skip an entire loop associated with the particular loading value.
@@ -89,39 +90,41 @@ namespace mantisServer{
 
         //! THis is the URF type
         URFTYPE type;
+        ADEoptions ade_opt;
 
         std::vector<double> TwoYears{0.00095171, 0.19513243, 0.41957050, 0.25244126, 0.09333424, 0.02803643, 0.00771540, 0.00206063, 0.00055016, 0.00014916, 0.00004141, 0.00001182, 0.00000347, 0.00000106, 0.00000032};
         std::vector<double> OneYear{0.48443252, 0.41642340, 0.08307405, 0.01338364, 0.00219913, 0.00039049, 0.00007584, 0.00001608, 0.00000370, 0.00000092, 0.00000023};
     };
 
-    URF::URF(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
-            :
-            paramA(paramA_in),
-            paramB(paramB_in),
-            type(type_in)
+    void URF::init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
     {
+        paramA = paramA_in;
+        paramB = paramB_in;
+        type = type_in;
+        ade_opt = ade_opt;
+
         urf.resize(Nyrs, 0);
-        if (std::abs(paramA + 1) < 0.0000001){
-            for (unsigned int i = 0; i < OneYear.size(); ++i){
-                if (i < urf.size())
-                    urf[i] = OneYear[i];
+
+        if (type == URFTYPE::LGNRM){
+            if (std::abs(paramA + 1) < 0.0000001){
+                for (unsigned int i = 0; i < OneYear.size(); ++i){
+                    if (i < urf.size())
+                        urf[i] = OneYear[i];
+                }
+                return;
+            }
+            else if(std::abs(paramA + 2) < 0.0000001){
+                for (unsigned int i = 0; i < TwoYears.size(); ++i){
+                    if (i < urf.size())
+                        urf[i] = TwoYears[i];
+                }
+                return;
             }
         }
-        else if(std::abs(paramA + 2) < 0.0000001){
-            for (unsigned int i = 0; i < TwoYears.size(); ++i){
-                if (i < urf.size())
-                    urf[i] = TwoYears[i];
-            }
-        }
-        else{
-            calc_urf(ade_opt);
-            //printVector<double>(urf, "URF");
-        }
-
-
+        calc_urf();
     }
 
-    double URF::calc_conc(double t, ADEoptions ade_opt) {
+    double URF::calc_conc(double t) {
         double out = 0.0;
         switch (type)
         {
@@ -166,10 +169,10 @@ namespace mantisServer{
         return out;
     }
 
-    void URF::calc_urf(ADEoptions ade_opt) {
+    void URF::calc_urf() {
         double sumurf = 0.0;
         for (int i = 0; i < static_cast<int>(urf.size()); ++i){
-            urf[i] = calc_conc(static_cast<double>(i + 1), ade_opt);
+            urf[i] = calc_conc(static_cast<double>(i + 1));
             sumurf += urf[i];
         }
         if (sumurf > 1.0){

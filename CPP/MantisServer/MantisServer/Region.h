@@ -166,7 +166,7 @@ namespace mantisServer{
         }
 
         //Test for the wells under the selected flow scenario
-        tf = FWC.hasFlowScenario(scenario.flowWellScen);
+        tf = FWC.hasFlowScenario(scenario.flowWellScen, scenario.porosity, scenario.porosityIndex);
         if (!tf){
             outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
             outmsg += "does not have the flow Scenario [" + scenario.flowScen + "]";
@@ -211,8 +211,6 @@ namespace mantisServer{
                     }
                 }
             }
-
-
         }
 
         return true;
@@ -228,6 +226,7 @@ namespace mantisServer{
         std::ofstream lf_file;
         std::ofstream btc_file;
         std::ofstream well_btc_file;
+        //Initialize debugging output files
         if (scenario.printAdditionalInfo){
             std::string root_name;
             root_name = scenario.debugPath + "_" + scenario.debugID + "_" + num2Padstr(threadid, 2);
@@ -282,11 +281,14 @@ namespace mantisServer{
 
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++strmlit){
 
-                // If the streamline has 0 mean then we assume zero loading
-                if (std::abs(strmlit->second.mu) < 0.000001 || strmlit->second.inRiver){
+                // If the streamline originates from stream it has zero loading
+                if (strmlit->second.inRiver){
                     continue;
                 }
-
+                // If the travel time of the streamline is higher than 400 years the assume zero loading
+                if (strmlit->second.age[scenario.porosityIndex] > 400){
+                    continue;
+                }
 
                 std::vector<int> cell_lin_ind;
                 std::vector<double> rch_val;
@@ -347,7 +349,18 @@ namespace mantisServer{
                 }
 
                 //Build the URF
-                URF urf(NsimulationYears, strmlit->second.mu, strmlit->second.std, URFTYPE::LGNRM);
+                URF urf;
+                if (scenario.urfType == URFTYPE::LGNRM){
+                    urf.init(NsimulationYears, strmlit->second.mu[scenario.porosityIndex],
+                             strmlit->second.std[scenario.porosityIndex],URFTYPE::LGNRM);
+
+                }
+                else if (scenario.urfType == URFTYPE::ADE){
+                    ADEoptions ade_opt;
+                    urf.init(NsimulationYears, strmlit->second.len,
+                             strmlit->second.age[scenario.porosityIndex],URFTYPE::ADE, ade_opt);
+                }
+
                 if (scenario.printURF){
                     urf_file << wellit->first << " " << strmlit->first << " ";
                     urf.print_urf(urf_file);

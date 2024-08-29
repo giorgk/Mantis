@@ -1371,13 +1371,13 @@ namespace mantisServer {
                 return false;
             }
 
-            URFTYPE urftype;
+            URFTYPE urfType;
             if (names[1].compare("LGNRM") == 0)
-                urftype = URFTYPE::LGNRM;
+                urfType = URFTYPE::LGNRM;
             else if (names[1].compare("ADE") == 0)
-                urftype = URFTYPE::ADE;
+                urfType = URFTYPE::ADE;
             else if (names[1].compare("BOTH") == 0)
-                urftype = URFTYPE::BOTH;
+                urfType = URFTYPE::BOTH;
             else{
                 std::cout << "The URF type " << names[1] << " is not valid" << std::endl;
                 return false;
@@ -1401,7 +1401,7 @@ namespace mantisServer {
                                                         IDS[3][i],
                                                         DATA[2][i],
                                                         IDS[5][i],
-                                                        urftype,
+                                                        urfType,
                                                         IDS[4][i],
                                                         DATA[0][i],
                                                         DATA[1][i]);
@@ -1427,7 +1427,7 @@ namespace mantisServer {
             std::cout << "Reading " << filename << std::endl;
             std::string line;
             int Nurfs;
-            URFTYPE urftype;
+            URFTYPE urfType;
             std::string name, type;
             {// Read the header
                 getline(ifile, line);
@@ -1437,11 +1437,11 @@ namespace mantisServer {
                 inp >> type;
 
                 if (type.compare("LGNRM") == 0)
-                    urftype = URFTYPE::LGNRM;
+                    urfType = URFTYPE::LGNRM;
                 else if (type.compare("ADE") == 0)
-                    urftype = URFTYPE::ADE;
+                    urfType = URFTYPE::ADE;
                 else if (type.compare("BOTH") == 0)
-                    urftype = URFTYPE::BOTH;
+                    urfType = URFTYPE::BOTH;
                 else{
                     std::cout << "The URF type " << type << " is not valid" << std::endl;
                     return false;
@@ -1471,7 +1471,7 @@ namespace mantisServer {
                     inp >> npxl;
                     wellmapit = scenit->second.Wells.find(eid);
                     if (wellmapit != scenit->second.Wells.end()){
-                        wellmapit->second.addStreamline(sid,r,c,w,npxl,urftype,riv,m,s);
+                        wellmapit->second.addStreamline(sid,r,c,w,npxl,urfType,riv,m,s);
                     }
                 }
             }

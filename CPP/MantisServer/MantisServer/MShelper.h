@@ -101,7 +101,6 @@ namespace mantisServer {
     enum class URFTYPE{
         LGNRM, /**< The URF is represented as lognormal distribution with mean and standard deviation parameters*/
         ADE, /**< The URF is represented as analytical ADE with Length and velocity parameters*/
-        BOTH /**< The URF has parameters for both of the above definitions. It is used for testing */
     };
 
     enum class LoadUnits{
@@ -109,6 +108,16 @@ namespace mantisServer {
         MASS,
         UNKNOWN
     };
+
+    URFTYPE string2URFTYPE(std::string str){
+        if (str.compare("LGNRM") == 0){
+            return URFTYPE::LGNRM;
+        }
+        else if (str.compare("ADE")){
+            return URFTYPE::ADE;
+        }
+    }
+
 
 
     LoadUnits string2LoadUnits(std::string str){
