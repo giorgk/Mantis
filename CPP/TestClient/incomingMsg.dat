@@ -34,7 +34,7 @@ maxSourceCells 200
 # LoadTransitionStart 2005
 # LoadTransitionEnd 2015
 # startSimYear 1925
-por 20
+por 50
 urfType LGNRM
 
 # -----------------
