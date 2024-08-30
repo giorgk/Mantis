@@ -106,16 +106,18 @@ int main(int argc, char* argv[])
 		else {
 			// Default message
 			msg = "endSimYear 2100";
-            msg += " startRed 2020";
-            msg += " endRed 2030";
-            msg += " flowScen C2VSIM_II_01";
+            msg += " startRed 2025";
+            msg += " endRed 2035";
+            msg += " flowScen C2VSIM_MAR24_Padj";
             msg += " wellType VI";
             msg += " loadScen TEST01";
             msg += " loadSubScen test100";
-            msg += " unsatScen C2VSIM_SPRING_2000";
-            msg += " unsatWC 0.0";
+            msg += " unsatScen C2VSIM_MAR24";
+            msg += " unsatWC 0.1";
             msg += " bMap Subregions";
             msg += " Nregions 1 Subregion11";
+            msg += " por 20";
+            msg += " urfType LGNRM";
             //msg += " isLoadConc 1";
             //msg += " RadSelect -91791 -33506 10000"; // X Y radius
             //msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0"; // Xmin Ymin Xmax Ymax

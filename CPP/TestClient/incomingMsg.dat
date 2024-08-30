@@ -2,16 +2,16 @@
 # GUI Scenario Options
 # -----------------
 modelArea CentralValley
-bMap Basins
+bMap Subregions
 Nregions 1
-TulareLakeBasin
+Subregion11
 #24M06S12E 
 #39M02S09E
 #39M02S10E
-flowScen C2VSIM_III_03
+flowScen C2VSIM_MAR24_Padj
 wellType VI
-unsatScen C2VSIM_SPRING_2000
-unsatWC 0.01
+unsatScen C2VSIM_MAR24
+unsatWC 0.1
 endSimYear 2100
 
 # -----------------
@@ -34,6 +34,8 @@ maxSourceCells 200
 # LoadTransitionStart 2005
 # LoadTransitionEnd 2015
 # startSimYear 1925
+por 20
+urfType LGNRM
 
 # -----------------
 # Filter Options

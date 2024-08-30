@@ -396,6 +396,7 @@ namespace mantisServer {
                 std::string tmp;
                 ss >> tmp;
                 urfType = string2URFTYPE(tmp);
+                continue;
             }
 
             if (test == "maxSourceCells") {

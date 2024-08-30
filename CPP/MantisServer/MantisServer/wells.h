@@ -45,6 +45,7 @@ namespace mantisServer{
         //void addSourceAreaCell(int lin_ind, int row, int col);
         void addSourceAreaCell(cell c);
         void clearSourceArea();
+        void log();
 
         void print(int i);
 
@@ -73,9 +74,6 @@ namespace mantisServer{
 
         //! This is true for the streamlines that start from rivers
         bool inRiver;
-
-        //! The type of streamline
-        //URFTYPE type;
 
         int Npxl;
 
@@ -124,6 +122,12 @@ namespace mantisServer{
         age = age_in;
     }
 
+    void Streamline::log() {
+        std::cout << row << ", " << col << ", "
+        << inRiver << ", " << Npxl << ", " << w  << ", "
+        << len << std::endl;
+    }
+
     class Well{
     public:
         //Sid, row_ind, col_ind, riv, npxl, w, len,mean, std, age
@@ -137,6 +141,7 @@ namespace mantisServer{
         void calculateSourceAreaType3(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateWeights();
         bool bsimulateThis(Scenario &scenario);
+        void log();
 
         std::map<int, Streamline> streamlines;
         double xcoord;
@@ -174,6 +179,16 @@ namespace mantisServer{
         pumpingRate = q;
         ratio = r;
         angle = a;
+    }
+
+    void Well::log() {
+        std::cout << xcoord << ", " << ycoord << ", " << depth << ", "
+        << screenLength << ", " << pumpingRate << ", " << ratio << ", " << angle <<std::endl;
+        std::cout << "-----------------------------------" << std::endl;
+        std::map<int, Streamline>::iterator it;
+        for (it = streamlines.begin(); it != streamlines.end();++it){
+            it->second.log();
+        }
     }
 
     void Well::calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, std::ofstream &WSAstrm, bool debug, bool printWSA){
@@ -965,7 +980,7 @@ namespace mantisServer{
         if (ext.compare("h5") == 0){
             const std::string NamesNameSet("Names");
             const std::string IntsNameSet("ESIJRN");
-            const std::string FloatNameSet("WMSA");
+            const std::string FloatNameSet("WLMSA");
             const std::string PORNameSet("POR");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet datasetNames = HDFfile.getDataSet(NamesNameSet);
@@ -983,6 +998,13 @@ namespace mantisServer{
 
             if (IDS[0].size() != DATA[0].size()){
                 std::cout << "The rows of integer and float data do not match" << std::endl;
+                return false;
+            }
+
+            bool tf1 = addPorosityScenarios(names[0], POR);
+            if (!tf1){
+                std::cout << "Error while inserting the porosity indices for flow scenario [ "
+                          << names[0] << " ]" << std::endl;
                 return false;
             }
 
@@ -1012,6 +1034,14 @@ namespace mantisServer{
                               << names[0] << " ] with Eid: " << IDS[0][i] << ", Sid: " << IDS[1][i] << std::endl;
                     return false;
                 }
+                // Debug
+                //if (i == 1000){
+                //    std::map<std::string ,WellList>::iterator flowit;
+                //    flowit = FlowScenarios.find(names[0]);
+                //    std::map<int, Well>::iterator wellit;
+                //    wellit = flowit->second.Wells.find(174);
+                //    wellit->second.log();
+                //}
             }
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
@@ -1053,17 +1083,6 @@ namespace mantisServer{
             inp >> Nurfs;
             inp >> name;
             inp >> Npor;
-
-            //if (type.compare("LGNRM") == 0)
-            //    urfType = URFTYPE::LGNRM;
-            //else if (type.compare("ADE") == 0)
-            //    urfType = URFTYPE::ADE;
-            //else if (type.compare("BOTH") == 0)
-            //   urfType = URFTYPE::BOTH;
-            //else{
-            //    std::cout << "The URF type " << type << " is not valid" << std::endl;
-            //    return false;
-            //}
         }
         {// Read porosity data from the first file
             bool tf;
@@ -1117,6 +1136,14 @@ namespace mantisServer{
                               << name << " ] with Eid: " << eid << ", Sid: " << sid << std::endl;
                     return false;
                 }
+                // Debug
+                //if (i == 1000){
+                //    std::map<std::string ,WellList>::iterator flowit;
+                //    flowit = FlowScenarios.find(name);
+                //    std::map<int, Well>::iterator wellit;
+                //    wellit = flowit->second.Wells.find(174);
+                //    wellit->second.log();
+                //}
             }
         }
 
