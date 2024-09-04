@@ -155,6 +155,8 @@ namespace mantisServer {
         sourceArea SourceArea;
         int maxSourceCells;
         URFTYPE urfType = URFTYPE::LGNRM;
+        double adeLambda = 0.0;
+        double adeR = 1.0;
     };
 
 /**
@@ -212,6 +214,8 @@ namespace mantisServer {
         printAdditionalInfo = false;
         maxSourceCells = 1000;
         urfType = URFTYPE::LGNRM;
+        adeLambda = 0.0;
+        adeR = 1.0;
     }
 
     bool Scenario::parse_incoming_msg(std::string &msg, std::string &outmsg){
@@ -396,6 +400,12 @@ namespace mantisServer {
                 std::string tmp;
                 ss >> tmp;
                 urfType = string2URFTYPE(tmp);
+                continue;
+            }
+
+            if (test == "ADELR"){
+                ss >> adeLambda;
+                ss >> adeR;
                 continue;
             }
 

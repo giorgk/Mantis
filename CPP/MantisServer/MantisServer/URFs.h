@@ -16,8 +16,9 @@ namespace mantisServer{
     struct ADEoptions{
         double alpha = 0.32;
         double beta = 0.83;
-        double R = 1;
+        double R = 1.0;
         double lambda = 0.0;
+        double dm = 1e-7;
     };
 
     /*! \class URF
@@ -98,8 +99,8 @@ namespace mantisServer{
 
     void URF::init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
     {
-        paramA = paramA_in;
-        paramB = paramB_in;
+        paramA = paramA_in; // mean or Length
+        paramB = paramB_in; // std or age
         type = type_in;
         ade_opt = ade_opt;
 
@@ -125,6 +126,8 @@ namespace mantisServer{
     }
 
     double URF::calc_conc(double t) {
+        //paramA mean or Length
+        //paramB std or age
         double out = 0.0;
         switch (type)
         {
@@ -147,18 +150,49 @@ namespace mantisServer{
                 break;
             case URFTYPE::ADE:
             {
-                double D = std::pow(ade_opt.alpha*paramA, ade_opt.beta);
-                double DRt = 2*std::sqrt(D*ade_opt.R*t);
-                if (ade_opt.lambda < 0.000001){
-                    out = 0.5*std::erfc(( ade_opt.R * paramA - paramB * t )/DRt) +
-                          std::sqrt(t*paramB*paramB/pi*D*ade_opt.R) *
-                          exp(-1*(ade_opt.R*paramA - paramB*t)*(ade_opt.R*paramA - paramB*t)/(4*D*ade_opt.R*t)) -
-                          0.5 * (1+ paramB*paramA/D + t*paramB*paramB/D*ade_opt.R ) *
-                          exp(paramB*paramA/D)*
-                          std::erfc((ade_opt.R*paramA + paramB*t )/DRt);
+                double x = paramA;
+                double v = paramA/(paramB*365.0);
+                double aL = std::pow(ade_opt.alpha*x,ade_opt.beta);
+                double D = aL*v + ade_opt.dm;
+
+                if (ade_opt.lambda < 0.000000001 & std::abs(ade_opt.R - 1.0) < 0.0001){
+                    // No decay, no retardation
+                    double x_vt = x - v*t;
+                    double sqrDtx2 = 2*std::sqrt(D*t);
+                    out = 0.5*std::erfc(x_vt/sqrDtx2) +
+                          std::sqrt(t*v*v/(pi*D)) *
+                          exp(-1.0*(x_vt*x_vt)/(4*D*t)) -
+                          0.5 * (1+ v*x/D + t*v*v/D) *
+                          exp(v*x/D)*
+                          std::erfc((x + v*t )/sqrDtx2);
+                }
+                else if (ade_opt.lambda < 0.000000001){
+                    //No decay
+                    double Rx_vt = ade_opt.R*x - v*t;
+                    double sqrDRtx2 = 2*std::sqrt(D*ade_opt.R*t);
+
+                    out = 0.5*std::erfc(Rx_vt/sqrDRtx2) +
+                          std::sqrt(t*v*v/(pi*D*ade_opt.R)) *
+                          exp(-1.0*(Rx_vt*Rx_vt)/(4*D*ade_opt.R*t)) -
+                          0.5 * (1+ v*x/D + (t*v*v)/(D*ade_opt.R)) *
+                          exp(v*x/D)*
+                          std::erfc((ade_opt.R*x + v*t )/sqrDRtx2);
                 }
                 else{
-                    std::cout << "Not implemented for lambda > 0" << std::endl;
+                    double U = sqrt(v*v+4*D*ade_opt.R*ade_opt.lambda);
+                    double sqrDRtx2 = 2*std::sqrt(D*ade_opt.R*t);
+                    double vmU = v - U;
+                    double vpU = v + U;
+                    double Rx = ade_opt.R * x;
+                    double Ut = U*t;
+                    double RxmUt = Rx - Ut;
+                    double RxpUt = Rx + Ut;
+                    double erfTerm = std::erfc(RxpUt/sqrDRtx2);
+
+                    out = v/vpU * exp(x*vmU/(2*D)) * std::erfc(RxmUt/sqrDRtx2) +
+                            v/vmU * exp(x*vpU/(2*D)) * erfTerm +
+                            (v*v)/(2*D*ade_opt.R*ade_opt.lambda) *
+                            exp(v*x/D - ade_opt.lambda*t) * erfTerm;
                 }
             }
                 break;

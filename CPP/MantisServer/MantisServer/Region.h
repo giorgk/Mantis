@@ -357,6 +357,8 @@ namespace mantisServer{
                 }
                 else if (scenario.urfType == URFTYPE::ADE){
                     ADEoptions ade_opt;
+                    ade_opt.lambda = scenario.adeLambda;
+                    ade_opt.R = scenario.adeR;
                     urf.init(NsimulationYears, strmlit->second.len,
                              strmlit->second.age[scenario.porosityIndex],URFTYPE::ADE, ade_opt);
                 }
