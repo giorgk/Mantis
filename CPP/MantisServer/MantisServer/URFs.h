@@ -53,7 +53,7 @@ namespace mantisServer{
          * @param type If the type is URFTYPE::LGNRM paramA is the mean and paramB is the standard deviation
          * If the type is URFTYPE::ADE, paramA is the screen length and paramB is the velocity.
          */
-        void init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt = ADEoptions());
+        void init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt_in = ADEoptions());
 
         //! calc_conc returns the concentration for a given year. This is actuall used internaly by \ref calc_urf method.
         double calc_conc(double t);
@@ -97,12 +97,12 @@ namespace mantisServer{
         std::vector<double> OneYear{0.48443252, 0.41642340, 0.08307405, 0.01338364, 0.00219913, 0.00039049, 0.00007584, 0.00001608, 0.00000370, 0.00000092, 0.00000023};
     };
 
-    void URF::init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt)
+    void URF::init(int Nyrs, double paramA_in, double paramB_in, URFTYPE type_in, ADEoptions ade_opt_in)
     {
         paramA = paramA_in; // mean or Length
         paramB = paramB_in; // std or age
         type = type_in;
-        ade_opt = ade_opt;
+        ade_opt = ade_opt_in;
 
         urf.resize(Nyrs, 0);
 
@@ -151,11 +151,11 @@ namespace mantisServer{
             case URFTYPE::ADE:
             {
                 double x = paramA;
-                double v = paramA/(paramB*365.0);
-                double aL = std::pow(ade_opt.alpha*x,ade_opt.beta);
+                double v = paramA/paramB;
+                double aL = ade_opt.alpha * std::pow(x,ade_opt.beta);
                 double D = aL*v + ade_opt.dm;
 
-                if (ade_opt.lambda < 0.000000001 & std::abs(ade_opt.R - 1.0) < 0.0001){
+                if (std::abs(ade_opt.lambda) < 0.000000001 & std::abs(ade_opt.R - 1.0) < 0.0001){
                     // No decay, no retardation
                     double x_vt = x - v*t;
                     double sqrDtx2 = 2*std::sqrt(D*t);
@@ -166,7 +166,7 @@ namespace mantisServer{
                           exp(v*x/D)*
                           std::erfc((x + v*t )/sqrDtx2);
                 }
-                else if (ade_opt.lambda < 0.000000001){
+                else if (std::abs(ade_opt.lambda) < 0.000000001){
                     //No decay
                     double Rx_vt = ade_opt.R*x - v*t;
                     double sqrDRtx2 = 2*std::sqrt(D*ade_opt.R*t);
@@ -185,14 +185,11 @@ namespace mantisServer{
                     double vpU = v + U;
                     double Rx = ade_opt.R * x;
                     double Ut = U*t;
-                    double RxmUt = Rx - Ut;
-                    double RxpUt = Rx + Ut;
-                    double erfTerm = std::erfc(RxpUt/sqrDRtx2);
 
-                    out = v/vpU * exp(x*vmU/(2*D)) * std::erfc(RxmUt/sqrDRtx2) +
-                            v/vmU * exp(x*vpU/(2*D)) * erfTerm +
+                    out = v/vpU * exp(x*vmU/(2*D)) * std::erfc((Rx - Ut)/sqrDRtx2) +
+                            v/vmU * exp(x*vpU/(2*D)) * std::erfc((Rx + Ut)/sqrDRtx2) +
                             (v*v)/(2*D*ade_opt.R*ade_opt.lambda) *
-                            exp(v*x/D - ade_opt.lambda*t) * erfTerm;
+                            exp(v*x/D - ade_opt.lambda*t) * std::erfc((Rx + v*t)/sqrDRtx2);
                 }
             }
                 break;
@@ -205,8 +202,24 @@ namespace mantisServer{
 
     void URF::calc_urf() {
         double sumurf = 0.0;
+        double v_prev = 0.0;
+        double v_curr = 0.0;
         for (int i = 0; i < static_cast<int>(urf.size()); ++i){
-            urf[i] = calc_conc(static_cast<double>(i + 1));
+            if (type == URFTYPE::LGNRM){
+                urf[i] = calc_conc(static_cast<double>(i + 1));
+            }
+            else if (type == URFTYPE::ADE){
+                if (i == 0){
+                    v_prev = calc_conc(static_cast<double>(i + 1));
+                    urf[i] = v_prev;
+                }
+                else{
+                    v_curr = calc_conc(static_cast<double>(i + 1));
+                    urf[i] = v_curr - v_prev;
+                    v_prev = v_curr;
+                }
+            }
+
             sumurf += urf[i];
         }
         if (sumurf > 1.0){
@@ -217,6 +230,9 @@ namespace mantisServer{
     }
 
     void URF::print_urf(std::ofstream& urf_file) {
+
+        urf_file << std::scientific<< std::setprecision(10) << paramA << " " << paramB << " ";
+
         for (int i = 0; i < static_cast<int>(urf.size()); ++i)
             urf_file << std::scientific << std::setprecision(10) << urf[i] << " ";
         urf_file << std::endl;

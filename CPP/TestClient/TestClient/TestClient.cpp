@@ -118,6 +118,7 @@ int main(int argc, char* argv[])
             msg += " Nregions 1 Subregion11";
             msg += " por 20";
             msg += " urfType LGNRM";
+            //msg += " ADELR 0 1";
             //msg += " isLoadConc 1";
             //msg += " RadSelect -91791 -33506 10000"; // X Y radius
             //msg += " RectSelect -81323.0 -52870.0 -71424.0 -43179.0"; // Xmin Ymin Xmax Ymax

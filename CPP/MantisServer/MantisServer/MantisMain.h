@@ -519,6 +519,11 @@ namespace mantisServer {
             return true;
         }
 
+        if (scenario.urfType == URFTYPE::UNKNOWN){
+            outmsg += "0 ERROR: Unknown URF type. Valid options are LGNRM and ADE";
+            return false;
+        }
+
 		if ((scenario.endSimulationYear <= scenario.startSimulationYear) || (scenario.endSimulationYear > 2500)){
             scenario.startSimulationYear = 1945;
             scenario.endSimulationYear = 2100;

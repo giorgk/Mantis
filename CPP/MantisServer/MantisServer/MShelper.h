@@ -114,7 +114,7 @@ namespace mantisServer {
         if (str.compare("LGNRM") == 0){
             return URFTYPE::LGNRM;
         }
-        else if (str.compare("ADE")){
+        else if (str.compare("ADE") == 0){
             return URFTYPE::ADE;
         }
         else

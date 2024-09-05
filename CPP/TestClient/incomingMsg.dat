@@ -2,13 +2,20 @@
 # GUI Scenario Options
 # -----------------
 modelArea CentralValley
-bMap Subregions
+
+## Select from subregions
+#bMap Subregions
+#Nregions 1
+#Subregion11
+
+## Select from Townships
+bMap Townships
 Nregions 1
-Subregion11
-#24M06S12E 
+24M06S12E 
 #39M02S09E
 #39M02S10E
-flowScen C2VSIM_MAR24_Padj
+
+flowScen C2VSIM_MAR24_Radj
 wellType VI
 unsatScen C2VSIM_MAR24
 unsatWC 0.1
@@ -35,7 +42,8 @@ maxSourceCells 200
 # LoadTransitionEnd 2015
 # startSimYear 1925
 por 50
-urfType LGNRM
+urfType ADE
+ADELR 0.1386 1
 
 # -----------------
 # Filter Options
@@ -58,9 +66,9 @@ urfType LGNRM
 # Misc Options
 # -----------------
 # getids 1
-# DebugID
+DebugID adeurfs
 # printLF 1
-# printURF 1
+printURF 1
 # printBTC 1
 # printWellBTC 0
 # PixelRadius
