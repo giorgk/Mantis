@@ -41,9 +41,9 @@ maxSourceCells 200
 # LoadTransitionStart 2005
 # LoadTransitionEnd 2015
 # startSimYear 1925
-por 50
-urfType ADE
-ADELR 0.1386 1
+por 20
+#urfType ADE
+#ADELR 0.1386 1
 
 # -----------------
 # Filter Options
@@ -66,9 +66,9 @@ ADELR 0.1386 1
 # Misc Options
 # -----------------
 # getids 1
-DebugID adeurfs
+DebugID tmp
 # printLF 1
 printURF 1
-# printBTC 1
+printBTC 1
 # printWellBTC 0
 # PixelRadius

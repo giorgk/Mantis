@@ -372,7 +372,8 @@ namespace mantisServer{
                 urf.convolute(mainload, BTC);
 
                 if (scenario.printBTC){
-                    btc_file << wellit->first << " " << strmlit->first << " ";
+                    btc_file << wellit->first << " " << strmlit->first << " "
+                             << std::scientific << std::setprecision(10) << strmlit->second.w << " ";
                     for (int ii = 0; ii < NsimulationYears; ++ii)
                         btc_file << std::scientific << std::setprecision(10) << BTC[ii] << " ";
                     btc_file << std::endl;
