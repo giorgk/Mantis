@@ -107,6 +107,9 @@ namespace mantisServer{
         urf.resize(Nyrs, 0);
 
         if (type == URFTYPE::LGNRM){
+            if (std::abs(paramA) < 0.000000001){
+                return;
+            }
             if (std::abs(paramA + 1) < 0.0000001){
                 for (unsigned int i = 0; i < OneYear.size(); ++i){
                     if (i < urf.size())

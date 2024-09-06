@@ -386,7 +386,7 @@ namespace mantisServer{
             if (scenario.printWellBTC){
                 well_btc_file << wellit->first << " ";
                 for (int ii = 0; ii < NsimulationYears; ++ii)
-                    btc_file << std::scientific << std::setprecision(10) << WellBTC[ii] << " ";
+                    well_btc_file << std::scientific << std::setprecision(10) << WellBTC[ii] << " ";
                 well_btc_file << std::endl;
             }
 
