@@ -253,7 +253,7 @@ namespace mantisServer{
 
     }
 
-    void Well::calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug) {
+    /*void Well::calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug) {
         bool tf;
         int rs, cs, rn, cn, rasterValue;
         double Xorig, Yorig, cellSize, xs, ys, dNr, side1, side2;
@@ -431,7 +431,7 @@ namespace mantisServer{
             }
 
         }
-    }
+    }*/
 
     void Well::calculateSourceAreaType2(BackgroundRaster &braster, RechargeScenario &rch, std::ofstream &WSAstrm, bool debug, bool printWSA){
         std::map<int, Streamline>::iterator itstrml;

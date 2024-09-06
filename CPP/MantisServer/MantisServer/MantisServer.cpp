@@ -1,7 +1,7 @@
 // MantisServer.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 //#ifdef _WIN64
-#include "pch.h"
+//#include "pch.h"
 //#endif
 
 //#define _USEHF 1

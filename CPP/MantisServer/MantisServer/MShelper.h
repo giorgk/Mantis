@@ -1,4 +1,4 @@
-#pragma once
+//#pragma once
 
 #ifndef MANTISSERVER_MSHELPER_H
 #define MANTISSERVER_MSHELPER_H
@@ -13,10 +13,10 @@
 #include <boost/random/uniform_real_distribution.hpp>
 boost::random::mt19937 gen;
 
-#include <boost/geometry.hpp>
-#include <boost/geometry/geometries/point_xy.hpp>
-#include <boost/geometry/geometries/polygon.hpp>
-#include <boost/geometry/algorithms/within.hpp>
+//#include <boost/geometry.hpp>
+//#include <boost/geometry/geometries/point_xy.hpp>
+//#include <boost/geometry/geometries/polygon.hpp>
+//#include <boost/geometry/algorithms/within.hpp>
 
 
 #if _USEHF > 0
@@ -66,19 +66,19 @@ namespace mantisServer {
 	 * @param v this is the vector.
 	 * @param varname is what the variable name should be in matlab
 	 */
-    template<typename T>
-    void printVector(std::vector<T>& v, std::string varname) {
-        std::cout << std::endl;
-        std::cout << varname << " = [";
-        for (unsigned int i = 0; i < v.size(); ++i) {
-            std::cout << v[i] << " ";
-        }
-        std::cout << "];" << std::endl;
-        std::cout << std::endl;
-    }
+    //template<typename T>
+    //void printVector(std::vector<T>& v, std::string varname) {
+    //    std::cout << std::endl;
+    //    std::cout << varname << " = [";
+    //    for (unsigned int i = 0; i < v.size(); ++i) {
+    //        std::cout << v[i] << " ";
+    //    }
+    //    std::cout << "];" << std::endl;
+    //    std::cout << std::endl;
+    //}
 
-    typedef boost::geometry::model::d2::point_xy<double> boost_point;
-    typedef boost::geometry::model::polygon<boost_point> boost_poly;
+    //typedef boost::geometry::model::d2::point_xy<double> boost_point;
+    //typedef boost::geometry::model::polygon<boost_point> boost_poly;
 
 
     /**
