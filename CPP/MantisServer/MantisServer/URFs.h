@@ -125,6 +125,10 @@ namespace mantisServer{
                 return;
             }
         }
+        else if (type == URFTYPE::ADE & std::abs(paramB) < 0.000000001){
+            return;
+        }
+
         calc_urf();
     }
 
