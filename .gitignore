@@ -74,6 +74,12 @@
 !/CPP/BIN/*.exe
 !/CPP/BIN/*.dll
 
+!/MantisSA
+/MantisSA/*
+!/MantisSA/*.cpp
+!/MantisSA/*.txt
+!/MantisSA/*.h
+
 
 .Rproj.user
 *.tif
