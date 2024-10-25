@@ -133,7 +133,7 @@ namespace mantisServer{
         //Sid, row_ind, col_ind, riv, npxl, w, len,mean, std, age
         void addStreamline(int Sid, int row_ind, int col_ind, int riv, int npxl, double w, double len,
                            std::vector<double> &mean, std::vector<double> &std, std::vector<double> &age);
-        void setAdditionalData(double x, double y, double d, double s, double q, double r, double a);
+        void setAdditionalData(double x, double y, double u, double w, double s, double q, double r, double a);
         void calculateSourceArea(BackgroundRaster &braster, RechargeScenario &rch, int doCalc, std::ofstream &WSAstrm, bool debug = false, bool printWSA = false);
         void calculateSourceAreaType0(BackgroundRaster &braster, bool debug = false);
         void calculateSourceAreaType1(BackgroundRaster &braster, RechargeScenario &rch, bool debug = false);
@@ -146,7 +146,8 @@ namespace mantisServer{
         std::map<int, Streamline> streamlines;
         double xcoord;
         double ycoord;
-        double depth;
+        double unsat_depth;
+        double wt2t;
         double screenLength;
         double pumpingRate;
         double ratio;
@@ -171,10 +172,11 @@ namespace mantisServer{
         streamlines.insert(std::pair<int, Streamline>(Sid, s));
     }
 
-    void Well::setAdditionalData(double x, double y, double d, double s, double q, double r, double a){
+    void Well::setAdditionalData(double x, double y, double u, double w, double s, double q, double r, double a){
         xcoord = x;
         ycoord = y;
-        depth = d;
+        unsat_depth = u;
+        wt2t = w;
         screenLength = s;
         pumpingRate = q;
         ratio = r;
@@ -182,7 +184,7 @@ namespace mantisServer{
     }
 
     void Well::log() {
-        std::cout << xcoord << ", " << ycoord << ", " << depth << ", "
+        std::cout << xcoord << ", " << ycoord << ", " << wt2t << ", "
         << screenLength << ", " << pumpingRate << ", " << ratio << ", " << angle <<std::endl;
         std::cout << "-----------------------------------" << std::endl;
         std::map<int, Streamline>::iterator it;
@@ -677,25 +679,35 @@ namespace mantisServer{
     }
 
     bool Well::bsimulateThis(Scenario &scenario) {
-        if (scenario.bNarrowSelection == true){
-            if (scenario.useRadSelect){
-                if (!scenario.RadSelect.isPointIn(xcoord, ycoord)){
+        if (scenario.bNarrowSelection){
+            if (scenario.useRadSelect) {
+                if (!scenario.RadSelect.isPointIn(xcoord, ycoord)) {
                     return false;
                 }
-                if (scenario.useRectSelect){
-                    if (!scenario.RectSelect.isPointIn(xcoord, ycoord)){
-                        return false;
-                    }
+            }
+            if (scenario.useRectSelect){
+                if (!scenario.RectSelect.isPointIn(xcoord, ycoord)){
+                    return false;
                 }
-                if (scenario.useDepthRange){
-                    if (!scenario.DepthRange.isInRange(depth)){
-                        return false;
-                    }
+            }
+            if (scenario.DepthRange.canUse()){
+                if (!scenario.DepthRange.isInRange(unsat_depth + wt2t + screenLength)){
+                    return false;
                 }
-                if (scenario.useScreenLenghtRange){
-                    if (!scenario.ScreenLengthRange.isInRange(screenLength)){
-                        return false;
-                    }
+            }
+            if (scenario.unsatRange.canUse()){
+                if (!scenario.unsatRange.isInRange(unsat_depth)){
+                    return false;
+                }
+            }
+            if (scenario.wt2tRange.canUse()){
+                if (!scenario.wt2tRange.isInRange(wt2t)){
+                    return false;
+                }
+            }
+            if (scenario.ScreenLengthRange.canUse()){
+                if (!scenario.ScreenLengthRange.isInRange(screenLength)){
+                    return false;
                 }
             }
         }
@@ -934,7 +946,7 @@ namespace mantisServer{
                 wList.rch_map = rch_scen;
             }
 
-            double xw, yw, D, SL, Q, ratio, angle;
+            double xw, yw, unsat, wt2t, SL, Q, ratio, angle;
             std::string regionCode;
             bool tf;
             for (int i = 0; i < Nwells; ++i){
@@ -944,13 +956,14 @@ namespace mantisServer{
                 //std::cout << Eid << std::endl;
                 inp >> xw;
                 inp >> yw;
-                inp >> D;
+                inp >> unsat;
+                inp >> wt2t;
                 inp >> SL;
                 inp >> Q;
                 inp >> ratio;
                 inp >> angle;
                 Well w;
-                w.setAdditionalData(xw,yw,D,SL,Q,ratio,angle);
+                w.setAdditionalData(xw,yw,unsat, wt2t,SL,Q,ratio,angle);
                 wList.addWell(Eid, w);
                 for (int j = 0; j < Bmaps.Nbmaps(); ++j){
                     inp >> regionCode;

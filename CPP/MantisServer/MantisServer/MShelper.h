@@ -232,9 +232,11 @@ namespace mantisServer {
         bool isInRange(double x);
         void setData(double xmn, double xmx);
         void clear();
+        bool canUse(){return hasValues;}
     private:
         double xmin;
         double xmax;
+        bool hasValues = false;
     };
     bool numericRange::isInRange(double x) {
         return x > xmin && x <= xmax;
@@ -242,10 +244,12 @@ namespace mantisServer {
     void numericRange::setData(double xmn, double xmx) {
         xmin = xmn;
         xmax = xmx;
+        hasValues = true;
     }
     void numericRange::clear() {
         xmin = 0.0;
         xmax = 0.0;
+        hasValues = false;
     }
 
     class rectSelection{

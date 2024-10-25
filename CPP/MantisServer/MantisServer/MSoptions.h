@@ -115,7 +115,7 @@ namespace mantisServer {
         int nTimesPrinted = 0;
 
 		int RFmem;
-        std::string version = "2.2.03";
+        std::string version = "2.2.04";
 
 	};
 
@@ -182,7 +182,7 @@ namespace mantisServer {
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
             ("ServerOptions.IP", "IP address as string. Leave empty for default 127.0.0.1")
             ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
-            ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory depth")
+            ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory wt2t")
             ("ServerOptions.logFile", "If it is empty the output will be printed in the terminal. You can include a full path")
             ("ServerOptions.logClearFreq", po::value<int>()->default_value(50), "Frequency to clear log file")
             ("ServerOptions.DebugPrefix", "Any output file will start with this prefix. You can include a full path")

@@ -145,10 +145,11 @@ namespace mantisServer {
         bool useRadSelect;
         bool useRectSelect;
 
-        numericRange DepthRange;
+        numericRange DepthRange; // Depth is the total depth from GSE to the bottom of the screen
+        numericRange wt2tRange;
         numericRange ScreenLengthRange;
-        bool useDepthRange;
-        bool useScreenLenghtRange;
+        numericRange unsatRange;
+
         bool bNarrowSelection;
         bool printWellIds;
 
@@ -193,8 +194,6 @@ namespace mantisServer {
         ScreenLengthRange.clear();
         useRectSelect = false;
         useRadSelect = false;
-        useDepthRange = false;
-        useScreenLenghtRange = false;
         bNarrowSelection = false;
         buseLoadTransition = true;
         LoadTransitionName = "GNLM";
@@ -247,52 +246,12 @@ namespace mantisServer {
                 }
                 continue;
             }
-            if (test == "RadSelect"){
-                bNarrowSelection = true;
-                useRadSelect = true;
-                double cx, cy, r;
-                ss >> cx;
-                ss >> cy;
-                ss >> r;
-                RadSelect.setData(cx,cy,r);
-                continue;
-            }
 
-            if (test == "RectSelect"){
-                bNarrowSelection = true;
-                useRectSelect = true;
-                double xmin, ymin, xmax, ymax;
-                ss >> xmin;
-                ss >> ymin;
-                ss >> xmax;
-                ss >> ymax;
-                RectSelect.setData(xmin, ymin, xmax, ymax);
-                continue;
-            }
-
-            if (test == "DepthRange"){
-                bNarrowSelection = true;
-                useDepthRange = true;
-                double dmin, dmax;
-                ss >> dmin;
-                ss >> dmax;
-                DepthRange.setData(dmin, dmax);
-                continue;
-            }
-
-            if (test == "ScreenLenRange"){
-                bNarrowSelection = true;
-                useScreenLenghtRange = true;
-                double slmin, slmax;
-                ss >> slmin;
-                ss >> slmax;
-                ScreenLengthRange.setData(slmin, slmax);
-                continue;
-            }
             if (test == "flowScen") {
                 ss >> flowScen;
                 continue;
             }
+
             if (test == "wellType"){
                 ss >> wellType;
                 continue;
@@ -410,6 +369,65 @@ namespace mantisServer {
 
             if (test == "maxSourceCells") {
                 ss >> maxSourceCells;
+                continue;
+            }
+
+            if (test == "RadSelect"){
+                bNarrowSelection = true;
+                useRadSelect = true;
+                double cx, cy, r;
+                ss >> cx;
+                ss >> cy;
+                ss >> r;
+                RadSelect.setData(cx,cy,r);
+                continue;
+            }
+
+            if (test == "RectSelect"){
+                bNarrowSelection = true;
+                useRectSelect = true;
+                double xmin, ymin, xmax, ymax;
+                ss >> xmin;
+                ss >> ymin;
+                ss >> xmax;
+                ss >> ymax;
+                RectSelect.setData(xmin, ymin, xmax, ymax);
+                continue;
+            }
+
+            if (test == "DepthRange"){
+                bNarrowSelection = true;
+                double dmin, dmax;
+                ss >> dmin;
+                ss >> dmax;
+                DepthRange.setData(dmin, dmax);
+                continue;
+            }
+
+            if (test == "UnsatRange"){
+                bNarrowSelection = true;
+                double umin, umax;
+                ss >> umin;
+                ss >> umax;
+                unsatRange.setData(umin, umax);
+                continue;
+            }
+
+            if (test == "Wt2tRange"){
+                bNarrowSelection = true;
+                double wtmin, wtmax;
+                ss >> wtmin;
+                ss >> wtmax;
+                wt2tRange.setData(wtmin, wtmax);
+                continue;
+            }
+
+            if (test == "ScreenLenRange"){
+                bNarrowSelection = true;
+                double slmin, slmax;
+                ss >> slmin;
+                ss >> slmax;
+                ScreenLengthRange.setData(slmin, slmax);
                 continue;
             }
 

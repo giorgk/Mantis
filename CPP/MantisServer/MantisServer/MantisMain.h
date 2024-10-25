@@ -231,7 +231,7 @@ namespace mantisServer {
 		std::map<int, streamlineClass> streamlines;
 		double xcoord;
 		double ycoord;
-		double depth;
+		double wt2t;
 		double screenLength;
 		double pumpingRate;
 		double ratio;
@@ -247,7 +247,7 @@ namespace mantisServer {
 	void wellClass::setAdditionalData(double x, double y, double d, double s, double q, double r, double a){
 	    xcoord = x;
 	    ycoord = y;
-	    depth = d;
+	    wt2t = d;
 	    screenLength = s;
 	    pumpingRate = q;
 	    ratio = r;
@@ -387,7 +387,7 @@ namespace mantisServer {
 
 		//std::map<std::string, NLoad> NGWLoading;
 
-		//! UNSAT is a linear data structure that holds the depth/recharge values
+		//! UNSAT is a linear data structure that holds the wt2t/recharge values
         //UNSATdataClass unsat;
         //LinearData unsat;
         //! rch is a linear data structure that holds the groundwater recharge in mm/year
