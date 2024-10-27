@@ -25,12 +25,12 @@ namespace MS{
         urf.clear();
         urf.resize(N,0.0);
         if (std::abs(m + 1) < 0.0001){
-            for (unsigned int i = 1; i < urfOne.size(); ++i){
+            for (unsigned int i = 1; i < std::min(static_cast<int>(urfOne.size()),N); ++i){
                 urf[i] = urfOne[i];
             }
         }
         else if (std::abs(m + 2) < 0.0001){
-            for (unsigned int i = 0; i < urfTwo.size(); ++i){
+            for (unsigned int i = 0; i < std::min(static_cast<int>(urfTwo.size()),N); ++i){
                 urf[i] = urfTwo[i];
             }
         }
@@ -79,6 +79,19 @@ namespace MS{
     }
 
     void convolute(std::vector<double>& urf, std::vector<double>& lf, std::vector<double>& btc, std::vector<double>& prebtc, double initconc){
+        /*bool tmp = false;
+        int iii = 0;
+        iii++;
+        if (tmp){
+            for (int i = 0; i < urf.size(); ++i ){
+                std::cout << urf[i] << " ";
+            }
+            std::cout << std::endl;
+            for (int i = 0; i < lf.size(); ++i ){
+                std::cout << lf[i] << " ";
+            }
+            std::cout << std::endl;
+        }*/
         double cumurf = 0.0;
         unsigned int shift = 0;
         for (unsigned int i = 0; i < lf.size(); ++i){

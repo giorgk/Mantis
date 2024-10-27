@@ -78,7 +78,7 @@ int main(int argc, char* argv[]) {
         std::vector<double> wellConc;
         world.barrier();
         for (itw = VI.begin(); itw != VI.end(); ++itw){
-            std::cout << itw->first << std::endl;
+            //std::cout << itw->first << std::endl;
             std::vector<double> wellbtc(iyr + 1,0.0);
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
@@ -126,20 +126,29 @@ int main(int argc, char* argv[]) {
 
                 for (unsigned int j = 0; j < btc.size(); ++j){
                     if (j <= shift){
-                        wellbtc[j] = wellbtc[j] + itw->second.initConc;
+                        wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
                     }
                     else{
                         wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
                     }
                 }
             }// Loop streamlines
-            std::cout << std::endl;
-            wellConc.push_back(wellbtc.back());
+            //std::cout << std::endl;
+            if (iyr == UI.NsimYears-1){
+                for (unsigned int i = 0; i < wellbtc.size(); ++i){
+                    itw->second.btc.push_back(wellbtc[i]);
+                }
+            }
+            else{
+                wellConc.push_back(wellbtc.back());
+            }
+
+
         }// Loop wells
 
         // Go through the domestic wells but built only this year concentration
         for (itw = VD.begin(); itw != VD.end(); ++itw){
-            std::cout << itw->first << std::endl;
+            //std::cout << itw->first << std::endl;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
                 hruidx = itw->second.strml[i].hru_idx - 1;
@@ -181,7 +190,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Send this year pumped concentration to root processor
-        {
+        if (iyr < UI.NsimYears-1){
             std::vector<std::vector<double>> AllwellsConc(world.size());
             MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
             // Put the well concentrations in the right cells
@@ -198,22 +207,54 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
-
+            world.barrier();
+            MS::sentFromRootToAllProc(ConcFromPump, world);
+            world.barrier();
         }
-        world.barrier();
-        MS::sentFromRootToAllProc(ConcFromPump, world);
+        else{ // if this is the last year of the simulation calculate the domestic wells
+            for (itw = VD.begin(); itw != VD.end(); ++itw){
+                std::vector<double> wellbtc(UI.NsimYears, 0.0);
+                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
+                    std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
+                    MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf, btc, prebtc, itw->second.initConc);
+                    int shift = UZ.traveltime(itw->second.strml[i].IJ);
 
-        /*{
-            for (int k = 0; k < world.size(); ++k){
-                for (int i = ConcFromPump.size()-20; i < ConcFromPump.size(); ++i){
-                    std::cout << ConcFromPump[i] << " ";
+                    for (unsigned int j = 0; j < btc.size(); ++j){
+                        if (j <= shift){
+                            wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
+                        }
+                        else{
+                            wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
+                        }
+                    }
                 }
-                std::cout << std::endl;
+                for (unsigned int i = 0; i < wellbtc.size(); ++i){
+                    itw->second.btc.push_back(wellbtc[i]);
+                }
             }
         }
-        return 0;*/
     }
 
+    { // Print the VI
+        std::vector<double> thisProcBTCVI;
+        MS::linearizeBTC(VI, thisProcBTCVI);
+        std::vector<std::vector<double>> AllProcBTCVI;
+        MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
+        if (world.rank() == 0){
+            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outfileVI,UI.NsimYears);
+        }
+    }
+
+    { // Print the VD
+        std::vector<double> thisProcBTCVD;
+        MS::linearizeBTC(VD, thisProcBTCVD);
+        std::vector<std::vector<double>> AllProcBTCVD;
+        MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
+        if (world.rank() == 0){
+            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfileVD,UI.NsimYears);
+        }
+    }
 
     return 0;
 }

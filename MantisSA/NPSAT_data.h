@@ -30,6 +30,7 @@ namespace MS{
     struct WELL{
         double initConc = 0.0;
         std::vector<STRML> strml;
+        std::vector<double> btc;
     };
 
     struct NPSATTMP{
@@ -139,6 +140,7 @@ namespace MS{
 
                 wells.insert(std::pair<int,WELL>(itwtmp->first, w));
                 count = count + 1;
+                //std::cout << count << std::endl;
             }
         }
 
@@ -201,6 +203,38 @@ namespace MS{
         }
         std::cout << std::endl;
         return true;
+    }
+
+    void linearizeBTC(WELLS &W, std::vector<double> &v){
+        v.clear();
+        v.push_back(static_cast<double>(W.size()));
+        WELLS::iterator itw;
+        for (itw = W.begin(); itw != W.end(); ++itw){
+            v.push_back(static_cast<double>(itw->first));
+            for (unsigned int i = 0; i < itw->second.btc.size(); ++i){
+                v.push_back(itw->second.btc[i]);
+            }
+        }
+    }
+
+    void printWELLSfromAllProc(std::vector<std::vector<double>> &AllProcBTC, std::string filename, int Nyears){
+        std::ofstream out_file;
+        out_file.open(filename.c_str());
+        for (unsigned int i = 0; i < AllProcBTC.size(); ++i){
+            int Nbtc = static_cast<int>(AllProcBTC[i][0]);
+            int idx = 1;
+            for (int j = 0; j < Nbtc; ++j){
+                int eid = AllProcBTC[i][idx];
+                out_file << eid;
+                idx = idx + 1;
+                for (int k = 0; k < Nyears; ++k){
+                    out_file << " " << AllProcBTC[i][idx];
+                    idx = idx + 1;
+                }
+                out_file << std::endl;
+            }
+        }
+        out_file.close();
     }
 }
 

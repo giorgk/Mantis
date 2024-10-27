@@ -38,6 +38,8 @@ namespace MS {
 
         RasterOptions rasteroptions;
 
+        std::string outfileVI;
+        std::string outfileVD;
         std::string Version;
 
     private:
@@ -111,6 +113,7 @@ namespace MS {
             ("UNSAT.minDepth", po::value<double>()->default_value(1.0), "Minimum depth")
             ("UNSAT.minRch", po::value<double>()->default_value(10.0), "Minimum recharge")
 
+            ("Other.OutFile", po::value<std::string>(), "Output filename")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
@@ -158,6 +161,8 @@ namespace MS {
                 minDepth = vm_cfg["UNSAT.minDepth"].as<double>();
                 minRch = vm_cfg["UNSAT.minRch"].as<double>();
 
+                outfileVI = vm_cfg["Other.OutFile"].as<std::string>() + "VI.dat";
+                outfileVD = vm_cfg["Other.OutFile"].as<std::string>() + "VD.dat";
 
             }
             catch (std::exception& E)
