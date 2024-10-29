@@ -20,11 +20,13 @@ namespace MS {
         bool read(int argc, char* argv[]);
 
         int NsimYears;
+        int NswatYears;
         int porosity;
         int Nwells;
         double wc;
         double minDepth;
         double minRch;
+        double maxConc;
         std::string configFile;
         std::string swat_input_file;
         std::string npsat_VI_file;
@@ -97,7 +99,9 @@ namespace MS {
             ("Raster.File", po::value<std::string>(), "Name of the file with the raster values")
 
             ("Simulation.Nyears", po::value<int>()->default_value(50), "Number of simulation years")
+            ("Simulation.NSwatYears", po::value<int>()->default_value(30), "Number of simulation year in swat data")
             ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 1-6")
+            ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.NPSAT_VI", po::value<std::string>(), "NPSAT input file for VI")
@@ -152,7 +156,9 @@ namespace MS {
                 }
 
                 NsimYears = vm_cfg["Simulation.Nyears"].as<int>();
+                NswatYears = vm_cfg["Simulation.NSwatYears"].as<int>();
                 porosity = vm_cfg["Simulation.Porosity"].as<int>();
+                maxConc = vm_cfg["Simulation.MaxConc"].as<double>();
 
                 depth_input_file = vm_cfg["UNSAT.Depth_file"].as<std::string>();
                 depth_name = vm_cfg["UNSAT.Depth_name"].as<std::string>();

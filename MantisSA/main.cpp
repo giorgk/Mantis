@@ -1,33 +1,25 @@
 #include <iostream>
 #include <boost/mpi.hpp>
 
+#include <chrono>
+
 
 #include "MS_input.h"
 #include "MS_raster.h"
 #include "NPSAT_data.h"
 #include "MS_mpi_utils.h"
 #include "MS_unsat.h"
+#include "MSdebug.h"
 
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
     boost::mpi::communicator world;
 
-    /*int N=30000000;
-    std::vector<double> tmp(N,0);
-    if (world.rank() == 0) {
-        for (int i = 0; i < tmp.size(); ++i)
-            tmp[i] = static_cast<double>(i)*2.36547;
-    }
-    //boost::mpi::broadcast(world, &tmp[0],N, 0);
-    MS::sentFromRootToAllProc<double>(tmp, world);
+    //{
+    //    MS::testConvolution();
+    //    MS::testBroadcast(world);
+    //}
 
-    for (int k = 0; k < world.size(); ++k){
-        for (int i = N-20; i < N; ++i){
-            std::cout << tmp[i] << " ";
-        }
-        std::cout << std::endl;
-    }
-    return 0;*/
 
 
     MS::UserInput UI(world);
@@ -74,7 +66,10 @@ int main(int argc, char* argv[]) {
     MS::WELLS ::iterator itw;
     int hruidx;
     std::vector<double> totMfeed(UI.NsimYears, 0);
+    auto startTotal = std::chrono::high_resolution_clock::now();
+    int iswat = 0;
     for (int iyr = 0; iyr < UI.NsimYears; ++iyr){
+        auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> wellConc;
         world.barrier();
         for (itw = VI.begin(); itw != VI.end(); ++itw){
@@ -89,15 +84,15 @@ int main(int argc, char* argv[]) {
 
                 // Calculate the groundwater concentration
                 double gw_ratio = 0.0;
-                if (std::abs(swat.irrGW_mm[iyr][hruidx] + swat.irrSW_mm[iyr][hruidx]) > 0.00000001){
-                    gw_ratio = swat.irrGW_mm[iyr][hruidx] / (swat.irrGW_mm[iyr][hruidx] + swat.irrSW_mm[iyr][hruidx]);
+                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
+                    gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
                 }
 
                 // irrigated Salt Mass
-                double m_gw = swat.irrsaltGW_Kgha[iyr][hruidx];
+                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
                 //Calculate the percolated groundwater volume
-                double v_gw = swat.perc_mm[iyr][hruidx] * gw_ratio;
+                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
 
                 // Calculate concentration from NPSAT spreading (Feedback)
                 double m_npsat = 0.0;
@@ -113,8 +108,11 @@ int main(int argc, char* argv[]) {
 
                 //Calculate the C_SWAT
                 double c_swat = 0.0;
-                if (swat.perc_mm[iyr][hruidx] > 0.00000001){
-                    c_swat = (swat.totpercsalt_kgha[iyr][hruidx] + Mfeed) * 100 / swat.perc_mm[iyr][hruidx];
+                if (swat.perc_mm[iswat][hruidx] > 0.00000001){
+                    c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
+                }
+                if (c_swat > UI.maxConc){
+                    c_swat = UI.maxConc;
                 }
 
                 itw->second.strml[i].lf.push_back(c_swat);
@@ -158,15 +156,15 @@ int main(int argc, char* argv[]) {
 
                 // Calculate the groundwater concentration
                 double gw_ratio = 0.0;
-                if (std::abs(swat.irrGW_mm[iyr][hruidx] + swat.irrSW_mm[iyr][hruidx]) > 0.00000001){
-                    gw_ratio = swat.irrGW_mm[iyr][hruidx] / (swat.irrGW_mm[iyr][hruidx] + swat.irrSW_mm[iyr][hruidx]);
+                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
+                    gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
                 }
 
                 // irrigated Salt Mass
-                double m_gw = swat.irrsaltGW_Kgha[iyr][hruidx];
+                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
                 //Calculate the percolated groundwater volume
-                double v_gw = swat.perc_mm[iyr][hruidx] * gw_ratio;
+                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
 
                 // Calculate concentration from NPSAT spreading (Feedback)
                 double m_npsat = 0.0;
@@ -181,8 +179,11 @@ int main(int argc, char* argv[]) {
 
                 //Calculate the C_SWAT
                 double c_swat = 0.0;
-                if (swat.perc_mm[iyr][hruidx] > 0.00000001){
-                    c_swat = (swat.totpercsalt_kgha[iyr][hruidx] + Mfeed) * 100 / swat.perc_mm[iyr][hruidx];
+                if (swat.perc_mm[iswat][hruidx] > 0.00000001){
+                    c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
+                }
+                if (c_swat > UI.maxConc){
+                    c_swat = UI.maxConc;
                 }
 
                 itw->second.strml[i].lf.push_back(c_swat);
@@ -212,6 +213,10 @@ int main(int argc, char* argv[]) {
             world.barrier();
         }
         else{ // if this is the last year of the simulation calculate the domestic wells
+            if (world.rank() == 0){
+                std::cout << "Simulating VD BTCs ..." << std::endl;
+            }
+            world.barrier();
             for (itw = VD.begin(); itw != VD.end(); ++itw){
                 std::vector<double> wellbtc(UI.NsimYears, 0.0);
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
@@ -234,24 +239,54 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+
+        world.barrier();
+        auto finish = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> elapsed = finish - start;
+        if (world.rank() == 0){
+            std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+        }
+        iswat = iswat + 1;
+        if (iswat >= UI.NswatYears){
+            iswat = 0;
+        }
     }
 
+
+
+    auto finishTotal = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsedTotal = finishTotal - startTotal;
+    if (world.rank() == 0){
+        std::cout << "Total simulation for " << UI.NsimYears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
+    }
+
+    //{
+    //    if (world.rank() == 0){
+    //        std::string tmpname = "ConcPump1.dat";
+    //        MS::printConcFromPump(tmpname, ConcFromPump);
+    //    }
+    //}
+
     { // Print the VI
+        world.barrier();
         std::vector<double> thisProcBTCVI;
         MS::linearizeBTC(VI, thisProcBTCVI);
         std::vector<std::vector<double>> AllProcBTCVI;
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
         if (world.rank() == 0){
+            std::cout << "Printing VI BTCs ..." << std::endl;
             MS::printWELLSfromAllProc(AllProcBTCVI,UI.outfileVI,UI.NsimYears);
         }
     }
 
     { // Print the VD
+        world.barrier();
         std::vector<double> thisProcBTCVD;
         MS::linearizeBTC(VD, thisProcBTCVD);
         std::vector<std::vector<double>> AllProcBTCVD;
         MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
         if (world.rank() == 0){
+            std::cout << "Printing VD BTCs ..." << std::endl;
             MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfileVD,UI.NsimYears);
         }
     }
