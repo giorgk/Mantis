@@ -7,12 +7,14 @@
 
 #include <boost/mpi.hpp>
 #include <boost/program_options.hpp>
-#include "SWAT_data.h"
 #include "MS_structures.h"
+#include "SWAT_data.h"
 
 namespace po = boost::program_options;
 
 namespace MS {
+
+
 
     class UserInput{
     public:

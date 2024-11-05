@@ -16,7 +16,7 @@
 
 namespace MS {
 
-    struct SWAT_row{
+    /*struct SWAT_row{
         int hru_num = 0;
         int year = 0;
         double irrtotal_mm = 0.0;
@@ -26,15 +26,15 @@ namespace MS {
         double irrsaltGW_kgha = 0.0;
         double totpercsalt_kgha = 0.0;
         double perc_mm = 0.0;
-    };
+    };*/
 
     class SWAT_data{
     public:
         SWAT_data(){}
-        bool read(const std::string& filename);
+        bool read(const std::string filename, int NSwatYears);
 
 
-        std::vector<SWAT_row> SWAT_TAB;
+        //std::vector<SWAT_row> SWAT_TAB;
         std::vector<std::vector<int>> HRUS;
         std::vector<std::vector<double>> irrtotal_mm;
         std::vector<std::vector<double>> irrSW_mm;
@@ -43,17 +43,20 @@ namespace MS {
         std::vector<std::vector<double>> irrsaltGW_Kgha;
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
+    private:
+        bool readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears);
+        bool readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data);
     };
 
 
 
 
-    bool SWAT_data::read(const std::string& filename) {
-        bool ishdf = true;
-        if (ishdf){
-#if _USEHF > 0
-            {
+    bool SWAT_data::read(const std::string filename, int NSwatYears) {
 
+        std::string ext = getExtension(filename);
+
+        if (ext.compare("h5") == 0){
+#if _USEHF > 0
                 const std::string HRUSNameSet("HRUS");
                 const std::string irrtotal_mm_NameSet("irrtotal_mm");
                 const std::string irrSW_mm_NameSet("irrSW_mm");
@@ -84,11 +87,11 @@ namespace MS {
                 dataset_perc_mm.read(perc_mm);
 
                 return true;
-            }
-
-
-
 #endif
+        }
+        else{
+
+
         }
 
 
@@ -97,8 +100,8 @@ namespace MS {
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
-        else{
-            std::string line, substr;
+        else {
+            /*std::string line, substr;
             double dTmp;
             int iTmp;
             std::string sTmp;
@@ -173,7 +176,38 @@ namespace MS {
                 SWAT_TAB.push_back(sr);
             }
         }
-        datafile.close();
+        datafile.close();*/
+        }
+        return true;
+    }
+
+    bool SWAT_data::readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears){
+        std::ifstream ifile;
+        ifile.open(filename);
+        if (!ifile.is_open()){
+            std::cout << "Cant open file: " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::cout << "Reading " << filename << std::endl;
+            std::string line;
+            double val;
+            for (int i = 0; i < nHRU; ++i){
+                std::vector<double> d;
+                getline(ifile, line);
+                std::istringstream inp(line.c_str());
+                for (int j = 0; j < Nyrears; ++j){
+                    inp >> val;
+                    d.push_back(val);
+                }
+                data.push_back(d);
+            }
+            ifile.close();
+            return true;
+        }
+    }
+
+    bool SWAT_data::readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data){
         return true;
     }
 

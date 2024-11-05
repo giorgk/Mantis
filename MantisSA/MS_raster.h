@@ -58,16 +58,46 @@ namespace MS{
         Nrows = Nr;
         Ncols = Nc;
         Ncells = Ncell;
+        std::string ext = getExtension(filename);
+        if (ext.compare("h5") == 0){
 #if _USEHF>0
 
-        const std::string NameSet("Raster");
-        HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
-        HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
-        dataset.read(raster);
+            const std::string NameSet("Raster");
+            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
+            dataset.read(raster);
 
-        return true;
-
+            return true;
 #endif
+        }
+        else{
+            std::ifstream ifile;
+            raster.clear();
+            raster.resize(Ncols,std::vector<int>(Nrows,-1));
+            ifile.open(filename);
+            if (!ifile.is_open()){
+                std::cout << "Cant open file: " << filename << std::endl;
+                return false;
+            }
+            else{
+                std::cout << "Reading " << filename << std::endl;
+                std::string line;
+                int r, c;
+                for (int i = 0; i < Ncells; ++i){
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> r;
+                    inp >> c;
+                    if (r < Nrows && c < Ncols)
+                        raster[c][r] = i;
+                    else{
+                        std::cout << "I can't assign pixel (" << r << "," << c << ") in raster map" << std::endl;
+                    }
+                }
+                ifile.close();
+            }
+            return true;
+        }
     }
 
     int BackgroundRaster::IJ(int row, int col) {

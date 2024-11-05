@@ -5,6 +5,7 @@
 
 
 #include "MS_input.h"
+#include "SWAT_data.h"
 #include "MS_raster.h"
 #include "NPSAT_data.h"
 #include "MS_mpi_utils.h"
@@ -14,7 +15,6 @@
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
     boost::mpi::communicator world;
-
     //{
     //    MS::testConvolution();
     //    MS::testBroadcast(world);
@@ -26,14 +26,17 @@ int main(int argc, char* argv[]) {
 
     UI.read(argc,argv);
 
-    MS::UNSAT UZ;
-    bool tf1 = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,UI.wc, UI.minDepth,UI.minRch);
+    MS::SWAT_data swat;
+    bool tf = swat.read(UI.swat_input_file, UI.NswatYears);
 
     MS::BackgroundRaster backRaster;
     backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells);
 
-    MS::SWAT_data swat;
-    bool tf = swat.read(UI.swat_input_file);
+    MS::UNSAT UZ;
+    bool tf1 = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
+                           UI.wc, UI.minDepth,UI.minRch, UI.rasteroptions.Ncells);
+
+
 
 
 

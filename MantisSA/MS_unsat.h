@@ -10,7 +10,7 @@ namespace MS{
     public:
         UNSAT(){}
         bool readdata(std::string dpth_file, std::string dpth_name, std::string rch_file,
-                      double wc_in, double d_in, double r_in);
+                      double wc_in, double d_in, double r_in, int nRasterCells);
 
         int traveltime(int IJ);
     private:
@@ -23,14 +23,13 @@ namespace MS{
     };
 
     bool UNSAT::readdata(std::string dpth_file, std::string dpth_name, std::string rch_file,
-                         double wc_in, double d_in, double r_in) {
+                         double wc_in, double d_in, double r_in, int nRasterCells) {
         wc = wc_in;
         minD = d_in;
         minR = r_in;
-
-
+        std::string ext = getExtension(dpth_file);
+        if (ext.compare("h5") == 0) { // Read the Depth file
 #if _USEHF>0
-        {   // Read the Depth file
             const std::string NamesNameSet("Names");
             const std::string DataNameSet("Data");
             HighFive::File HDFfile(dpth_file, HighFive::File::ReadOnly);
@@ -47,7 +46,7 @@ namespace MS{
                 if (dpth_name == names[i]){
                     idx = i;
                     index_found = true;
-                    continue;
+                    break;
                 }
             }
             if (index_found){
@@ -58,9 +57,64 @@ namespace MS{
                 std::cout << " The depth scenario << " << dpth_name << " was not found in the list of scenarios in the " << dpth_file << std::endl;
                 return false;
             }
+#endif
+        }
+        else{
+            std::ifstream ifile;
+            ifile.open(dpth_file);
+            if (!ifile.is_open()){
+                std::cout << "Cant open file: " << dpth_file << std::endl;
+                return false;
+            }
+            else{
+                std::cout << "Reading " << dpth_file << std::endl;
+                int nData;
+                std::string line;
+                { //Get the number of Unsaturated scenarios
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> nData;
+                    Depth.clear();
+                }
+
+                int idx = 0;
+                {// Get the scenario names
+                    std::string name;
+                    bool index_found = false;
+                    for (int i = 0; i < nData; ++i){
+                        getline(ifile, line);
+                        std::istringstream inp(line.c_str());
+                        inp >> name;
+                        if (dpth_name == name){
+                            idx = i;
+                            index_found = true;
+                            break;
+                        }
+                    }
+                }
+                {// Read the values
+                    Depth.resize(nRasterCells,0.0);
+                    for (int i = 0; i < nRasterCells; ++i){
+                        getline(ifile, line);
+                        std::istringstream inp(line.c_str());
+                        double v;
+                        for (int j = 0; j < nData; ++j){
+                            inp >> v;
+                            if (j == idx){
+                                Depth[i] = v;
+                                break;
+                            }
+                        }
+                    }
+                }
+                ifile.close();
+            }
         }
 
+        std::string ext1 = getExtension(rch_file);
+        if (ext1.compare("h5") == 0)
         {   // Read Recharge
+#if _USEHF>0
             const std::string NamesNameSet("Names");
             const std::string DataNameSet("Data");
             HighFive::File HDFfile(rch_file, HighFive::File::ReadOnly);
@@ -77,8 +131,51 @@ namespace MS{
                 std::cout << "The size of Depth is different than the size of Recharge" << std::endl;
                 return false;
             }
-        }
 #endif
+        }
+        else{
+            std::ifstream ifile;
+            ifile.open(dpth_file);
+            if (!ifile.is_open()){
+                std::cout << "Cant open file: " << rch_file << std::endl;
+                return false;
+            }
+            else{
+                std::cout << "Reading " << rch_file << std::endl;
+                int nData;
+                std::string line;
+                { //Get the number of Unsaturated scenarios
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> nData;
+                    Rch.clear();
+                }
+                {// Get the scenario names
+                    std::string name;
+                    for (int i = 0; i < nData; ++i){
+                        getline(ifile, line);
+                        std::istringstream inp(line.c_str());
+                        inp >> name;
+                    }
+                }
+                {// Read the values
+                    Rch.resize(nRasterCells,0.0);
+                    for (int i = 0; i < nRasterCells; ++i){
+                        getline(ifile, line);
+                        std::istringstream inp(line.c_str());
+                        double v;
+                        for (int j = 0; j < nData; ++j){
+                            inp >> v;
+                            if (j == 0){
+                                Rch[i] = v;
+                                break;
+                            }
+                        }
+                    }
+                }
+                ifile.close();
+            }
+        }
 
 
         return true;
