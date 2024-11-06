@@ -10,7 +10,7 @@
 #include "NPSAT_data.h"
 #include "MS_mpi_utils.h"
 #include "MS_unsat.h"
-#include "MSdebug.h"
+//#include "MSdebug.h"
 
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
@@ -24,7 +24,10 @@ int main(int argc, char* argv[]) {
 
     MS::UserInput UI(world);
 
-    UI.read(argc,argv);
+    bool tf = UI.read(argc,argv);
+    if (!tf){
+        return 0;
+    }
 
 
     MS::BackgroundRaster backRaster;
@@ -32,21 +35,20 @@ int main(int argc, char* argv[]) {
 
 
 
-    MS::WELLS VI;
-    MS::WELLS VD;
-    {
-        bool tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
-        if (!tf){return 0;}
-        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
-        if (!tf){return 0;}
-    }
+
 
     MS::UNSAT UZ;
-    bool tf1 = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
+    tf = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
                            UI.wc, UI.minDepth,UI.minRch, UI.rasteroptions.Ncells);
+    if (!tf){
+        return 0;;
+    }
 
     MS::SWAT_data swat;
-    bool tf = swat.read(UI.swat_input_file, UI.NswatYears);
+    tf = swat.read(UI.swat_input_file, UI.NswatYears);
+    if (!tf){
+        return 0;;
+    }
 
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
@@ -59,13 +61,23 @@ int main(int argc, char* argv[]) {
     }
     world.barrier();
 
+    MS::WELLS VI;
+    MS::WELLS VD;
+    {
+        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+    }
 
     std::vector<std::vector<int>> Eid_proc;
     sendWellEids(VI, Eid_proc, world);
 
 
     tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI);
+    if (!tf){return 0;}
     tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD);
+    if (!tf){return 0;}
 
     std::cout << "Proc: " << world.rank() << " has " << VI.size() << " VI wells and " << VD.size() << " VD wells" << std::endl;
 
