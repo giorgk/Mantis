@@ -53,11 +53,13 @@ namespace MS{
 
     bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, BackgroundRaster& braster,
                        boost::mpi::communicator &world){
+        std::string ext = getExtension(filename);
+        std::vector<std::vector<int>> ints;
+        std::vector<std::vector<double>> dbls;
+        std::vector<std::vector<double>> msas;
+
+        if (ext.compare("h5") == 0) {
 #if _USEHF > 0
-        {
-            std::vector<std::vector<int>> ints;
-            std::vector<std::vector<double>> dbls;
-            std::vector<std::vector<double>> msas;
             const std::string INT_NameSet("INT");
             const std::string DBL_NameSet("DBL");
             const std::string MSA_NameSet("MSA");
@@ -71,82 +73,98 @@ namespace MS{
             dataset_INT.read(ints);
             dataset_DBL.read(dbls);
             dataset_MSA.read(msas);
+#endif
+        }
+        else {
+            std::vector<std::vector<int>> ints_tmp;
+            std::vector<std::vector<double>> dbls_tmp;
+            std::vector<std::vector<double>> msas_tmp;
+            bool tf = readMatrix<int>(filename + "INT.dat", ints_tmp, 4);
+            if (!tf){return false;}
+            tf = readMatrix<double>(filename + "DBL.dat", dbls_tmp, 2);
+            if (!tf){return false;}
+            tf = readMatrix<double>(filename + "MSA.dat", msas_tmp, 18);
+            if (!tf){return false;}
 
-            int por_idx = 3*(por-1);
-            WELLS::iterator itw = wells.end();
-            std::pair<WELLS::iterator,bool> ret;
+            transposeMatrix<int>(ints_tmp, ints);
+            transposeMatrix<double>(dbls_tmp, dbls);
+            transposeMatrix<double>(msas_tmp, msas);
+        }
 
-            tmpWELLS tw;
-            tmpWELLS ::iterator itwtmp = tw.end();
-            std::pair<tmpWELLS::iterator,bool> tmpret;
-            //int count_wells = 0;
-            //int wells_per_proc = Nwells/world.size();
-            //int count_proc = 0;
-            for (int i = 0; i < ints[0].size(); ++i){
+        int por_idx = 3*(por-1);
+        WELLS::iterator itw = wells.end();
+        std::pair<WELLS::iterator,bool> ret;
+
+        tmpWELLS tw;
+        tmpWELLS ::iterator itwtmp = tw.end();
+        std::pair<tmpWELLS::iterator,bool> tmpret;
+        //int count_wells = 0;
+        //int wells_per_proc = Nwells/world.size();
+        //int count_proc = 0;
+        for (int i = 0; i < ints[0].size(); ++i){
+            if (itwtmp == tw.end()){
+                itwtmp = tw.find(ints[0][i]);
                 if (itwtmp == tw.end()){
-                    itwtmp = tw.find(ints[0][i]);
-                    if (itwtmp == tw.end()){
-                        tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
-                            if (tmpret.second){
-                                itwtmp = tmpret.first;
-                            }
+                    tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
+                    if (tmpret.second){
+                        itwtmp = tmpret.first;
                     }
                 }
-                else{
-                    if (itwtmp->first != ints[0][i]){
-                        itwtmp = tw.find(ints[0][i]);
-                        if (itwtmp == tw.end()){
+            }
+            else{
+                if (itwtmp->first != ints[0][i]){
+                    itwtmp = tw.find(ints[0][i]);
+                    if (itwtmp == tw.end()){
 
-                            tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
-                            if (tmpret.second){
-                                itwtmp = tmpret.first;
-                            }
+                        tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
+                        if (tmpret.second){
+                            itwtmp = tmpret.first;
                         }
                     }
                 }
-                itwtmp->second.urfI.push_back(ints[1][i]);
-                itwtmp->second.urfJ.push_back(ints[2][i]);
-                itwtmp->second.hru_idx.push_back(ints[3][i]);
-                itwtmp->second.W.push_back(dbls[0][i]);
-                itwtmp->second.Len.push_back(dbls[1][i]);
-                itwtmp->second.m.push_back(msas[por_idx][i]);
-                itwtmp->second.s.push_back(msas[por_idx+1][i]);
-                itwtmp->second.a.push_back(msas[por_idx+2][i]);
-                itwtmp->second.sumW = itwtmp->second.sumW + dbls[0][i];
             }
+            itwtmp->second.urfI.push_back(ints[1][i]);
+            itwtmp->second.urfJ.push_back(ints[2][i]);
+            itwtmp->second.hru_idx.push_back(ints[3][i]);
+            itwtmp->second.W.push_back(dbls[0][i]);
+            itwtmp->second.Len.push_back(dbls[1][i]);
+            itwtmp->second.m.push_back(msas[por_idx][i]);
+            itwtmp->second.s.push_back(msas[por_idx+1][i]);
+            itwtmp->second.a.push_back(msas[por_idx+2][i]);
+            itwtmp->second.sumW = itwtmp->second.sumW + dbls[0][i];
+        }
 
-            //Normalize streamlines and split them according to the processors
-            int count = 0;
-            for (itwtmp = tw.begin(); itwtmp != tw.end(); ++itwtmp){
-                if (count % world.size() != world.rank()){
-                    count = count + 1;
-                    continue;
-                }
-                WELL w;
-                for (unsigned int i = 0; i < itwtmp->second.urfJ.size(); ++i){
-                    STRML s;
-                    s.urfI = itwtmp->second.urfI[i]-1;
-                    s.urfJ = itwtmp->second.urfJ[i]-1;
-                    s.IJ = braster.IJ(s.urfI, s.urfJ);
-                    s.hru_idx = itwtmp->second.hru_idx[i];
-                    s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
-                    s.Len = itwtmp->second.Len[i];
-                    s.m = itwtmp->second.m[i];
-                    s.s = itwtmp->second.s[i];
-                    s.a = itwtmp->second.a[i];
-                    calcURFs(Nyears,s.m, s.s, s.a, s.Len, s.urf);
-                    w.strml.push_back(s);
-                }
-
-                wells.insert(std::pair<int,WELL>(itwtmp->first, w));
+        //Normalize streamlines and split them according to the processors
+        int count = 0;
+        for (itwtmp = tw.begin(); itwtmp != tw.end(); ++itwtmp){
+            if (count % world.size() != world.rank()){
                 count = count + 1;
-                //std::cout << count << std::endl;
+                continue;
             }
+            WELL w;
+            for (unsigned int i = 0; i < itwtmp->second.urfJ.size(); ++i){
+                STRML s;
+                s.urfI = itwtmp->second.urfI[i]-1;
+                s.urfJ = itwtmp->second.urfJ[i]-1;
+                s.IJ = braster.IJ(s.urfI, s.urfJ);
+                s.hru_idx = itwtmp->second.hru_idx[i];
+                s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
+                s.Len = itwtmp->second.Len[i];
+                s.m = itwtmp->second.m[i];
+                s.s = itwtmp->second.s[i];
+                s.a = itwtmp->second.a[i];
+                calcURFs(Nyears,s.m, s.s, s.a, s.Len, s.urf);
+                w.strml.push_back(s);
+            }
+
+            wells.insert(std::pair<int,WELL>(itwtmp->first, w));
+            count = count + 1;
+            //std::cout << count << std::endl;
         }
 
 
         return true;
-#endif
+
     }
 
     bool readInitSaltConc(std::string filename, WELLS &wells){
@@ -176,14 +194,24 @@ namespace MS{
     }
 
     bool readDistribPumping(std::string filename,  WELL_CELLS &well_cells){
-#if _USEHF > 0
-        const std::string NameSet("WellID");
-        HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
-        HighFive::DataSet dataset = HDFNfile.getDataSet(NameSet);
+        std::string ext = getExtension(filename);
         std::vector<int> cellWell;
-        dataset.read(cellWell);
-#endif
         WELL_CELLS::iterator it;
+        if (ext.compare("h5") == 0){
+#if _USEHF > 0
+            const std::string NameSet("WellID");
+            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+            HighFive::DataSet dataset = HDFNfile.getDataSet(NameSet);
+            dataset.read(cellWell);
+#endif
+        }
+        else{
+            bool tf = readVector<int>(filename, cellWell);
+            if (!tf){
+                return false;
+            }
+        }
+
         int step = cellWell.size()/10;
         int countSteps = 1;
         for (int i = 0; i < cellWell.size(); ++i){

@@ -26,32 +26,39 @@ int main(int argc, char* argv[]) {
 
     UI.read(argc,argv);
 
-    MS::SWAT_data swat;
-    bool tf = swat.read(UI.swat_input_file, UI.NswatYears);
 
     MS::BackgroundRaster backRaster;
     backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells);
+
+
+
+    MS::WELLS VI;
+    MS::WELLS VD;
+    {
+        bool tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+    }
 
     MS::UNSAT UZ;
     bool tf1 = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
                            UI.wc, UI.minDepth,UI.minRch, UI.rasteroptions.Ncells);
 
-
-
-
+    MS::SWAT_data swat;
+    bool tf = swat.read(UI.swat_input_file, UI.NswatYears);
 
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
     MS::WELL_CELLS well_cells;
     if (world.rank() == 0){
-        tf = MS::readDistribPumping(UI.cell_well_file, well_cells);
+        bool tf = MS::readDistribPumping(UI.cell_well_file, well_cells);
+        if (!tf){
+            return 0;
+        }
     }
     world.barrier();
 
-    MS::WELLS VI;
-    MS::WELLS VD;
-    tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
-    tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
 
     std::vector<std::vector<int>> Eid_proc;
     sendWellEids(VI, Eid_proc, world);

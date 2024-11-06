@@ -90,98 +90,64 @@ namespace MS {
 #endif
         }
         else{
-
-
-        }
-
-
-        std::ifstream datafile(filename.c_str());
-        if (!datafile.good()) {
-            std::cout << "Can't open the file " << filename << std::endl;
-            return false;
-        }
-        else {
-            /*std::string line, substr;
-            double dTmp;
-            int iTmp;
-            std::string sTmp;
-            int line_cnt = 0;
-            while (getline(datafile, line)){
-                std::istringstream inp(line);
-                line_cnt++;
-                if (line_cnt == 1)
-                    continue;
-
-                SWAT_row sr;
-                getline(inp, substr,','); // Watershed
-                getline(inp, substr,','); // gis_id
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.hru_num;
+            int nHRUs;
+            {// Read HRUS;
+                bool tf = readASCIIHRUS(filename + "hrus.dat",HRUS);
+                if (!tf){
+                    return false;
                 }
-                getline(inp, substr,','); // name
-                getline(inp, substr,','); // yr
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.year;
-                }
-                getline(inp, substr,','); // Landuse
-                getline(inp, substr,','); // Napplied_kgha
-                getline(inp, substr,','); // irrsaltSW_kgha
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.irrsaltSW_kgha;
-                }
-                getline(inp, substr,','); // irrsaltGW_kgha
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.irrsaltGW_kgha;
-                }
-                getline(inp, substr,','); // irrsalt_outsidesource_kgha,
-                getline(inp, substr,','); // fertsalt_kgha,
-                getline(inp, substr,','); // percsalt_kgha,
-                getline(inp, substr,','); // totpercsalt_kgha,
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.totpercsalt_kgha;
-                }
-                getline(inp, substr,','); // dssl_kgha,
-                getline(inp, substr,','); // precip_mm,
-                getline(inp, substr,','); // irrtotal_mm,
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.irrtotal_mm;
-                }
-                getline(inp, substr,','); // irrSW_mm,
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.irrSW_mm;
-                }
-                getline(inp, substr,','); // irrGW_mm,
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.irrGW_mm;
-                }
-                getline(inp, substr,','); // irrUNL_mm,
-                getline(inp, substr,','); // perc_mm,
-                {
-                    std::istringstream inp1(substr);
-                    inp1 >> sr.perc_mm;
-                }
-                //getline(inp, substr,','); // et_mm
-
-                std::vector<int> ttt;
-                ttt.push_back(7);
-
-                SWAT_TAB.push_back(sr);
+                nHRUs = HRUS[0].size();
             }
+            { //Read irrtotal_mm
+                bool tf = readASCIIset(filename + "irrtotal_mm.dat", irrtotal_mm,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read irrSW_mm
+                bool tf = readASCIIset(filename + "irrSW_mm.dat", irrSW_mm,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read irrGW_mm
+                bool tf = readASCIIset(filename + "irrGW_mm.dat", irrGW_mm,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read irrsaltSW_kgha
+                bool tf = readASCIIset(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read irrsaltGW_Kgha
+                bool tf = readASCIIset(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read totpercsalt_kgha
+                bool tf = readASCIIset(filename + "totpercsalt_kgha.dat", totpercsalt_kgha,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            { //Read perc_mm
+                bool tf = readASCIIset(filename + "perc_mm.dat", perc_mm,nHRUs,NSwatYears);
+                if (!tf){
+                    return false;
+                }
+            }
+            return true;
         }
-        datafile.close();*/
-        }
-        return true;
     }
 
     bool SWAT_data::readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears){
+        data.clear();
+        data.resize(Nyrears,std::vector<double>(nHRU,0));
+
         std::ifstream ifile;
         ifile.open(filename);
         if (!ifile.is_open()){
@@ -193,14 +159,12 @@ namespace MS {
             std::string line;
             double val;
             for (int i = 0; i < nHRU; ++i){
-                std::vector<double> d;
                 getline(ifile, line);
                 std::istringstream inp(line.c_str());
                 for (int j = 0; j < Nyrears; ++j){
                     inp >> val;
-                    d.push_back(val);
+                    data[j][i] = val;
                 }
-                data.push_back(d);
             }
             ifile.close();
             return true;
@@ -208,9 +172,25 @@ namespace MS {
     }
 
     bool SWAT_data::readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data){
+        std::ifstream datafile(filename.c_str());
+        if (!datafile.good()) {
+            std::cout << "Can't open the file " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::string line;
+            std::vector<int> tmp;
+            int v;
+            while (getline(datafile, line)){
+                std::istringstream inp(line.c_str());
+                inp >> v;
+                tmp.push_back(v);
+            }
+            data.push_back(tmp);
+            datafile.close();
+        }
         return true;
     }
-
 }
 
 #endif //MANTISSA_SWAT_DATA_H
