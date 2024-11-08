@@ -50,7 +50,7 @@ namespace MS{
     }
 
     template<typename T>
-    bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nCols){
+    bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nRows, int nCols){
         std::ifstream datafile(filename.c_str());
         if (!datafile.good()) {
             std::cout << "Can't open the file " << filename << std::endl;
@@ -60,7 +60,14 @@ namespace MS{
             std::cout << "Reading " << filename << std::endl;
             std::string line;
             T v;
-            while (getline(datafile, line)){
+            int countLines = 100000;
+            for (int ir = 0; ir < nRows; ++ir){
+                if (ir > countLines){
+                    std::cout << ir << std::endl;
+                    countLines = countLines + 100000;
+                }
+                getline(datafile, line);
+                //std::cout << line << std::endl;
                 std::istringstream inp(line.c_str());
                 std::vector<T> d;
                 for (int i = 0; i < nCols; ++i){
@@ -81,6 +88,21 @@ namespace MS{
         for (unsigned int i = 0; i < data_in.size(); ++i){
             for (unsigned int j = 0; j < data_in[i].size(); ++j){
                 data_out[j][i] = data_in[i][j];
+            }
+        }
+    }
+
+    void readSelectedWells(std::string filename, std::vector<int> &idsVI, std::vector<int> &idsVD, int nSelectedWells){
+        std::vector<std::vector<int>> T;
+        bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
+        if (tf){
+            for (unsigned int i = 0; i < T.size(); ++i){
+                if (T[i][0] == 1){
+                    idsVI.push_back(T[i][1]);
+                }
+                else if (T[i][0] == 2){
+                    idsVD.push_back(T[i][1]);
+                }
             }
         }
     }

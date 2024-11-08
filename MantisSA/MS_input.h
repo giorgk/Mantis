@@ -25,6 +25,9 @@ namespace MS {
         int NswatYears;
         int porosity;
         int Nwells;
+        int nurfsVI;
+        int nurfsVD;
+        int nSelectWells;
         double wc;
         double minDepth;
         double minRch;
@@ -39,11 +42,14 @@ namespace MS {
         std::string depth_input_file;
         std::string depth_name;
         std::string rch_input_file;
+        std::string SelectedWells_file;
 
         RasterOptions rasteroptions;
 
         std::string outfileVI;
         std::string outfileVD;
+        std::string outfileVIdetail;
+        std::string outfileVDdetail;
         std::string Version;
 
     private:
@@ -107,6 +113,8 @@ namespace MS {
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.NPSAT_VI", po::value<std::string>(), "NPSAT input file for VI")
+            ("Simulation.NURFS_VI", po::value<int>(), "Number of VI streamlines")
+            ("Simulation.NURFS_VD", po::value<int>(), "Number of VD streamlines")
             ("Simulation.NPSAT_VD", po::value<std::string>(), "NPSAT input file for VI")
             ("Simulation.InitSaltVI", po::value<std::string>(), "Initial salt concentration of VI wells")
             ("Simulation.InitSaltVD", po::value<std::string>(), "Initial salt concentration of VI wells")
@@ -120,6 +128,9 @@ namespace MS {
             ("UNSAT.minRch", po::value<double>()->default_value(10.0), "Minimum recharge")
 
             ("Other.OutFile", po::value<std::string>(), "Output filename")
+            ("Other.SelectedWells", po::value<std::string>(), "Selected wells for detailed output")
+            ("Other.NselectWells", po::value<int>(), "Number of Selected wells")
+            ("Other.DetailOutFile", po::value<std::string>(), "Detailed output filename")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
@@ -142,7 +153,9 @@ namespace MS {
                 }
                 swat_input_file = vm_cfg["Simulation.SWAT_Data"].as<std::string>();
                 npsat_VI_file = vm_cfg["Simulation.NPSAT_VI"].as<std::string>();
+                nurfsVI = vm_cfg["Simulation.NURFS_VI"].as<int>();
                 npsat_VD_file = vm_cfg["Simulation.NPSAT_VD"].as<std::string>();
+                nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
                 init_salt_VI_file = vm_cfg["Simulation.InitSaltVI"].as<std::string>();
                 init_salt_VD_file = vm_cfg["Simulation.InitSaltVD"].as<std::string>();
                 cell_well_file = vm_cfg["Simulation.DistribPump"].as<std::string>();
@@ -171,6 +184,12 @@ namespace MS {
 
                 outfileVI = vm_cfg["Other.OutFile"].as<std::string>() + "VI.dat";
                 outfileVD = vm_cfg["Other.OutFile"].as<std::string>() + "VD.dat";
+
+                SelectedWells_file = vm_cfg["Other.SelectedWells"].as<std::string>();
+                nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
+                outfileVIdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VI.dat";
+                outfileVDdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VD.dat";
+
 
             }
             catch (std::exception& E)

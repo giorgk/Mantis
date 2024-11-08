@@ -13,6 +13,8 @@ namespace MS{
                       double wc_in, double d_in, double r_in, int nRasterCells);
 
         int traveltime(int IJ);
+        double getDepth(int IJ);
+        double getRch(int IJ);
     private:
         double wc;
         double minD;
@@ -135,7 +137,7 @@ namespace MS{
         }
         else{
             std::ifstream ifile;
-            ifile.open(dpth_file);
+            ifile.open(rch_file);
             if (!ifile.is_open()){
                 std::cout << "Cant open file: " << rch_file << std::endl;
                 return false;
@@ -197,6 +199,20 @@ namespace MS{
 
         double tau = wc * d / (r/1000);
         return static_cast<int>(std::ceil(tau));
+    }
+
+    double UNSAT::getDepth(int IJ) {
+        if (IJ < 0 || IJ >= Ncells ){
+            return 0.0;
+        }
+        return Depth[IJ];
+    }
+
+    double UNSAT::getRch(int IJ) {
+        if (IJ < 0 || IJ >= Ncells ){
+            return 0.0;
+        }
+        return Rch[IJ];
     }
 
 }

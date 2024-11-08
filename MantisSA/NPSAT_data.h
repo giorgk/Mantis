@@ -10,9 +10,11 @@
 #include <string>
 
 #include "MS_urf_calc.h"
+#include "MS_unsat.h"
 
 namespace MS{
     struct STRML{
+        int Sid;
         int urfI;
         int urfJ;
         int IJ;
@@ -35,6 +37,7 @@ namespace MS{
 
     struct NPSATTMP{
         double sumW = 0;
+        std::vector<int> Sid;
         std::vector<int> urfI;
         std::vector<int> urfJ;
         std::vector<int> hru_idx;
@@ -51,7 +54,7 @@ namespace MS{
 
     typedef std::map<int, std::vector<int>> WELL_CELLS;
 
-    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, BackgroundRaster& braster,
+    bool readNPSATdata(std::string filename, WELLS &wells, int por, int nURFs, int Nyears, BackgroundRaster& braster,
                        boost::mpi::communicator &world){
         std::string ext = getExtension(filename);
         std::vector<std::vector<int>> ints;
@@ -79,11 +82,14 @@ namespace MS{
             std::vector<std::vector<int>> ints_tmp;
             std::vector<std::vector<double>> dbls_tmp;
             std::vector<std::vector<double>> msas_tmp;
-            bool tf = readMatrix<int>(filename + "INT.dat", ints_tmp, 4);
+            bool tf = readMatrix<int>(filename + "INT.dat", ints_tmp, nURFs, 5);
+            if (!tf){
+                std::cout << world.rank() << " return false" << std::endl;
+                return false;
+            }
+            tf = readMatrix<double>(filename + "DBL.dat", dbls_tmp, nURFs, 2);
             if (!tf){return false;}
-            tf = readMatrix<double>(filename + "DBL.dat", dbls_tmp, 2);
-            if (!tf){return false;}
-            tf = readMatrix<double>(filename + "MSA.dat", msas_tmp, 18);
+            tf = readMatrix<double>(filename + "MSA.dat", msas_tmp, nURFs, 18);
             if (!tf){return false;}
 
             transposeMatrix<int>(ints_tmp, ints);
@@ -123,9 +129,10 @@ namespace MS{
                     }
                 }
             }
-            itwtmp->second.urfI.push_back(ints[1][i]);
-            itwtmp->second.urfJ.push_back(ints[2][i]);
-            itwtmp->second.hru_idx.push_back(ints[3][i]);
+            itwtmp->second.Sid.push_back(ints[1][i]);
+            itwtmp->second.urfI.push_back(ints[2][i]);
+            itwtmp->second.urfJ.push_back(ints[3][i]);
+            itwtmp->second.hru_idx.push_back(ints[4][i]);
             itwtmp->second.W.push_back(dbls[0][i]);
             itwtmp->second.Len.push_back(dbls[1][i]);
             itwtmp->second.m.push_back(msas[por_idx][i]);
@@ -144,6 +151,7 @@ namespace MS{
             WELL w;
             for (unsigned int i = 0; i < itwtmp->second.urfJ.size(); ++i){
                 STRML s;
+                s.Sid = itwtmp->second.Sid[i];
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
@@ -244,6 +252,38 @@ namespace MS{
             }
         }
     }
+    void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<int> ids, UNSAT &UN, int Nyears){
+        v.clear();
+
+        WELLS::iterator itw;
+        int countWells = 0;
+        for (unsigned int j = 0; j < ids.size(); ++j){
+            itw = W.find(ids[j]);
+            //std::cout << itw->first << std::endl;
+            if (itw != W.end()){
+                countWells = countWells + 1;
+                v.push_back(static_cast<double>(itw->first));// Eid
+                int countS = 0;
+                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    if (itw->second.strml[i].hru_idx - 1 >= 0){
+                        countS = countS + 1;
+                    }
+                }
+                v.push_back(static_cast<double>(countS));// Number of streamlines
+                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    if (itw->second.strml[i].hru_idx - 1 >= 0){
+                        v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
+                        v.push_back(UN.getDepth(itw->second.strml[i].IJ)); // Depth
+                        v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge
+                        for (int k = 0; k < Nyears; ++k) {
+                            v.push_back(itw->second.strml[i].lf[k]);
+                        }
+                    }
+                }
+            }
+        }
+        v.insert(v.begin(), countWells);
+    }
 
     void printWELLSfromAllProc(std::vector<std::vector<double>> &AllProcBTC, std::string filename, int Nyears){
         std::ofstream out_file;
@@ -260,6 +300,42 @@ namespace MS{
                     idx = idx + 1;
                 }
                 out_file << std::endl;
+            }
+        }
+        out_file.close();
+    }
+
+    void printDetailOutputFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
+        std::ofstream out_file;
+        out_file.open(filename.c_str());
+        out_file << "Eid, Sid, UnsatD, UnsatR";
+        for (int i = 0; i < Nyears; ++i){
+            out_file << ", lf" << i+1;
+        }
+        out_file << std::endl;
+
+        for (unsigned int i = 0; i < AllProcData.size(); ++i){
+            int Nw = static_cast<int>(AllProcData[i][0]);
+            int idx = 1;
+            for (int j = 0; j < Nw; ++j){
+                int eid = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                int Ns = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                for (int k = 0; k < Ns; ++k){
+                    int sid = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    double d = AllProcData[i][idx];
+                    idx = idx + 1;
+                    double r = AllProcData[i][idx];
+                    idx = idx + 1;
+                    out_file << eid << ", " << sid << ", " << d << ", " << r;
+                    for (int iyr = 0; iyr < Nyears; ++iyr){
+                        out_file << ", " << AllProcData[i][idx];
+                        idx = idx + 1;
+                    }
+                    out_file << std::endl;
+                }
             }
         }
         out_file.close();

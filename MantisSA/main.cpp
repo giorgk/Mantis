@@ -29,6 +29,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    std::vector<int> VIids, VDids;
+    if (!UI.SelectedWells_file.empty()){
+        MS::readSelectedWells(UI.SelectedWells_file, VIids, VDids, UI.nSelectWells);
+    }
+
 
     MS::BackgroundRaster backRaster;
     backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells);
@@ -64,9 +69,9 @@ int main(int argc, char* argv[]) {
     MS::WELLS VI;
     MS::WELLS VD;
     {
-        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
+        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.nurfsVI,  UI.NsimYears, backRaster, world);
         if (!tf){return 0;}
-        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
+        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.nurfsVD, UI.NsimYears, backRaster, world);
         if (!tf){return 0;}
     }
 
@@ -312,6 +317,32 @@ int main(int argc, char* argv[]) {
             MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfileVD,UI.NsimYears);
         }
     }
+
+    if (!VIids.empty()){ // Printing detailed output for VI
+        world.barrier();
+        std::vector<double> thisProcDATA;
+        MS::BundleDetailData(VI, thisProcDATA, VIids,UZ, UI.NsimYears);
+        std::vector<std::vector<double>> AllProcDATA;
+        MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+        if (world.rank() == 0){
+            std::cout << "Printing VI Detailed data ..." << std::endl;
+            MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
+
+        }
+    }
+
+    if (!VDids.empty()){ // Printing detailed output for VD
+        world.barrier();
+        std::vector<double> thisProcDATA;
+        MS::BundleDetailData(VD, thisProcDATA, VDids,UZ, UI.NsimYears);
+        std::vector<std::vector<double>> AllProcDATA;
+        MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+        if (world.rank() == 0){
+            std::cout << "Printing VD Detailed data ..." << std::endl;
+            MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
+        }
+    }
+
 
     return 0;
 }
