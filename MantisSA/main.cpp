@@ -7,17 +7,24 @@
 #include "MS_input.h"
 #include "SWAT_data.h"
 #include "MS_raster.h"
-#include "NPSAT_data.h"
 #include "MS_mpi_utils.h"
+#include "NPSAT_data.h"
 #include "MS_unsat.h"
-//#include "MSdebug.h"
+#include "MSdebug.h"
 
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
     boost::mpi::communicator world;
     //{
+    //    bool tf = false;
+    //    std::cout << static_cast<int>(tf) << std::endl;
+    //    tf = true;
+    //    std::cout << static_cast<int>(tf) << std::endl;
     //    MS::testConvolution();
     //    MS::testBroadcast(world);
+    //    MS::testMatrixBroadcast<double>(world);
+    //    MS::testScalarBroadcast(world);
+    //    return 0;
     //}
 
 
@@ -29,28 +36,35 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+
     std::vector<int> VIids, VDids;
     if (!UI.SelectedWells_file.empty()){
-        MS::readSelectedWells(UI.SelectedWells_file, VIids, VDids, UI.nSelectWells);
+        MS::readSelectedWells(UI.SelectedWells_file, VIids, VDids, world);
     }
 
 
     MS::BackgroundRaster backRaster;
-    backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells);
-
-
-
-
-
-    MS::UNSAT UZ;
-    tf = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
-                           UI.wc, UI.minDepth,UI.minRch, UI.rasteroptions.Ncells);
+    tf = backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells, world);
     if (!tf){
         return 0;;
     }
 
+    MS::UNSAT UZ;
+    tf = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
+                     UI.wc, UI.minDepth,UI.minRch, world);
+    if (!tf){ return 0;}
+
+    MS::WELLS VI;
+    MS::WELLS VD;
+    {
+        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
+        if (!tf){return 0;}
+    }
+
     MS::SWAT_data swat;
-    tf = swat.read(UI.swat_input_file, UI.NswatYears);
+    tf = swat.read(UI.swat_input_file, UI.NswatYears, world);
     if (!tf){
         return 0;;
     }
@@ -66,14 +80,7 @@ int main(int argc, char* argv[]) {
     }
     world.barrier();
 
-    MS::WELLS VI;
-    MS::WELLS VD;
-    {
-        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.nurfsVI,  UI.NsimYears, backRaster, world);
-        if (!tf){return 0;}
-        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.nurfsVD, UI.NsimYears, backRaster, world);
-        if (!tf){return 0;}
-    }
+
 
     std::vector<std::vector<int>> Eid_proc;
     sendWellEids(VI, Eid_proc, world);
@@ -86,16 +93,18 @@ int main(int argc, char* argv[]) {
 
     std::cout << "Proc: " << world.rank() << " has " << VI.size() << " VI wells and " << VD.size() << " VD wells" << std::endl;
 
+    //std::cout << "Here1" << std::endl;
 
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
 
     // Main simulation loop
     MS::WELLS ::iterator itw;
     int hruidx;
-    std::vector<double> totMfeed(UI.NsimYears, 0);
+    //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
     int iswat = 0;
     for (int iyr = 0; iyr < UI.NsimYears; ++iyr){
+        //std::cout << "Here1" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> wellConc;
         world.barrier();
@@ -109,13 +118,13 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                // Calculate the groundwater concentration
+                // Calculate the ratio of groundwater to the total
                 double gw_ratio = 0.0;
                 if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
                     gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
                 }
 
-                // irrigated Salt Mass
+                // irrigated Salt Mass. The Salts that come from the pumped water
                 double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
                 //Calculate the percolated groundwater volume
@@ -131,7 +140,7 @@ int main(int argc, char* argv[]) {
                 if (Mfeed < 0) {
                     Mfeed = 0.0;
                 }
-                totMfeed[iyr] = totMfeed[iyr] + Mfeed;
+                //totMfeed[iyr] = totMfeed[iyr] + Mfeed;
 
                 //Calculate the C_SWAT
                 double c_swat = 0.0;
@@ -140,6 +149,13 @@ int main(int argc, char* argv[]) {
                 }
                 if (c_swat > UI.maxConc){
                     c_swat = UI.maxConc;
+                }
+
+                if (UI.SurfConcValue > 0){
+                    double surf_perc = UZ.getSurfPerc(itw->second.strml[i].IJ);
+                    if (surf_perc > 0){
+                        c_swat = c_swat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                    }
                 }
 
                 itw->second.strml[i].lf.push_back(c_swat);
@@ -213,6 +229,13 @@ int main(int argc, char* argv[]) {
                     c_swat = UI.maxConc;
                 }
 
+                if (UI.SurfConcValue > 0){
+                    double surf_perc = UZ.getSurfPerc(itw->second.strml[i].IJ);
+                    if (surf_perc > 0){
+                        c_swat = c_swat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                    }
+                }
+
                 itw->second.strml[i].lf.push_back(c_swat);
             }
         }
@@ -236,7 +259,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             world.barrier();
-            MS::sentFromRootToAllProc(ConcFromPump, world);
+            MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
             world.barrier();
         }
         else{ // if this is the last year of the simulation calculate the domestic wells

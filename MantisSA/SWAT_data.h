@@ -14,6 +14,8 @@
 #include <highfive/H5File.hpp>
 #endif
 
+#include "MS_mpi_utils.h"
+
 namespace MS {
 
     /*struct SWAT_row{
@@ -31,11 +33,11 @@ namespace MS {
     class SWAT_data{
     public:
         SWAT_data(){}
-        bool read(const std::string filename, int NSwatYears);
+        bool read(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
 
 
         //std::vector<SWAT_row> SWAT_TAB;
-        std::vector<std::vector<int>> HRUS;
+        //std::vector<std::vector<int>> HRUS;
         std::vector<std::vector<double>> irrtotal_mm;
         std::vector<std::vector<double>> irrSW_mm;
         std::vector<std::vector<double>> irrGW_mm;
@@ -51,7 +53,7 @@ namespace MS {
 
 
 
-    bool SWAT_data::read(const std::string filename, int NSwatYears) {
+    bool SWAT_data::read(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
 
         std::string ext = getExtension(filename);
 
@@ -68,7 +70,7 @@ namespace MS {
 
                 HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
 
-                HighFive::DataSet dataset_HRUS = HDFNfile.getDataSet(HRUSNameSet);
+                //HighFive::DataSet dataset_HRUS = HDFNfile.getDataSet(HRUSNameSet);
                 HighFive::DataSet dataset_irrtotal_mm = HDFNfile.getDataSet(irrtotal_mm_NameSet);
                 HighFive::DataSet dataset_irrSW_mm = HDFNfile.getDataSet(irrSW_mm_NameSet);
                 HighFive::DataSet dataset_irrGW_mm = HDFNfile.getDataSet(irrGW_mm_NameSet);
@@ -77,7 +79,7 @@ namespace MS {
                 HighFive::DataSet dataset_totpercsalt_kgha = HDFNfile.getDataSet(totpercsalt_kgha_NameSet);
                 HighFive::DataSet dataset_perc_mm = HDFNfile.getDataSet(perc_mm_NameSet);
 
-                dataset_HRUS.read(HRUS);
+                //dataset_HRUS.read(HRUS);
                 dataset_irrtotal_mm.read(irrtotal_mm);
                 dataset_irrSW_mm.read(irrSW_mm);
                 dataset_irrGW_mm.read(irrGW_mm);
@@ -90,56 +92,32 @@ namespace MS {
 #endif
         }
         else{
-            int nHRUs;
-            {// Read HRUS;
-                bool tf = readASCIIHRUS(filename + "hrus.dat",HRUS);
-                if (!tf){
-                    return false;
-                }
-                nHRUs = HRUS[0].size();
-            }
-            { //Read irrtotal_mm
-                bool tf = readASCIIset(filename + "irrtotal_mm.dat", irrtotal_mm,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read irrSW_mm
-                bool tf = readASCIIset(filename + "irrSW_mm.dat", irrSW_mm,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read irrGW_mm
-                bool tf = readASCIIset(filename + "irrGW_mm.dat", irrGW_mm,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read irrsaltSW_kgha
-                bool tf = readASCIIset(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read irrsaltGW_Kgha
-                bool tf = readASCIIset(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read totpercsalt_kgha
-                bool tf = readASCIIset(filename + "totpercsalt_kgha.dat", totpercsalt_kgha,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
-            { //Read perc_mm
-                bool tf = readASCIIset(filename + "perc_mm.dat", perc_mm,nHRUs,NSwatYears);
-                if (!tf){
-                    return false;
-                }
-            }
+            //bool tf = RootReadsMatrixFileDistrib<int>(filename + "hrus.dat", HRUS,1,false,world);
+            //if (!tf){ return false;}
+            //int nHRUs = HRUS[0].size();
+
+            bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, true, world);
+            printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, true, world);
+            printMatrixForAllProc(irrSW_mm,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, true, world);
+            printMatrixForAllProc(irrGW_mm,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, true, world);
+            printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha, NSwatYears, true, world);
+            printMatrixForAllProc(irrsaltGW_Kgha,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
+            printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);
+            if (!tf){ return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
+            printMatrixForAllProc(perc_mm,world,0,10,34,40);
+            if (!tf){ return false;}
+
             return true;
         }
     }

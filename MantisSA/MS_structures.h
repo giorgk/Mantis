@@ -7,6 +7,10 @@
 #include <string>
 #include <fstream>
 namespace MS{
+
+
+
+
     struct RasterOptions {
         int Ncells;
         int Nrows;
@@ -16,6 +20,47 @@ namespace MS{
         double CellSize;
         std::string File;
     };
+
+    struct STRML{
+        int Sid;
+        int urfI;
+        int urfJ;
+        int IJ;
+        int hru_idx;
+        double W;
+        double Len;
+        double m;
+        double s;
+        double a;
+        std::vector<double> urf;
+        std::vector<double> lf;
+
+    };
+
+    struct WELL{
+        double initConc = 0.0;
+        std::vector<STRML> strml;
+        std::vector<double> btc;
+    };
+
+    struct NPSATTMP{
+        double sumW = 0;
+        std::vector<int> Sid;
+        std::vector<int> urfI;
+        std::vector<int> urfJ;
+        std::vector<int> hru_idx;
+        std::vector<double> W;
+        std::vector<double> Len;
+        std::vector<double> m;
+        std::vector<double> s;
+        std::vector<double> a;
+    };
+
+    typedef std::map<int,NPSATTMP> tmpWELLS;
+
+    typedef std::map<int, WELL> WELLS;
+
+    typedef std::map<int, std::vector<int>> WELL_CELLS;
 
     std::string getExtension(std::string filename){
         // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
@@ -37,6 +82,7 @@ namespace MS{
             return false;
         }
         else{
+            std:: cout << "Reading " << filename << std::endl;
             std::string line;
             T v;
             while (getline(datafile, line)){
@@ -50,7 +96,7 @@ namespace MS{
     }
 
     template<typename T>
-    bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nRows, int nCols){
+    bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nCols, int freq = 500000){
         std::ifstream datafile(filename.c_str());
         if (!datafile.good()) {
             std::cout << "Can't open the file " << filename << std::endl;
@@ -60,21 +106,25 @@ namespace MS{
             std::cout << "Reading " << filename << std::endl;
             std::string line;
             T v;
-            int countLines = 100000;
-            for (int ir = 0; ir < nRows; ++ir){
-                if (ir > countLines){
-                    std::cout << ir << std::endl;
-                    countLines = countLines + 100000;
+            int countLines = freq;
+            int ir = 0;
+            //for (int ir = 0; ir < nRows; ++ir){
+            while (getline(datafile, line)){
+                if (line.size() > 1){
+                    if (ir > countLines){
+                        std::cout << ir << std::endl;
+                        countLines = countLines + freq;
+                    }
+                    //std::cout << line << std::endl;
+                    std::istringstream inp(line.c_str());
+                    std::vector<T> d;
+                    for (int i = 0; i < nCols; ++i){
+                        inp >> v;
+                        d.push_back(v);
+                    }
+                    data.push_back(d);
+                    ir = ir + 1;
                 }
-                getline(datafile, line);
-                //std::cout << line << std::endl;
-                std::istringstream inp(line.c_str());
-                std::vector<T> d;
-                for (int i = 0; i < nCols; ++i){
-                    inp >> v;
-                    d.push_back(v);
-                }
-                data.push_back(d);
             }
             datafile.close();
         }
@@ -92,21 +142,60 @@ namespace MS{
         }
     }
 
-    void readSelectedWells(std::string filename, std::vector<int> &idsVI, std::vector<int> &idsVD, int nSelectedWells){
-        std::vector<std::vector<int>> T;
-        bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
-        if (tf){
-            for (unsigned int i = 0; i < T.size(); ++i){
-                if (T[i][0] == 1){
-                    idsVI.push_back(T[i][1]);
-                }
-                else if (T[i][0] == 2){
-                    idsVD.push_back(T[i][1]);
+
+    bool readLinearData(std::string filename, std::vector<std::string> &names,
+                        std::vector<std::vector<double>> &data, int freq = 500000){
+        std::ifstream ifile;
+        ifile.open(filename);
+        if (!ifile.is_open()){
+            std::cout << "Cant open file: " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::cout << "Reading " << filename << std::endl;
+            int nData;
+            std::string line;
+            { //Get the number of Unsaturated scenarios
+                getline(ifile, line);
+                std::istringstream inp(line.c_str());
+                inp >> nData;
+                data.clear();
+                data.resize(nData,std::vector<double>());
+            }
+
+            {// Get the scenario names
+                std::string name;
+                for (int i = 0; i < nData; ++i){
+                    getline(ifile, line);
+                    std::istringstream inp(line.c_str());
+                    inp >> name;
+                    names.push_back(name);
                 }
             }
-        }
-    }
+            {// Read the values
+                int ir = 0;
+                int countLines = freq;
+                while (getline(ifile, line)) {
+                    if (line.size() > 1){
+                        if (ir > countLines){
+                            std::cout << ir << std::endl;
+                            countLines = countLines + freq;
+                        }
 
+                        std::istringstream inp(line.c_str());
+                        double v;
+                        for (int j = 0; j < nData; ++j){
+                            inp >> v;
+                            data[j].push_back(v);
+                        }
+                        ir = ir + 1;
+                    }
+                }
+            }
+            ifile.close();
+        }
+        return true;
+    }
 
 }
 

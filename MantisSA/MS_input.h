@@ -25,13 +25,14 @@ namespace MS {
         int NswatYears;
         int porosity;
         int Nwells;
-        int nurfsVI;
-        int nurfsVD;
-        int nSelectWells;
+        //int nurfsVI;
+        //int nurfsVD;
+        //int nSelectWells;
         double wc;
         double minDepth;
         double minRch;
         double maxConc;
+        double SurfConcValue;
         std::string configFile;
         std::string swat_input_file;
         std::string npsat_VI_file;
@@ -60,7 +61,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.01";
+        Version = "0.0.06";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -110,11 +111,12 @@ namespace MS {
             ("Simulation.NSwatYears", po::value<int>()->default_value(30), "Number of simulation year in swat data")
             ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 1-6")
             ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
+            ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.NPSAT_VI", po::value<std::string>(), "NPSAT input file for VI")
-            ("Simulation.NURFS_VI", po::value<int>(), "Number of VI streamlines")
-            ("Simulation.NURFS_VD", po::value<int>(), "Number of VD streamlines")
+            //("Simulation.NURFS_VI", po::value<int>(), "Number of VI streamlines")
+            //("Simulation.NURFS_VD", po::value<int>(), "Number of VD streamlines")
             ("Simulation.NPSAT_VD", po::value<std::string>(), "NPSAT input file for VI")
             ("Simulation.InitSaltVI", po::value<std::string>(), "Initial salt concentration of VI wells")
             ("Simulation.InitSaltVD", po::value<std::string>(), "Initial salt concentration of VI wells")
@@ -153,9 +155,9 @@ namespace MS {
                 }
                 swat_input_file = vm_cfg["Simulation.SWAT_Data"].as<std::string>();
                 npsat_VI_file = vm_cfg["Simulation.NPSAT_VI"].as<std::string>();
-                nurfsVI = vm_cfg["Simulation.NURFS_VI"].as<int>();
+                //nurfsVI = vm_cfg["Simulation.NURFS_VI"].as<int>();
                 npsat_VD_file = vm_cfg["Simulation.NPSAT_VD"].as<std::string>();
-                nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
+                //nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
                 init_salt_VI_file = vm_cfg["Simulation.InitSaltVI"].as<std::string>();
                 init_salt_VD_file = vm_cfg["Simulation.InitSaltVD"].as<std::string>();
                 cell_well_file = vm_cfg["Simulation.DistribPump"].as<std::string>();
@@ -174,6 +176,7 @@ namespace MS {
                 NswatYears = vm_cfg["Simulation.NSwatYears"].as<int>();
                 porosity = vm_cfg["Simulation.Porosity"].as<int>();
                 maxConc = vm_cfg["Simulation.MaxConc"].as<double>();
+                SurfConcValue = vm_cfg["Simulation.SurfConcValue"].as<double>();
 
                 depth_input_file = vm_cfg["UNSAT.Depth_file"].as<std::string>();
                 depth_name = vm_cfg["UNSAT.Depth_name"].as<std::string>();
@@ -186,7 +189,7 @@ namespace MS {
                 outfileVD = vm_cfg["Other.OutFile"].as<std::string>() + "VD.dat";
 
                 SelectedWells_file = vm_cfg["Other.SelectedWells"].as<std::string>();
-                nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
+                //nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
                 outfileVIdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VI.dat";
                 outfileVDdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VD.dat";
 

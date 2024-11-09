@@ -10,22 +10,25 @@ namespace MS{
     public:
         UNSAT(){}
         bool readdata(std::string dpth_file, std::string dpth_name, std::string rch_file,
-                      double wc_in, double d_in, double r_in, int nRasterCells);
+                      double wc_in, double d_in, double r_in, boost::mpi::communicator& world);
 
         int traveltime(int IJ);
         double getDepth(int IJ);
         double getRch(int IJ);
+        double getSurfPerc(int IJ);
     private:
         double wc;
         double minD;
         double minR;
         std::vector<double> Depth;
         std::vector<double> Rch;
+        std::vector<double> SurfPerc;
         int Ncells;
     };
 
     bool UNSAT::readdata(std::string dpth_file, std::string dpth_name, std::string rch_file,
-                         double wc_in, double d_in, double r_in, int nRasterCells) {
+                         double wc_in, double d_in, double r_in,
+                         boost::mpi::communicator& world) {
         wc = wc_in;
         minD = d_in;
         minR = r_in;
@@ -62,57 +65,48 @@ namespace MS{
 #endif
         }
         else{
-            std::ifstream ifile;
-            ifile.open(dpth_file);
-            if (!ifile.is_open()){
-                std::cout << "Cant open file: " << dpth_file << std::endl;
-                return false;
-            }
-            else{
-                std::cout << "Reading " << dpth_file << std::endl;
-                int nData;
-                std::string line;
-                { //Get the number of Unsaturated scenarios
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> nData;
-                    Depth.clear();
-                }
 
-                int idx = 0;
-                {// Get the scenario names
-                    std::string name;
-                    bool index_found = false;
-                    for (int i = 0; i < nData; ++i){
-                        getline(ifile, line);
-                        std::istringstream inp(line.c_str());
-                        inp >> name;
-                        if (dpth_name == name){
-                            idx = i;
-                            index_found = true;
+            int readSuccess = 0;
+            if (world.rank() == 0){
+                int depth_idx = 0;
+                std::vector<std::vector<double>> data;
+                std::vector<std::string> names;
+                bool tf = readLinearData(dpth_file, names, data, 5000000);
+                if (tf) {
+                    readSuccess = 1;
+                    for (unsigned int i = 0; i < names.size(); ++i){
+                        if (names[i] == dpth_name){
+                            depth_idx = static_cast<int>(i);
                             break;
                         }
                     }
-                }
-                {// Read the values
-                    Depth.resize(nRasterCells,0.0);
-                    for (int i = 0; i < nRasterCells; ++i){
-                        getline(ifile, line);
-                        std::istringstream inp(line.c_str());
-                        double v;
-                        for (int j = 0; j < nData; ++j){
-                            inp >> v;
-                            if (j == idx){
-                                Depth[i] = v;
-                                break;
-                            }
-                        }
+                    Ncells = static_cast<int>(data[0].size());
+                    Depth.resize(Ncells, 0);
+                    for (unsigned int i = 0; i < data[0].size(); ++i){
+                        Depth[i] = data[depth_idx][i];
                     }
                 }
-                ifile.close();
+            }
+            world.barrier();
+
+            sendScalarFromRoot2AllProc<int>(readSuccess, world);
+            if (readSuccess == 0){
+                return false;
+            }
+            else{
+                // We send the number of rows for the data initialization
+                sendScalarFromRoot2AllProc<int>(Ncells, world);
+                if (world.rank() > 0){
+                    // All other processor initialize the data matrix
+                    Depth.resize(Ncells, 0);
+                }
+                world.barrier();
+                sendVectorFromRoot2AllProc<double>(Depth, world);
             }
         }
+        printVectorForAllProc<double>(Depth,world, 0, 30);
 
+        // Read Recharge
         std::string ext1 = getExtension(rch_file);
         if (ext1.compare("h5") == 0)
         {   // Read Recharge
@@ -129,6 +123,7 @@ namespace MS{
             datasetData.read(tmp);
 
             Rch = tmp[0];
+            SurfPerc = tmp[1];
             if (Ncells != Rch.size()){
                 std::cout << "The size of Depth is different than the size of Recharge" << std::endl;
                 return false;
@@ -136,50 +131,41 @@ namespace MS{
 #endif
         }
         else{
-            std::ifstream ifile;
-            ifile.open(rch_file);
-            if (!ifile.is_open()){
-                std::cout << "Cant open file: " << rch_file << std::endl;
-                return false;
-            }
-            else{
-                std::cout << "Reading " << rch_file << std::endl;
-                int nData;
-                std::string line;
-                { //Get the number of Unsaturated scenarios
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> nData;
-                    Rch.clear();
-                }
-                {// Get the scenario names
-                    std::string name;
-                    for (int i = 0; i < nData; ++i){
-                        getline(ifile, line);
-                        std::istringstream inp(line.c_str());
-                        inp >> name;
-                    }
-                }
-                {// Read the values
-                    Rch.resize(nRasterCells,0.0);
-                    for (int i = 0; i < nRasterCells; ++i){
-                        getline(ifile, line);
-                        std::istringstream inp(line.c_str());
-                        double v;
-                        for (int j = 0; j < nData; ++j){
-                            inp >> v;
-                            if (j == 0){
-                                Rch[i] = v;
-                                break;
-                            }
+            int readSuccess = 0;
+            if (world.rank() == 0){
+                std::vector<std::vector<double>> data;
+                std::vector<std::string> names;
+                bool tf = readLinearData(rch_file, names, data, 5000000);
+                if (tf){
+                    if (data[0].size() == Ncells){
+                        readSuccess = 1;
+                        Rch.resize(Ncells, 0);
+                        SurfPerc.resize(Ncells, 0);
+                        for (unsigned int i = 0; i < data[0].size(); ++i){
+                            Rch[i] = data[0][i];
+                            SurfPerc[i] = data[1][i];
                         }
                     }
                 }
-                ifile.close();
             }
+            world.barrier();
+            sendScalarFromRoot2AllProc<int>(readSuccess, world);
+            if (readSuccess == 0){
+                return false;
+            }
+            else{
+                if (world.rank() > 0){
+                    Rch.resize(Ncells, 0);
+                    SurfPerc.resize(Ncells, 0);
+                }
+                world.barrier();
+                sendVectorFromRoot2AllProc<double>(Rch, world);
+                sendVectorFromRoot2AllProc<double>(SurfPerc, world);
+            }
+
+            printVectorForAllProc<double>(Rch,world, 3483753, 3483753+20);
+            printVectorForAllProc<double>(SurfPerc,world, 3483753, 3483753+20);
         }
-
-
         return true;
     }
 
@@ -213,6 +199,12 @@ namespace MS{
             return 0.0;
         }
         return Rch[IJ];
+    }
+    double UNSAT::getSurfPerc(int IJ){
+        if (IJ < 0 || IJ >= Ncells ){
+            return 0.0;
+        }
+        return SurfPerc[IJ];
     }
 
 }

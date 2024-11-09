@@ -11,50 +11,12 @@
 
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
+#include "MSdebug.h"
 
 namespace MS{
-    struct STRML{
-        int Sid;
-        int urfI;
-        int urfJ;
-        int IJ;
-        int hru_idx;
-        double W;
-        double Len;
-        double m;
-        double s;
-        double a;
-        std::vector<double> urf;
-        std::vector<double> lf;
 
-    };
 
-    struct WELL{
-        double initConc = 0.0;
-        std::vector<STRML> strml;
-        std::vector<double> btc;
-    };
-
-    struct NPSATTMP{
-        double sumW = 0;
-        std::vector<int> Sid;
-        std::vector<int> urfI;
-        std::vector<int> urfJ;
-        std::vector<int> hru_idx;
-        std::vector<double> W;
-        std::vector<double> Len;
-        std::vector<double> m;
-        std::vector<double> s;
-        std::vector<double> a;
-    };
-
-    typedef std::map<int,NPSATTMP> tmpWELLS;
-
-    typedef std::map<int, WELL> WELLS;
-
-    typedef std::map<int, std::vector<int>> WELL_CELLS;
-
-    bool readNPSATdata(std::string filename, WELLS &wells, int por, int nURFs, int Nyears, BackgroundRaster& braster,
+    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, BackgroundRaster& braster,
                        boost::mpi::communicator &world){
         std::string ext = getExtension(filename);
         std::vector<std::vector<int>> ints;
@@ -79,22 +41,23 @@ namespace MS{
 #endif
         }
         else {
-            std::vector<std::vector<int>> ints_tmp;
-            std::vector<std::vector<double>> dbls_tmp;
-            std::vector<std::vector<double>> msas_tmp;
-            bool tf = readMatrix<int>(filename + "INT.dat", ints_tmp, nURFs, 5);
-            if (!tf){
-                std::cout << world.rank() << " return false" << std::endl;
-                return false;
-            }
-            tf = readMatrix<double>(filename + "DBL.dat", dbls_tmp, nURFs, 2);
+            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, 5, true, world, 500000);
             if (!tf){return false;}
-            tf = readMatrix<double>(filename + "MSA.dat", msas_tmp, nURFs, 18);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, 2, true, world, 500000);
+            if (!tf){return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, 18, true, world, 500000);
             if (!tf){return false;}
 
-            transposeMatrix<int>(ints_tmp, ints);
-            transposeMatrix<double>(dbls_tmp, dbls);
-            transposeMatrix<double>(msas_tmp, msas);
+
+            printMatrixForAllProc<int>(ints, world, 0, 5, 0, 10);
+            printMatrixForAllProc<double>(dbls, world, 0, 2, 0, 10);
+            printMatrixForAllProc<double>(msas, world, 0, 18, 0, 10);
+            //return false;
+
+        }
+
+        if (world.rank() == 0){
+            std::cout << "Assembling NPSAT urf data ..." << std::endl;
         }
 
         int por_idx = 3*(por-1);
@@ -275,6 +238,7 @@ namespace MS{
                         v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
                         v.push_back(UN.getDepth(itw->second.strml[i].IJ)); // Depth
                         v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge
+                        v.push_back(UN.getSurfPerc(itw->second.strml[i].IJ)); // Surface percentage
                         for (int k = 0; k < Nyears; ++k) {
                             v.push_back(itw->second.strml[i].lf[k]);
                         }
@@ -308,7 +272,7 @@ namespace MS{
     void printDetailOutputFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
         std::ofstream out_file;
         out_file.open(filename.c_str());
-        out_file << "Eid, Sid, UnsatD, UnsatR";
+        out_file << "Eid, Sid, UnsatD, UnsatR, SrfPrc";
         for (int i = 0; i < Nyears; ++i){
             out_file << ", lf" << i+1;
         }
@@ -329,7 +293,9 @@ namespace MS{
                     idx = idx + 1;
                     double r = AllProcData[i][idx];
                     idx = idx + 1;
-                    out_file << eid << ", " << sid << ", " << d << ", " << r;
+                    double sp = AllProcData[i][idx];
+                    idx = idx + 1;
+                    out_file << eid << ", " << sid << ", " << d << ", " << r << ", " << sp;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
                         out_file << ", " << AllProcData[i][idx];
                         idx = idx + 1;
@@ -339,6 +305,24 @@ namespace MS{
             }
         }
         out_file.close();
+    }
+
+    void readSelectedWells(std::string filename, std::vector<int> &idsVI, std::vector<int> &idsVD,
+                           boost::mpi::communicator &world){
+        std::vector<std::vector<int>> T;
+        bool tf = RootReadsMatrixFileDistrib<int>(filename,T,2, false,world);
+        printMatrixForAllProc<int>(T, world, 910, 917, 0, 2);
+        //bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
+        if (tf){
+            for (unsigned int i = 0; i < T.size(); ++i){
+                if (T[i][0] == 1){
+                    idsVI.push_back(T[i][1]);
+                }
+                else if (T[i][0] == 2){
+                    idsVD.push_back(T[i][1]);
+                }
+            }
+        }
     }
 }
 

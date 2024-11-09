@@ -11,11 +11,13 @@
 #include <highfive/H5File.hpp>
 #endif
 
+#include "MS_mpi_utils.h"
+
 namespace MS{
     class BackgroundRaster{
     public:
         BackgroundRaster(){}
-        bool readData(std::string filename, int Nr, int Nc, int Ncells);
+        bool readData(std::string filename, int Nr, int Nc, int Ncells, boost::mpi::communicator &world);
         int IJ(int row, int col);
         int linear_index(int row, int col);
         int Nr(){return Nrows;}
@@ -54,7 +56,7 @@ namespace MS{
         y =  Yorig + cellSize*Nrows - cellSize/2 - cellSize*(r);
     }
 
-    bool BackgroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell){
+    bool BackgroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell, boost::mpi::communicator &world){
         Nrows = Nr;
         Ncols = Nc;
         Ncells = Ncell;
@@ -71,30 +73,21 @@ namespace MS{
 #endif
         }
         else{
-            std::ifstream ifile;
+            std::vector<std::vector<int>> rasterCol;
+            bool tf = RootReadsMatrixFileDistrib(filename, rasterCol,2, false, world, 5000000);
+            if (!tf){return false;}
+            printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
+
             raster.clear();
             raster.resize(Ncols,std::vector<int>(Nrows,-1));
-            ifile.open(filename);
-            if (!ifile.is_open()){
-                std::cout << "Cant open file: " << filename << std::endl;
-                return false;
-            }
-            else{
-                std::cout << "Reading " << filename << std::endl;
-                std::string line;
-                int r, c;
-                for (int i = 0; i < Ncells; ++i){
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> r;
-                    inp >> c;
-                    if (r < Nrows && c < Ncols)
-                        raster[c][r] = i;
-                    else{
-                        std::cout << "I can't assign pixel (" << r << "," << c << ") in raster map" << std::endl;
-                    }
+            for (unsigned int i = 0; i < rasterCol.size(); ++i ) {
+                if (rasterCol[i][0] < Nrows && rasterCol[i][1] < Ncols)
+                    raster[rasterCol[i][1]][rasterCol[i][0]] = i;
+                else {
+                    std::cout << "I can't assign pixel (" << rasterCol[i][0] << "," << rasterCol[i][1]
+                              << ") in raster map" << std::endl;
                 }
-                ifile.close();
+
             }
             return true;
         }

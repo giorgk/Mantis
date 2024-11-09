@@ -92,11 +92,130 @@ namespace MS{
         //}
     }
 
+    template<typename T>
+    void sendScalarFromRoot2AllProc(T &a, boost::mpi::communicator &world){
+        boost::mpi::broadcast(world, &a, 1, 0);
+    }
 
     template<typename T>
-    void sentFromRootToAllProc(std::vector<T> &v, boost::mpi::communicator &world){
+    void sendVectorFromRoot2AllProc(std::vector<T> &v, boost::mpi::communicator &world){
         boost::mpi::broadcast(world, &v[0], static_cast<int>(v.size()), 0);
     }
+
+    template<typename T>
+    void sentMatrixFromRoot2AllProc(std::vector<std::vector<T>> &v, boost::mpi::communicator &world){
+        int nRows = 0;
+        int nCols = 0;
+        if (world.rank() == 0){
+            nRows = v.size();
+            nCols = v[0].size();
+        }
+        world.barrier();
+        // Send the dimensions and initialize the matrix for the other processors
+        sendScalarFromRoot2AllProc(nRows,world);
+        sendScalarFromRoot2AllProc(nCols, world);
+        if (world.rank() > 0){
+            v.clear();
+            v.resize(nRows,std::vector<T>(nCols,0));
+        }
+        world.barrier();
+        for (unsigned int i = 0; i < v.size(); ++i){
+            sendVectorFromRoot2AllProc<T>(v[i], world);
+        }
+    }
+
+    template<typename T>
+    bool RootReadsMatrixFileDistrib(std::string filename, std::vector<std::vector<T>> &M,
+                                    int nCols, bool doTranspose, boost::mpi::communicator &world, int freq = 500000){
+        int readSuccess = 0;
+        std::vector<std::vector<T>> Mtmp;
+        std::vector<std::vector<T>> Mtmp1;
+        if (world.rank() == 0){
+            bool tf = readMatrix<T>(filename, Mtmp,  nCols, freq);
+            readSuccess = static_cast<int>(tf);
+        }
+        world.barrier(); //Wait for the root processor to read
+
+        // Check if reading was successful
+        sendScalarFromRoot2AllProc<int>(readSuccess, world);
+        if (readSuccess == 0){
+            return false;
+        }
+        else{
+            int preTranspose = 0;
+            if (world.rank() == 0){
+                // We check which dimension is larger
+                if (Mtmp.size() > Mtmp[0].size()){
+                    transposeMatrix<T>(Mtmp, Mtmp1);
+                    preTranspose = 1;
+                }
+            }
+            // Send if the matrix has been transposed before sending
+            sendScalarFromRoot2AllProc<int>(preTranspose, world);
+            sentMatrixFromRoot2AllProc<T>(Mtmp1, world);
+            if (preTranspose == 1){
+                if (!doTranspose){
+                    // We have to transpose back to its original size
+                    transposeMatrix<T>(Mtmp1, M);
+                }
+                else {
+                    M = Mtmp1;
+                }
+            }
+            else{
+                if (doTranspose){
+                    transposeMatrix<T>(Mtmp1, M);
+                }
+                else{
+                    M = Mtmp1;
+                }
+            }
+        }
+        return true;
+    }
+
+    template<typename T>
+    void printMatrixForAllProc(std::vector<std::vector<T>> & M, boost::mpi::communicator& world,
+                               int startRow = -9, int endRow = -9,
+                               int startCol = -9, int endCol = -9){
+        if (startRow < 0){startRow = 0;}
+        if (endRow < 0){endRow = M.size();}
+        if (startCol < 0){startRow = 0;}
+        if (endCol < 0){endRow = M[0].size();}
+
+        for (int irank = 0; irank < world.size(); ++irank){
+            if (irank == world.rank()){
+                std::cout << "Rank " << world.rank() << "  ----------" << std::endl;
+                for (unsigned int i = startRow; i < endRow; ++i){
+                    for (unsigned int j = startCol; j < endCol; ++j){
+                        std::cout << M[i][j] << " ";
+                    }
+                    std::cout << std::endl;
+                }
+            }
+            world.barrier();
+        }
+    }
+
+    template<typename T>
+    void printVectorForAllProc(std::vector<T> &V, boost::mpi::communicator& world,
+                               int startRow = -9, int endRow = -9){
+        if (startRow < 0){startRow = 0;}
+        if (endRow < 0){endRow = V.size();}
+
+        for (int irank = 0; irank < world.size(); ++irank){
+            if (irank == world.rank()){
+                std::cout << "Rank " << world.rank() << " [";
+                for (unsigned int i = startRow; i < endRow; ++i){
+                    std::cout << V[i] << " ";
+                }
+                std::cout << "]" << std::endl;
+            }
+            world.barrier();
+        }
+    }
+
+
 }
 
 #endif //MANTISSA_MS_MPI_UTILS_H
