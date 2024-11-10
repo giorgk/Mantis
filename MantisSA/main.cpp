@@ -3,6 +3,7 @@
 
 #include <chrono>
 
+bool PrintMatrices = false;
 
 #include "MS_input.h"
 #include "SWAT_data.h"
@@ -11,6 +12,8 @@
 #include "NPSAT_data.h"
 #include "MS_unsat.h"
 #include "MSdebug.h"
+
+
 
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
@@ -52,7 +55,7 @@ int main(int argc, char* argv[]) {
     MS::BackgroundRaster backRaster;
     tf = backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells, world);
     if (!tf){
-        return 0;;
+        return 0;
     }
 
     MS::UNSAT UZ;

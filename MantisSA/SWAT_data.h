@@ -97,25 +97,25 @@ namespace MS {
             //int nHRUs = HRUS[0].size();
 
             bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, true, world);
-            printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, true, world);
-            printMatrixForAllProc(irrSW_mm,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(irrSW_mm,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, true, world);
-            printMatrixForAllProc(irrGW_mm,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(irrGW_mm,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, true, world);
-            printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha, NSwatYears, true, world);
-            printMatrixForAllProc(irrsaltGW_Kgha,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(irrsaltGW_Kgha,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
-            printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);}
             if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
-            printMatrixForAllProc(perc_mm,world,0,10,34,40);
+            if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
             if (!tf){ return false;}
 
             return true;

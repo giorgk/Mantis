@@ -76,7 +76,9 @@ namespace MS{
             std::vector<std::vector<int>> rasterCol;
             bool tf = RootReadsMatrixFileDistrib(filename, rasterCol,2, false, world, 5000000);
             if (!tf){return false;}
-            printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
+            if (PrintMatrices){
+                printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
+            }
 
             raster.clear();
             raster.resize(Ncols,std::vector<int>(Nrows,-1));

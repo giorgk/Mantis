@@ -47,7 +47,7 @@ namespace MS{
             for (int i = 0; i < world.size(); ++i){
                 for (int j = displ[i]; j < displ[i+1]; ++j){
                     out[i].push_back(allValues[idx]);
-                    idx = idx + 1;;
+                    idx = idx + 1;
                 }
             }
             //for (int i = 0; i < world.size(); ++i){

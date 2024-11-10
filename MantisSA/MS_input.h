@@ -64,7 +64,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.07";
+        Version = "0.0.08";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -138,6 +138,7 @@ namespace MS {
             ("Other.DetailOutFile", po::value<std::string>(), "Detailed output filename")
             ("Other.dbg_File", po::value<std::string>(), "Debugging output filename")
             ("Other.dbg_ids", po::value<int>(), "well ids for debugging")
+            ("Other.PrintMatrices", po::value<int>(), "Print Matrices to test communication works")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
@@ -199,6 +200,7 @@ namespace MS {
                 outfileVDdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VD.dat";
                 dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
                 dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
+                PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
                 doDebug = !dbg_file.empty();
             }
             catch (std::exception& E)

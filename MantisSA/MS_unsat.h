@@ -104,7 +104,9 @@ namespace MS{
                 sendVectorFromRoot2AllProc<double>(Depth, world);
             }
         }
-        printVectorForAllProc<double>(Depth,world, 0, 30);
+        if (PrintMatrices){
+            printVectorForAllProc<double>(Depth,world, 0, 30);
+        }
 
         // Read Recharge
         std::string ext1 = getExtension(rch_file);
@@ -163,8 +165,10 @@ namespace MS{
                 sendVectorFromRoot2AllProc<double>(SurfPerc, world);
             }
 
-            printVectorForAllProc<double>(Rch,world, 3483753, 3483753+20);
-            printVectorForAllProc<double>(SurfPerc,world, 3483753, 3483753+20);
+            if(PrintMatrices){
+                printVectorForAllProc<double>(Rch,world, 3483753, 3483753+20);
+                printVectorForAllProc<double>(SurfPerc,world, 3483753, 3483753+20);
+            }
         }
         return true;
     }

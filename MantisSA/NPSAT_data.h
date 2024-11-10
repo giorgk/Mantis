@@ -48,10 +48,11 @@ namespace MS{
             tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, 18, true, world, 500000);
             if (!tf){return false;}
 
-
-            printMatrixForAllProc<int>(ints, world, 0, 5, 0, 10);
-            printMatrixForAllProc<double>(dbls, world, 0, 2, 0, 10);
-            printMatrixForAllProc<double>(msas, world, 0, 18, 0, 10);
+            if (PrintMatrices){
+                printMatrixForAllProc<int>(ints, world, 0, 5, 0, 10);
+                printMatrixForAllProc<double>(dbls, world, 0, 2, 0, 10);
+                printMatrixForAllProc<double>(msas, world, 0, 18, 0, 10);
+            }
             //return false;
 
         }
@@ -311,7 +312,9 @@ namespace MS{
                            boost::mpi::communicator &world){
         std::vector<std::vector<int>> T;
         bool tf = RootReadsMatrixFileDistrib<int>(filename,T,2, false,world);
-        printMatrixForAllProc<int>(T, world, 910, 917, 0, 2);
+        if (PrintMatrices){
+            printMatrixForAllProc<int>(T, world, 910, 917, 0, 2);
+        }
         //bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
         if (tf){
             for (unsigned int i = 0; i < T.size(); ++i){
