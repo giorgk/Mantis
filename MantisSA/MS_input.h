@@ -25,6 +25,8 @@ namespace MS {
         int NswatYears;
         int porosity;
         int Nwells;
+        int dbg_id;
+        bool doDebug = false;
         //int nurfsVI;
         //int nurfsVD;
         //int nSelectWells;
@@ -44,6 +46,7 @@ namespace MS {
         std::string depth_name;
         std::string rch_input_file;
         std::string SelectedWells_file;
+        std::string dbg_file;
 
         RasterOptions rasteroptions;
 
@@ -61,7 +64,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.06";
+        Version = "0.0.07";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -133,6 +136,8 @@ namespace MS {
             ("Other.SelectedWells", po::value<std::string>(), "Selected wells for detailed output")
             ("Other.NselectWells", po::value<int>(), "Number of Selected wells")
             ("Other.DetailOutFile", po::value<std::string>(), "Detailed output filename")
+            ("Other.dbg_File", po::value<std::string>(), "Debugging output filename")
+            ("Other.dbg_ids", po::value<int>(), "well ids for debugging")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
@@ -192,8 +197,9 @@ namespace MS {
                 //nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
                 outfileVIdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VI.dat";
                 outfileVDdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VD.dat";
-
-
+                dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
+                dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
+                doDebug = !dbg_file.empty();
             }
             catch (std::exception& E)
             {

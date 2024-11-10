@@ -36,6 +36,12 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    std::ofstream dbg_file;
+    if (UI.doDebug){
+        dbg_file.open(UI.dbg_file.c_str());
+        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, Mfeed, c_swat, UNshift" << std::endl;
+    }
+
 
     std::vector<int> VIids, VDids;
     if (!UI.SelectedWells_file.empty()){
@@ -108,7 +114,13 @@ int main(int argc, char* argv[]) {
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> wellConc;
         world.barrier();
+        bool printThis = false;
         for (itw = VI.begin(); itw != VI.end(); ++itw){
+            if (UI.doDebug){
+                if (UI.dbg_id == itw->first){
+                    printThis = true;
+                }
+            }
             //std::cout << itw->first << std::endl;
             std::vector<double> wellbtc(iyr + 1,0.0);
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
@@ -173,6 +185,15 @@ int main(int argc, char* argv[]) {
                         wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
                     }
                 }
+
+                if (printThis){
+                    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
+                             << gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
+                             << c_swat << ", " << shift << std::endl;
+                }
+
+
+
             }// Loop streamlines
             //std::cout << std::endl;
             if (iyr == UI.NsimYears-1){
@@ -183,6 +204,7 @@ int main(int argc, char* argv[]) {
             else{
                 wellConc.push_back(wellbtc.back());
             }
+            if (printThis){printThis = false;}
 
 
         }// Loop wells
@@ -364,6 +386,10 @@ int main(int argc, char* argv[]) {
             std::cout << "Printing VD Detailed data ..." << std::endl;
             MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
         }
+    }
+
+    if (UI.doDebug){
+        dbg_file.close();
     }
 
 
