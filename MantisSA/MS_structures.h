@@ -26,7 +26,7 @@ namespace MS{
         int urfI;
         int urfJ;
         int IJ;
-        int hru_idx;
+        //int hru_idx;
         double W;
         double Len;
         double m;

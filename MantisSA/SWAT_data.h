@@ -34,6 +34,8 @@ namespace MS {
     public:
         SWAT_data(){}
         bool read(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
+        bool read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world);
+        int hru_index(int HRU);
 
 
         //std::vector<SWAT_row> SWAT_TAB;
@@ -45,6 +47,7 @@ namespace MS {
         std::vector<std::vector<double>> irrsaltGW_Kgha;
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
+        std::map<int,int> hru_idx_map;
     private:
         bool readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears);
         bool readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data);
@@ -97,29 +100,55 @@ namespace MS {
             //int nHRUs = HRUS[0].size();
 
             bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrSW_mm,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrGW_mm,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrsaltGW_Kgha,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);}
-            if (!tf){ return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
-            if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
             if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
 
             return true;
         }
+    }
+
+    bool SWAT_data::read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world){
+        std::vector<std::vector<int>> tmp;
+        bool tf = RootReadsMatrixFileDistrib<int>(filename, tmp, 1, true, world);
+        if (!tf){ return false;}
+        if (PrintMatrices){printMatrixForAllProc(tmp,world,0,1,0,10);}
+
+        for (int i = 0; i < tmp[0].size(); ++i){
+            hru_idx_map.insert(std::pair<int,int>(tmp[0][i], i));
+        }
+        return true;
+    }
+
+    int SWAT_data::hru_index(int HRU){
+        if (HRU < 0){
+            return -9;
+        }
+        std::map<int,int>::iterator it = hru_idx_map.find(HRU);
+        if (it != hru_idx_map.end()){
+            return it->second;
+        }
+        else{
+            return -9;
+        }
+
     }
 
     bool SWAT_data::readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears){

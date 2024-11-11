@@ -11,6 +11,7 @@ bool PrintMatrices = false;
 #include "MS_mpi_utils.h"
 #include "NPSAT_data.h"
 #include "MS_unsat.h"
+#include "MS_HRU_raster.h"
 #include "MSdebug.h"
 
 
@@ -38,6 +39,14 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
+
+
+    MS::HRU_Raster hru_raster;
+    tf = hru_raster.read(UI.HRU_raster_file, world);
+    if (!tf){
+        return 0;
+    }
+
 
     std::ofstream dbg_file;
     if (UI.doDebug){
@@ -73,10 +82,13 @@ int main(int argc, char* argv[]) {
     }
 
     MS::SWAT_data swat;
+    tf = swat.read_HRU_idx_Map(UI.hru_idx_file, world);
     tf = swat.read(UI.swat_input_file, UI.NswatYears, world);
     if (!tf){
-        return 0;;
+        return 0;
     }
+
+
 
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
@@ -108,7 +120,7 @@ int main(int argc, char* argv[]) {
 
     // Main simulation loop
     MS::WELLS ::iterator itw;
-    int hruidx;
+    //int hruidx;
     //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
     int iswat = 0;
@@ -128,7 +140,9 @@ int main(int argc, char* argv[]) {
             std::vector<double> wellbtc(iyr + 1,0.0);
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
-                hruidx = itw->second.strml[i].hru_idx - 1;
+                //hruidx = itw->second.strml[i].hru_idx - 1;
+                int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
+                int hruidx = swat.hru_index(hru);
                 if (hruidx < 0){
                     continue;
                 }
@@ -217,7 +231,9 @@ int main(int argc, char* argv[]) {
             //std::cout << itw->first << std::endl;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
-                hruidx = itw->second.strml[i].hru_idx - 1;
+                //hruidx = itw->second.strml[i].hru_idx - 1;
+                int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
+                int hruidx = swat.hru_index(hru);
                 if (hruidx < 0){
                     continue;
                 }
@@ -369,7 +385,7 @@ int main(int argc, char* argv[]) {
     if (!VIids.empty()){ // Printing detailed output for VI
         world.barrier();
         std::vector<double> thisProcDATA;
-        MS::BundleDetailData(VI, thisProcDATA, VIids,UZ, UI.NsimYears);
+        MS::BundleDetailData(VI, thisProcDATA, VIids,UZ, hru_raster, swat, UI.NsimYears);
         std::vector<std::vector<double>> AllProcDATA;
         MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
         if (world.rank() == 0){
@@ -382,7 +398,7 @@ int main(int argc, char* argv[]) {
     if (!VDids.empty()){ // Printing detailed output for VD
         world.barrier();
         std::vector<double> thisProcDATA;
-        MS::BundleDetailData(VD, thisProcDATA, VDids,UZ, UI.NsimYears);
+        MS::BundleDetailData(VD, thisProcDATA, VDids,UZ, hru_raster, swat, UI.NsimYears);
         std::vector<std::vector<double>> AllProcDATA;
         MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
         if (world.rank() == 0){

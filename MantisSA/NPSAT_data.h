@@ -11,6 +11,7 @@
 
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
+#include "MS_HRU_raster.h"
 #include "MSdebug.h"
 
 namespace MS{
@@ -41,7 +42,7 @@ namespace MS{
 #endif
         }
         else {
-            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, 5, true, world, 500000);
+            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, 4, true, world, 500000);
             if (!tf){return false;}
             tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, 2, true, world, 500000);
             if (!tf){return false;}
@@ -49,7 +50,7 @@ namespace MS{
             if (!tf){return false;}
 
             if (PrintMatrices){
-                printMatrixForAllProc<int>(ints, world, 0, 5, 0, 10);
+                printMatrixForAllProc<int>(ints, world, 0, 4, 0, 10);
                 printMatrixForAllProc<double>(dbls, world, 0, 2, 0, 10);
                 printMatrixForAllProc<double>(msas, world, 0, 18, 0, 10);
             }
@@ -96,7 +97,7 @@ namespace MS{
             itwtmp->second.Sid.push_back(ints[1][i]);
             itwtmp->second.urfI.push_back(ints[2][i]);
             itwtmp->second.urfJ.push_back(ints[3][i]);
-            itwtmp->second.hru_idx.push_back(ints[4][i]);
+            //itwtmp->second.hru_idx.push_back(ints[4][i]);
             itwtmp->second.W.push_back(dbls[0][i]);
             itwtmp->second.Len.push_back(dbls[1][i]);
             itwtmp->second.m.push_back(msas[por_idx][i]);
@@ -119,7 +120,7 @@ namespace MS{
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
-                s.hru_idx = itwtmp->second.hru_idx[i];
+                //s.hru_idx = itwtmp->second.hru_idx[i];
                 s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
                 s.Len = itwtmp->second.Len[i];
                 s.m = itwtmp->second.m[i];
@@ -216,7 +217,8 @@ namespace MS{
             }
         }
     }
-    void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<int> ids, UNSAT &UN, int Nyears){
+    void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<int> ids,
+                          UNSAT &UN, HRU_Raster &hru_raster, SWAT_data &swat, int Nyears){
         v.clear();
 
         WELLS::iterator itw;
@@ -229,13 +231,15 @@ namespace MS{
                 v.push_back(static_cast<double>(itw->first));// Eid
                 int countS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                    if (itw->second.strml[i].hru_idx - 1 >= 0){
+                    int hru_idx = swat.hru_index(hru_raster.getHRU(itw->second.strml[i].IJ));
+                    if (hru_idx >= 0){
                         countS = countS + 1;
                     }
                 }
                 v.push_back(static_cast<double>(countS));// Number of streamlines
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                    if (itw->second.strml[i].hru_idx - 1 >= 0){
+                    int hru_idx = swat.hru_index(hru_raster.getHRU(itw->second.strml[i].IJ));
+                    if (hru_idx >= 0){
                         v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
                         v.push_back(UN.getDepth(itw->second.strml[i].IJ)); // Depth
                         v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge

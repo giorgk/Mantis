@@ -37,6 +37,8 @@ namespace MS {
         double SurfConcValue;
         std::string configFile;
         std::string swat_input_file;
+        std::string HRU_raster_file;
+        std::string hru_idx_file;
         std::string npsat_VI_file;
         std::string npsat_VD_file;
         std::string init_salt_VI_file;
@@ -64,7 +66,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.08";
+        Version = "0.0.09";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -117,6 +119,8 @@ namespace MS {
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
+            ("Simulation.HRU_Raster", po::value<std::string>(), "HRU raster file")
+            ("Simulation.SWAT_HRUs", po::value<std::string>(), "Swat HRU index map")
             ("Simulation.NPSAT_VI", po::value<std::string>(), "NPSAT input file for VI")
             //("Simulation.NURFS_VI", po::value<int>(), "Number of VI streamlines")
             //("Simulation.NURFS_VD", po::value<int>(), "Number of VD streamlines")
@@ -159,7 +163,9 @@ namespace MS {
                     std::cout << "Mismatch between code version (" << Version << ") and Input file version (" << user_version << ")" << std::endl;
                     return false;
                 }
+                HRU_raster_file = vm_cfg["Simulation.HRU_Raster"].as<std::string>();
                 swat_input_file = vm_cfg["Simulation.SWAT_Data"].as<std::string>();
+                hru_idx_file = vm_cfg["Simulation.SWAT_HRUs"].as<std::string>();
                 npsat_VI_file = vm_cfg["Simulation.NPSAT_VI"].as<std::string>();
                 //nurfsVI = vm_cfg["Simulation.NURFS_VI"].as<int>();
                 npsat_VD_file = vm_cfg["Simulation.NPSAT_VD"].as<std::string>();
