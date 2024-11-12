@@ -47,6 +47,7 @@ namespace MS {
         std::vector<std::vector<double>> irrsaltGW_Kgha;
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
+        std::vector<std::vector<double>> Salt_perc_ppm;
         std::map<int,int> hru_idx_map;
     private:
         bool readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears);
@@ -70,6 +71,7 @@ namespace MS {
                 const std::string irrsaltGW_Kgha_NameSet("irrsaltGW_Kgha");
                 const std::string totpercsalt_kgha_NameSet("totpercsalt_kgha");
                 const std::string perc_mm_NameSet("perc_mm");
+                const std::string Salt_perc_ppm_NameSet("Salt_perc_ppm");
 
                 HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
 
@@ -81,6 +83,7 @@ namespace MS {
                 HighFive::DataSet dataset_irrsaltGW_Kgha = HDFNfile.getDataSet(irrsaltGW_Kgha_NameSet);
                 HighFive::DataSet dataset_totpercsalt_kgha = HDFNfile.getDataSet(totpercsalt_kgha_NameSet);
                 HighFive::DataSet dataset_perc_mm = HDFNfile.getDataSet(perc_mm_NameSet);
+                HighFive::DataSet dataset_Salt_perc_ppm = HDFNfile.getDataSet(Salt_perc_ppm_NameSet);
 
                 //dataset_HRUS.read(HRUS);
                 dataset_irrtotal_mm.read(irrtotal_mm);
@@ -90,6 +93,7 @@ namespace MS {
                 dataset_irrsaltGW_Kgha.read(irrsaltGW_Kgha);
                 dataset_totpercsalt_kgha.read(totpercsalt_kgha);
                 dataset_perc_mm.read(perc_mm);
+                dataset_Salt_perc_ppm.read(Salt_perc_ppm);
 
                 return true;
 #endif
@@ -120,6 +124,9 @@ namespace MS {
             tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "Salt_perc_ppm.dat", Salt_perc_ppm, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(Salt_perc_ppm,world,0,10,34,40);}
 
             return true;
         }

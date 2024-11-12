@@ -34,6 +34,7 @@ namespace MS{
         double a;
         std::vector<double> urf;
         std::vector<double> lf;
+        std::vector<double> Mfeed;
 
     };
 

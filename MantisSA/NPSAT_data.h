@@ -217,7 +217,9 @@ namespace MS{
             }
         }
     }
-    void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<int> ids,
+
+    void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<double> &m,
+                          std::vector<int> ids,
                           UNSAT &UN, HRU_Raster &hru_raster, SWAT_data &swat, int Nyears){
         v.clear();
 
@@ -229,6 +231,7 @@ namespace MS{
             if (itw != W.end()){
                 countWells = countWells + 1;
                 v.push_back(static_cast<double>(itw->first));// Eid
+                m.push_back(static_cast<double>(itw->first));// Eid m
                 int countS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                     int hru_idx = swat.hru_index(hru_raster.getHRU(itw->second.strml[i].IJ));
@@ -237,21 +240,30 @@ namespace MS{
                     }
                 }
                 v.push_back(static_cast<double>(countS));// Number of streamlines
+                m.push_back(static_cast<double>(countS));// Number of streamlines m
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                    int hru_idx = swat.hru_index(hru_raster.getHRU(itw->second.strml[i].IJ));
+                    int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
+                    int hru_idx = swat.hru_index(hru);
                     if (hru_idx >= 0){
                         v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
+                        m.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid m
+                        v.push_back(static_cast<double>(itw->second.strml[i].urfI)); // UrfI
+                        v.push_back(static_cast<double>(itw->second.strml[i].urfJ)); // UrfJ
+                        v.push_back(static_cast<double>(hru)); // hru
+                        v.push_back(static_cast<double>(hru_idx)); // hru_idx
                         v.push_back(UN.getDepth(itw->second.strml[i].IJ)); // Depth
                         v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge
                         v.push_back(UN.getSurfPerc(itw->second.strml[i].IJ)); // Surface percentage
                         for (int k = 0; k < Nyears; ++k) {
                             v.push_back(itw->second.strml[i].lf[k]);
+                            m.push_back(itw->second.strml[i].Mfeed[k]);
                         }
                     }
                 }
             }
         }
         v.insert(v.begin(), countWells);
+        m.insert(m.begin(), countWells);
     }
 
     void printWELLSfromAllProc(std::vector<std::vector<double>> &AllProcBTC, std::string filename, int Nyears){
@@ -274,10 +286,43 @@ namespace MS{
         out_file.close();
     }
 
+    void printMfeedFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
+        std::ofstream out_file;
+        out_file.open(filename.c_str());
+
+        out_file << "Eid, Sid";
+        for (int i = 0; i < Nyears; ++i){
+            out_file << ", MF" << i+1;
+        }
+        out_file << std::endl;
+
+        for (unsigned int i = 0; i < AllProcData.size(); ++i){
+            int Nw = static_cast<int>(AllProcData[i][0]);
+            int idx = 1;
+            for (int j = 0; j < Nw; ++j){
+                int eid = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                int Ns = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                for (int k = 0; k < Ns; ++k){
+                    int sid = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    out_file << eid << ", " << sid;
+                    for (int iyr = 0; iyr < Nyears; ++iyr){
+                        out_file << ", " << AllProcData[i][idx];
+                        idx = idx + 1;
+                    }
+                    out_file << std::endl;
+                }
+            }
+        }
+        out_file.close();
+    }
+
     void printDetailOutputFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
         std::ofstream out_file;
         out_file.open(filename.c_str());
-        out_file << "Eid, Sid, UnsatD, UnsatR, SrfPrc";
+        out_file << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc";
         for (int i = 0; i < Nyears; ++i){
             out_file << ", lf" << i+1;
         }
@@ -294,13 +339,21 @@ namespace MS{
                 for (int k = 0; k < Ns; ++k){
                     int sid = static_cast<int>(AllProcData[i][idx]);
                     idx = idx + 1;
+                    int urfI = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    int urfJ = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    int hru = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    int hru_idx = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
                     double d = AllProcData[i][idx];
                     idx = idx + 1;
                     double r = AllProcData[i][idx];
                     idx = idx + 1;
                     double sp = AllProcData[i][idx];
                     idx = idx + 1;
-                    out_file << eid << ", " << sid << ", " << d << ", " << r << ", " << sp;
+                    out_file << eid << ", " << sid  << ", " << urfI  << ", " << urfJ  << ", " << hru  << ", " << hru_idx << ", " << d << ", " << r << ", " << sp;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
                         out_file << ", " << AllProcData[i][idx];
                         idx = idx + 1;

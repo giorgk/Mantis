@@ -156,26 +156,32 @@ int main(int argc, char* argv[]) {
                 // irrigated Salt Mass. The Salts that come from the pumped water
                 double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
-                //Calculate the percolated groundwater volume
-                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
-
-                // Calculate concentration from NPSAT spreading (Feedback)
-                double m_npsat = 0.0;
-                if (itw->second.strml[i].IJ > 0){
-                    m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
-                }
-
-                double Mfeed = m_npsat - m_gw;
-                if (Mfeed < 0) {
-                    Mfeed = 0.0;
-                }
-                //totMfeed[iyr] = totMfeed[iyr] + Mfeed;
-
                 //Calculate the C_SWAT
                 double c_swat = 0.0;
-                if (swat.perc_mm[iswat][hruidx] > 0.00000001){
+
+                if (swat.perc_mm[iswat][hruidx] < 0.01){
+                    itw->second.strml[i].Mfeed.push_back(0.0);
+                    c_swat = swat.Salt_perc_ppm[iswat][hruidx];
+                }
+                else{
+                    //Calculate the percolated groundwater volume
+                    double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+
+                    // Calculate concentration from NPSAT spreading (Feedback)
+                    double m_npsat = 0.0;
+                    if (itw->second.strml[i].IJ > 0){
+                        m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
+                    }
+
+                    double Mfeed = m_npsat - m_gw;
+                    if (Mfeed < 0) {
+                        Mfeed = 0.0;
+                    }
+                    itw->second.strml[i].Mfeed.push_back(Mfeed);
+
                     c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
                 }
+
                 if (c_swat > UI.maxConc){
                     c_swat = UI.maxConc;
                 }
@@ -205,7 +211,7 @@ int main(int argc, char* argv[]) {
 
                 if (printThis){
                     dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
-                             << gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
+                             //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
                              << c_swat << ", " << shift << std::endl;
                 }
 
@@ -247,25 +253,32 @@ int main(int argc, char* argv[]) {
                 // irrigated Salt Mass
                 double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
-                //Calculate the percolated groundwater volume
-                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
-
-                // Calculate concentration from NPSAT spreading (Feedback)
-                double m_npsat = 0.0;
-                if (itw->second.strml[i].IJ > 0){
-                    m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
-                }
-
-                double Mfeed = m_npsat - m_gw;
-                if (Mfeed < 0) {
-                    Mfeed = 0.0;
-                }
-
                 //Calculate the C_SWAT
                 double c_swat = 0.0;
-                if (swat.perc_mm[iswat][hruidx] > 0.00000001){
+
+                if (swat.perc_mm[iswat][hruidx] < 0.01){
+                    itw->second.strml[i].Mfeed.push_back(0.0);
+                    c_swat = swat.Salt_perc_ppm[iswat][hruidx];
+                }
+                else{
+                    //Calculate the percolated groundwater volume
+                    double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+
+                    // Calculate concentration from NPSAT spreading (Feedback)
+                    double m_npsat = 0.0;
+                    if (itw->second.strml[i].IJ > 0){
+                        m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
+                    }
+
+                    double Mfeed = m_npsat - m_gw;
+                    if (Mfeed < 0) {
+                        Mfeed = 0.0;
+                    }
+                    itw->second.strml[i].Mfeed.push_back(Mfeed);
+
                     c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
                 }
+
                 if (c_swat > UI.maxConc){
                     c_swat = UI.maxConc;
                 }
@@ -385,25 +398,32 @@ int main(int argc, char* argv[]) {
     if (!VIids.empty()){ // Printing detailed output for VI
         world.barrier();
         std::vector<double> thisProcDATA;
-        MS::BundleDetailData(VI, thisProcDATA, VIids,UZ, hru_raster, swat, UI.NsimYears);
+        std::vector<double> thisProcMfeed;
+        MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, VIids,UZ, hru_raster, swat, UI.NsimYears);
         std::vector<std::vector<double>> AllProcDATA;
+        std::vector<std::vector<double>> AllProcMfeed;
         MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+        MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
         if (world.rank() == 0){
             std::cout << "Printing VI Detailed data ..." << std::endl;
             MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
-
+            MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVImfeed,UI.NsimYears);
         }
     }
 
     if (!VDids.empty()){ // Printing detailed output for VD
         world.barrier();
         std::vector<double> thisProcDATA;
-        MS::BundleDetailData(VD, thisProcDATA, VDids,UZ, hru_raster, swat, UI.NsimYears);
+        std::vector<double> thisProcMfeed;
+        MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, VDids,UZ, hru_raster, swat, UI.NsimYears);
         std::vector<std::vector<double>> AllProcDATA;
+        std::vector<std::vector<double>> AllProcMfeed;
         MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+        MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
         if (world.rank() == 0){
             std::cout << "Printing VD Detailed data ..." << std::endl;
             MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
+            MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVDmfeed,UI.NsimYears);
         }
     }
 

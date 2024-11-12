@@ -56,6 +56,8 @@ namespace MS {
         std::string outfileVD;
         std::string outfileVIdetail;
         std::string outfileVDdetail;
+        std::string outfileVImfeed;
+        std::string outfileVDmfeed;
         std::string Version;
 
     private:
@@ -66,7 +68,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.09";
+        Version = "0.0.10";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -204,6 +206,8 @@ namespace MS {
                 //nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
                 outfileVIdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VI.dat";
                 outfileVDdetail = vm_cfg["Other.DetailOutFile"].as<std::string>() + "VD.dat";
+                outfileVImfeed = vm_cfg["Other.DetailOutFile"].as<std::string>() + "mfeed_VI.dat";
+                outfileVDmfeed = vm_cfg["Other.DetailOutFile"].as<std::string>() + "mfeed_VD.dat";
                 dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
                 dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
                 PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
