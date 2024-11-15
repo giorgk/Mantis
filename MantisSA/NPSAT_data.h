@@ -8,6 +8,8 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <iomanip>
+#include <iomanip>
 
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
@@ -218,6 +220,44 @@ namespace MS{
         }
     }
 
+    void linearizeURFS(WELLS &W, std::vector<double> &v, std::vector<int> ids, SWAT_data &swat, HRU_Raster &hru_raster, int Nyears){
+        v.clear();
+        WELLS::iterator itw;
+        int countWells = 0;
+        for (unsigned int j = 0; j < ids.size(); ++j){
+            itw = W.find(ids[j]);
+            if (itw != W.end()){
+                countWells = countWells + 1;
+                v.push_back(static_cast<double>(itw->first));// Eid
+                int countS = 0;
+                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    int hru_idx = swat.hru_index(hru_raster.getHRU(itw->second.strml[i].IJ));
+                    if (hru_idx >= 0){
+                        countS = countS + 1;
+                    }
+                }
+                v.push_back(static_cast<double>(countS));// Number of streamlines
+                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
+                    int hru_idx = swat.hru_index(hru);
+                    if (hru_idx >= 0){
+                        v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
+                        v.push_back(static_cast<double>(itw->second.strml[i].m)); // m
+                        v.push_back(static_cast<double>(itw->second.strml[i].s)); // s
+                        v.push_back(static_cast<double>(itw->second.strml[i].a)); // a
+                        v.push_back(static_cast<double>(itw->second.strml[i].Len)); // Len
+                        v.push_back(static_cast<double>(itw->second.strml[i].W)); // W
+                        for (int k = 0; k < Nyears; ++k){
+                            v.push_back(itw->second.strml[i].urf[k]);
+                        }
+                    }
+                }
+
+            }
+        }
+        v.insert(v.begin(), countWells);
+    }
+
     void BundleDetailData(WELLS &W, std::vector<double> &v, std::vector<double> &m,
                           std::vector<int> ids,
                           UNSAT &UN, HRU_Raster &hru_raster, SWAT_data &swat, int Nyears){
@@ -274,10 +314,10 @@ namespace MS{
             int idx = 1;
             for (int j = 0; j < Nbtc; ++j){
                 int eid = AllProcBTC[i][idx];
-                out_file << eid;
+                out_file << std::fixed << eid;
                 idx = idx + 1;
                 for (int k = 0; k < Nyears; ++k){
-                    out_file << " " << AllProcBTC[i][idx];
+                    out_file <<  " " << std::setw(10) << std::scientific << AllProcBTC[i][idx];
                     idx = idx + 1;
                 }
                 out_file << std::endl;
@@ -307,9 +347,56 @@ namespace MS{
                 for (int k = 0; k < Ns; ++k){
                     int sid = static_cast<int>(AllProcData[i][idx]);
                     idx = idx + 1;
-                    out_file << eid << ", " << sid;
+                    out_file << std::fixed << eid << ", " << sid;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << AllProcData[i][idx];
+                        out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
+                        idx = idx + 1;
+                    }
+                    out_file << std::endl;
+                }
+            }
+        }
+        out_file.close();
+    }
+
+    void printURFsFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
+        std::ofstream out_file;
+        out_file.open(filename.c_str());
+        out_file << "Eid, Sid, m, s, age, len, W";
+        for (int i = 0; i < Nyears; ++i){
+            out_file << ", urf" << i+1;
+        }
+        out_file << std::endl;
+
+        for (unsigned int i = 0; i < AllProcData.size(); ++i){
+            int Nw = static_cast<int>(AllProcData[i][0]);
+            int idx = 1;
+            for (int j = 0; j < Nw; ++j){
+                int eid = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                int Ns = static_cast<int>(AllProcData[i][idx]);
+                idx = idx + 1;
+                for (int k = 0; k < Ns; ++k){
+                    int sid = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    double m = AllProcData[i][idx];
+                    idx = idx + 1;
+                    double s = AllProcData[i][idx];
+                    idx = idx + 1;
+                    double a = AllProcData[i][idx];
+                    idx = idx + 1;
+                    double len = AllProcData[i][idx];
+                    idx = idx + 1;
+                    double w = AllProcData[i][idx];
+                    idx = idx + 1;
+                    out_file << std::fixed << eid << ", " << sid;
+                    out_file << ", " << std::setw(10) << std::scientific << m
+                             << ", " << std::setw(10) << std::scientific << s
+                             << ", " << std::setw(10) << std::scientific << a
+                             << ", " << std::setw(10) << std::scientific << len
+                             << ", " << std::setw(10) << std::scientific << w;
+                    for (int iyr = 0; iyr < Nyears; ++iyr){
+                        out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
                         idx = idx + 1;
                     }
                     out_file << std::endl;
@@ -353,9 +440,12 @@ namespace MS{
                     idx = idx + 1;
                     double sp = AllProcData[i][idx];
                     idx = idx + 1;
-                    out_file << eid << ", " << sid  << ", " << urfI  << ", " << urfJ  << ", " << hru  << ", " << hru_idx << ", " << d << ", " << r << ", " << sp;
+                    out_file << std::fixed << eid << ", " << sid  << ", " << urfI  << ", " << urfJ  << ", " << hru  << ", " << hru_idx;
+                    out_file << ", " << std::setw(10) << std::scientific <<  d
+                             << ", " << std::setw(10) << std::scientific << r
+                             << ", " << std::setw(10) << std::scientific << sp;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << AllProcData[i][idx];
+                        out_file << ", " << std::setw(10) << std::scientific <<  AllProcData[i][idx];
                         idx = idx + 1;
                     }
                     out_file << std::endl;

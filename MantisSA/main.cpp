@@ -395,42 +395,67 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    if (!VIids.empty()){ // Printing detailed output for VI
-        world.barrier();
-        std::vector<double> thisProcDATA;
-        std::vector<double> thisProcMfeed;
-        MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, VIids,UZ, hru_raster, swat, UI.NsimYears);
-        std::vector<std::vector<double>> AllProcDATA;
-        std::vector<std::vector<double>> AllProcMfeed;
-        MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-        MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
-        if (world.rank() == 0){
-            std::cout << "Printing VI Detailed data ..." << std::endl;
-            MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
-            MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVImfeed,UI.NsimYears);
+    if (!VIids.empty()){ // Printing output for selected VI
+        if (UI.printLoad){
+            world.barrier();
+            std::vector<double> thisProcDATA;
+            std::vector<double> thisProcMfeed;
+            MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, VIids,UZ, hru_raster, swat, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            std::vector<std::vector<double>> AllProcMfeed;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VI Detailed data ..." << std::endl;
+                MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
+                MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVImfeed,UI.NsimYears);
+            }
+        }
+
+        if (UI.printURFs){
+            world.barrier();
+            std::vector<double> thisProcDATA;
+            MS::linearizeURFS(VI, thisProcDATA, VIids,swat, hru_raster, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VI URFs ..." << std::endl;
+                MS::printURFsFromAllProc(AllProcDATA, UI.outfileVIurfs, UI.NsimYears);
+            }
         }
     }
 
     if (!VDids.empty()){ // Printing detailed output for VD
-        world.barrier();
-        std::vector<double> thisProcDATA;
-        std::vector<double> thisProcMfeed;
-        MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, VDids,UZ, hru_raster, swat, UI.NsimYears);
-        std::vector<std::vector<double>> AllProcDATA;
-        std::vector<std::vector<double>> AllProcMfeed;
-        MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-        MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
-        if (world.rank() == 0){
-            std::cout << "Printing VD Detailed data ..." << std::endl;
-            MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
-            MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVDmfeed,UI.NsimYears);
+        if (UI.printLoad){
+            world.barrier();
+            std::vector<double> thisProcDATA;
+            std::vector<double> thisProcMfeed;
+            MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, VDids,UZ, hru_raster, swat, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            std::vector<std::vector<double>> AllProcMfeed;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VD Detailed data ..." << std::endl;
+                MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
+                MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVDmfeed,UI.NsimYears);
+            }
+        }
+        if (UI.printURFs){
+            std::vector<double> thisProcDATA;
+            MS::linearizeURFS(VD, thisProcDATA, VDids, swat, hru_raster, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VD URFs ..." << std::endl;
+                MS::printURFsFromAllProc(AllProcDATA, UI.outfileVDurfs, UI.NsimYears);
+            }
         }
     }
 
     if (UI.doDebug){
         dbg_file.close();
     }
-
 
     return 0;
 }
