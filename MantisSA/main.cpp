@@ -138,6 +138,8 @@ int main(int argc, char* argv[]) {
             }
             //std::cout << itw->first << std::endl;
             std::vector<double> wellbtc(iyr + 1,0.0);
+            double sumW = 0;
+            int cntS = 0;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
                 //hruidx = itw->second.strml[i].hru_idx - 1;
@@ -209,23 +211,28 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
+                sumW = sumW + itw->second.strml[i].W;
+                cntS = cntS + 1;
+
                 if (printThis){
                     dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
-                             //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
-                             << c_swat << ", " << shift << std::endl;
+                            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
+                            << c_swat << ", " << shift << std::endl;
                 }
-
-
-
             }// Loop streamlines
+
+            if (cntS == 0){
+                sumW = 1;
+            }
+
             //std::cout << std::endl;
             if (iyr == UI.NsimYears-1){
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
-                    itw->second.btc.push_back(wellbtc[i]);
+                    itw->second.btc.push_back(wellbtc[i]/sumW);
                 }
             }
             else{
-                wellConc.push_back(wellbtc.back());
+                wellConc.push_back(wellbtc.back()/sumW);
             }
             if (printThis){printThis = false;}
 
@@ -323,6 +330,8 @@ int main(int argc, char* argv[]) {
             world.barrier();
             for (itw = VD.begin(); itw != VD.end(); ++itw){
                 std::vector<double> wellbtc(UI.NsimYears, 0.0);
+                double sumW = 0;
+                int cntS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                     std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
                     std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
@@ -337,9 +346,14 @@ int main(int argc, char* argv[]) {
                             wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
                         }
                     }
+                    sumW = sumW + itw->second.strml[i].W;
+                    cntS = cntS + 1;
+                }
+                if (cntS == 0){
+                    sumW = 1;
                 }
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
-                    itw->second.btc.push_back(wellbtc[i]);
+                    itw->second.btc.push_back(wellbtc[i]/sumW);
                 }
             }
         }
