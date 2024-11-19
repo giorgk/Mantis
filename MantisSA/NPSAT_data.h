@@ -424,6 +424,7 @@ namespace MS{
                 }
             }
         }
+        out_file.close();
     }
 
     void printURFsFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){

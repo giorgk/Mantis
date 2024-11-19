@@ -428,7 +428,7 @@ int main(int argc, char* argv[]) {
             MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
             MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
             if (world.rank() == 0){
-                std::cout << "Printing VI Detailed data ..." << std::endl;
+                std::cout << "Printing VI Salt load data ..." << std::endl;
                 MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
                 MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVImfeed,UI.NsimYears);
             }
@@ -470,7 +470,7 @@ int main(int argc, char* argv[]) {
             MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
             MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
             if (world.rank() == 0){
-                std::cout << "Printing VD Detailed data ..." << std::endl;
+                std::cout << "Printing VD Salt Load data ..." << std::endl;
                 MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
                 MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVDmfeed,UI.NsimYears);
             }
