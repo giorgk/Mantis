@@ -35,13 +35,14 @@ namespace MS{
         std::vector<double> urf;
         std::vector<double> lf;
         std::vector<double> Mfeed;
+        std::vector<double> btc;
 
     };
 
     struct WELL{
         double initConc = 0.0;
         std::vector<STRML> strml;
-        std::vector<double> btc;
+        std::vector<double> wellBtc;
     };
 
     struct NPSATTMP{

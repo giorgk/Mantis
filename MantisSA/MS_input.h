@@ -60,9 +60,12 @@ namespace MS {
         std::string outfileVDmfeed;
         std::string outfileVIurfs;
         std::string outfileVDurfs;
+        std::string outfileVIbtcs;
+        std::string outfileVDbtcs;
         std::string Version;
         bool printURFs;
         bool printLoad;
+        bool printBTCs;
 
     private:
         boost::mpi::communicator world;
@@ -72,7 +75,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.11";
+        Version = "0.0.12";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -150,6 +153,7 @@ namespace MS {
             ("Other.PrintMatrices", po::value<int>(), "Print Matrices to test communication works")
             ("Other.printLoad", po::value<int>(), "prints details of loading functions")
             ("Other.printURFs", po::value<int>(), "prints the urfs of the selected wells")
+            ("Other.printBTCs", po::value<int>(), "prints the BTCs for each streamline of the selected wells")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
@@ -218,12 +222,15 @@ namespace MS {
                 outfileVDmfeed = mainOutfile + "VD_mf.dat";
                 outfileVIurfs = mainOutfile + "VI_urf.dat";
                 outfileVDurfs = mainOutfile + "VD_urf.dat";
+                outfileVIbtcs = mainOutfile + "VI_btc.dat";
+                outfileVDbtcs = mainOutfile + "VD_btc.dat";
                 dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
                 dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
                 PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
                 doDebug = !dbg_file.empty();
                 printLoad = vm_cfg["Other.printLoad"].as<int>() != 0;
                 printURFs = vm_cfg["Other.printURFs"].as<int>() != 0;
+                printBTCs = vm_cfg["Other.printBTCs"].as<int>() != 0;
             }
             catch (std::exception& E)
             {

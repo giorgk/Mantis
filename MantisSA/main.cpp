@@ -205,9 +205,15 @@ int main(int argc, char* argv[]) {
                 for (unsigned int j = 0; j < btc.size(); ++j){
                     if (j <= shift){
                         wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
+                        if (iyr == UI.NsimYears-1){
+                            itw->second.strml[i].btc.push_back(itw->second.initConc);
+                        }
                     }
                     else{
                         wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
+                        if (iyr == UI.NsimYears-1){
+                            itw->second.strml[i].btc.push_back(btc[j-shift] + prebtc[j-shift]);
+                        }
                     }
                 }
 
@@ -228,7 +234,7 @@ int main(int argc, char* argv[]) {
             //std::cout << std::endl;
             if (iyr == UI.NsimYears-1){
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
-                    itw->second.btc.push_back(wellbtc[i]/sumW);
+                    itw->second.wellBtc.push_back(wellbtc[i] / sumW);
                 }
             }
             else{
@@ -341,9 +347,11 @@ int main(int argc, char* argv[]) {
                     for (unsigned int j = 0; j < btc.size(); ++j){
                         if (j <= shift){
                             wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
+                            itw->second.strml[i].btc.push_back(itw->second.initConc);
                         }
                         else{
                             wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
+                            itw->second.strml[i].btc.push_back(btc[j-shift] + prebtc[j-shift]);
                         }
                     }
                     sumW = sumW + itw->second.strml[i].W;
@@ -353,7 +361,7 @@ int main(int argc, char* argv[]) {
                     sumW = 1;
                 }
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
-                    itw->second.btc.push_back(wellbtc[i]/sumW);
+                    itw->second.wellBtc.push_back(wellbtc[i] / sumW);
                 }
             }
         }
@@ -388,7 +396,7 @@ int main(int argc, char* argv[]) {
     { // Print the VI
         world.barrier();
         std::vector<double> thisProcBTCVI;
-        MS::linearizeBTC(VI, thisProcBTCVI);
+        MS::linearizeWellBTCs(VI, thisProcBTCVI);
         std::vector<std::vector<double>> AllProcBTCVI;
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
         if (world.rank() == 0){
@@ -400,7 +408,7 @@ int main(int argc, char* argv[]) {
     { // Print the VD
         world.barrier();
         std::vector<double> thisProcBTCVD;
-        MS::linearizeBTC(VD, thisProcBTCVD);
+        MS::linearizeWellBTCs(VD, thisProcBTCVD);
         std::vector<std::vector<double>> AllProcBTCVD;
         MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
         if (world.rank() == 0){
@@ -437,6 +445,18 @@ int main(int argc, char* argv[]) {
                 MS::printURFsFromAllProc(AllProcDATA, UI.outfileVIurfs, UI.NsimYears);
             }
         }
+
+        if (UI.printBTCs){
+            world.barrier();
+            std::vector<double> thisProcDATA;
+            MS::linearizeBTCs(VI, thisProcDATA, VIids,swat, hru_raster, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VI BTCs ..." << std::endl;
+                MS::printBTCssFromAllProc(AllProcDATA, UI.outfileVIbtcs, UI.NsimYears);
+            }
+        }
     }
 
     if (!VDids.empty()){ // Printing detailed output for VD
@@ -463,6 +483,18 @@ int main(int argc, char* argv[]) {
             if (world.rank() == 0){
                 std::cout << "Printing VD URFs ..." << std::endl;
                 MS::printURFsFromAllProc(AllProcDATA, UI.outfileVDurfs, UI.NsimYears);
+            }
+        }
+
+        if (UI.printBTCs){
+            world.barrier();
+            std::vector<double> thisProcDATA;
+            MS::linearizeBTCs(VD, thisProcDATA, VDids,swat, hru_raster, UI.NsimYears);
+            std::vector<std::vector<double>> AllProcDATA;
+            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+            if (world.rank() == 0){
+                std::cout << "Printing VD BTCs ..." << std::endl;
+                MS::printBTCssFromAllProc(AllProcDATA, UI.outfileVDbtcs, UI.NsimYears);
             }
         }
     }
