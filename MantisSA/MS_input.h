@@ -27,6 +27,7 @@ namespace MS {
         int Nwells;
         int dbg_id;
         bool doDebug = false;
+        bool noFeedback = false;
         //int nurfsVI;
         //int nurfsVD;
         //int nSelectWells;
@@ -75,7 +76,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.12";
+        Version = "0.0.13";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -126,6 +127,7 @@ namespace MS {
             ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 1-6")
             ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
+            ("Simulation.noFeedback", po::value<int>()->default_value(0), "Set this to non zero to run without feedback")
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.HRU_Raster", po::value<std::string>(), "HRU raster file")
@@ -200,6 +202,7 @@ namespace MS {
                 porosity = vm_cfg["Simulation.Porosity"].as<int>();
                 maxConc = vm_cfg["Simulation.MaxConc"].as<double>();
                 SurfConcValue = vm_cfg["Simulation.SurfConcValue"].as<double>();
+                noFeedback = vm_cfg["Simulation.noFeedback"].as<int>()!= 0;
 
                 depth_input_file = vm_cfg["UNSAT.Depth_file"].as<std::string>();
                 depth_name = vm_cfg["UNSAT.Depth_name"].as<std::string>();

@@ -28,6 +28,9 @@ namespace MS{
 
         if (ext.compare("h5") == 0) {
 #if _USEHF > 0
+            if (world.rank() == 0) {
+                std::cout << "Reading " << filename << std::endl;
+            }
             const std::string INT_NameSet("INT");
             const std::string DBL_NameSet("DBL");
             const std::string MSA_NameSet("MSA");

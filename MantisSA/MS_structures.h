@@ -112,7 +112,7 @@ namespace MS{
             int ir = 0;
             //for (int ir = 0; ir < nRows; ++ir){
             while (getline(datafile, line)){
-                if (line.size() > 1){
+                if (line.size() > 0){
                     if (ir > countLines){
                         std::cout << ir << std::endl;
                         countLines = countLines + freq;
@@ -178,7 +178,7 @@ namespace MS{
                 int ir = 0;
                 int countLines = freq;
                 while (getline(ifile, line)) {
-                    if (line.size() > 1){
+                    if (line.size() > 0){
                         if (ir > countLines){
                             std::cout << ir << std::endl;
                             countLines = countLines + freq;

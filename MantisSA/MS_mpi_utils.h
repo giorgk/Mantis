@@ -149,6 +149,9 @@ namespace MS{
                     transposeMatrix<T>(Mtmp, Mtmp1);
                     preTranspose = 1;
                 }
+                else {
+                    Mtmp1 = Mtmp;
+                }
             }
             // Send if the matrix has been transposed before sending
             sendScalarFromRoot2AllProc<int>(preTranspose, world);

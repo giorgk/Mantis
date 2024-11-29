@@ -35,6 +35,9 @@ namespace MS{
         std::string ext = getExtension(dpth_file);
         if (ext.compare("h5") == 0) { // Read the Depth file
 #if _USEHF>0
+            if (world.rank() == 0) {
+                std::cout << "Reading HDF5 file " << dpth_file << std::endl;
+            }
             const std::string NamesNameSet("Names");
             const std::string DataNameSet("Data");
             HighFive::File HDFfile(dpth_file, HighFive::File::ReadOnly);
@@ -113,6 +116,9 @@ namespace MS{
         if (ext1.compare("h5") == 0)
         {   // Read Recharge
 #if _USEHF>0
+            if (world.rank() == 0) {
+                std::cout << "Reading HDF5 file " << rch_file << std::endl;
+            }
             const std::string NamesNameSet("Names");
             const std::string DataNameSet("Data");
             HighFive::File HDFfile(rch_file, HighFive::File::ReadOnly);

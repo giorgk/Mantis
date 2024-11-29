@@ -179,6 +179,9 @@ int main(int argc, char* argv[]) {
                     if (Mfeed < 0) {
                         Mfeed = 0.0;
                     }
+                    if (UI.noFeedback) {
+                        Mfeed = 0.0;
+                    }
                     itw->second.strml[i].Mfeed.push_back(Mfeed);
 
                     c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
@@ -287,6 +290,9 @@ int main(int argc, char* argv[]) {
                     if (Mfeed < 0) {
                         Mfeed = 0.0;
                     }
+                    if (UI.noFeedback) {
+                        Mfeed = 0.0;
+                    }
                     itw->second.strml[i].Mfeed.push_back(Mfeed);
 
                     c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
@@ -309,25 +315,27 @@ int main(int argc, char* argv[]) {
 
         // Send this year pumped concentration to root processor
         if (iyr < UI.NsimYears-1){
-            std::vector<std::vector<double>> AllwellsConc(world.size());
-            MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
-            // Put the well concentrations in the right cells
-            if (world.rank() == 0){
-                MS::WELL_CELLS::iterator it; // well_cells
-                for (int i = 0; i < world.size(); ++i){
-                    for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); ++j){
-                        it = well_cells.find(Eid_proc[i][j]);
-                        if (it != well_cells.end()){
-                            for (int k = 0; k < it->second.size(); ++k){
-                                ConcFromPump[it->second[k]] = AllwellsConc[i][j];
+            if (!UI.noFeedback) {
+                std::vector<std::vector<double>> AllwellsConc(world.size());
+                MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
+                // Put the well concentrations in the right cells
+                if (world.rank() == 0){
+                    MS::WELL_CELLS::iterator it; // well_cells
+                    for (int i = 0; i < world.size(); ++i){
+                        for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); ++j){
+                            it = well_cells.find(Eid_proc[i][j]);
+                            if (it != well_cells.end()){
+                                for (int k = 0; k < it->second.size(); ++k){
+                                    ConcFromPump[it->second[k]] = AllwellsConc[i][j];
+                                }
                             }
                         }
                     }
                 }
+                world.barrier();
+                MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
+                world.barrier();
             }
-            world.barrier();
-            MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
-            world.barrier();
         }
         else{ // if this is the last year of the simulation calculate the domestic wells
             if (world.rank() == 0){
