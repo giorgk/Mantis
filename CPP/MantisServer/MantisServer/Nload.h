@@ -93,13 +93,13 @@ namespace mantisServer{
                                   std::vector<double> &clean_prc,
                                   std::vector<double> &unsatDepth,
                                   std::vector<double>& LF,
-                                  Scenario& scenario);
+                                  Scenario& scenario, double& initConc);
         bool buildLoadingFromRaster(std::vector<int>& CVindex,
                                     std::vector<double> &rch,
                                     std::vector<double> &clean_prc,
                                     std::vector<double> &unsatDepth,
                                     std::vector<double>& LF,
-                                    Scenario& scenario);
+                                    Scenario& scenario,  double& initConc);
 
 
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
@@ -107,7 +107,7 @@ namespace mantisServer{
                                         std::vector<double> &clean_prc,
                                         std::vector<double> &unsatDepth,
                                         std::vector<double>& LF,
-                                        Scenario& scenario);
+                                        Scenario& scenario,  double& initConc);
 
 
         LoadType getLtype() {
@@ -359,7 +359,7 @@ namespace mantisServer{
                                        std::vector<double> &clean_prc,
                                        std::vector<double> &unsatDepth,
                                        std::vector<double>& LF,
-                                       Scenario& scenario) {
+                                       Scenario& scenario,  double& initConc) {
 
         bool out = false;
         int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
@@ -463,7 +463,7 @@ namespace mantisServer{
                                            std::vector<double> &clean_prc,
                                            std::vector<double> &unsatDepth,
                                            std::vector<double>& LF,
-                                           Scenario& scenario){
+                                           Scenario& scenario, double& initConc){
         bool out = false;
 
         int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
@@ -508,6 +508,11 @@ namespace mantisServer{
                     tauVal.push_back(tauShift);
                     if (j == cellIndex.size()-1){
                         bIstauCalc = true;
+                    }
+                    for (int itau = 0; itau < tauShift; ++itau){
+                        if (itau < LF.size()){
+                            LF[itau] =  LF[itau] + initConc;
+                        }
                     }
                 }
                 else{
@@ -590,15 +595,15 @@ namespace mantisServer{
                                      std::vector<double> &clean_prc,
                                      std::vector<double> &unsatDepth,
                                      std::vector<double>& LF,
-                                     Scenario& scenario) {
+                                     Scenario& scenario,  double& initConc) {
         bool out = false;
 
         if (loadType == LoadType::RASTER){
-            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth, LF, scenario);
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth, LF, scenario, initConc);
             return out;
         }
         else{
-            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth, LF, scenario);
+            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth, LF, scenario, initConc);
             return out;
         }
     }

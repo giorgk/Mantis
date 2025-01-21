@@ -68,6 +68,8 @@ namespace mantisServer{
         */
         void convolute(std::vector<double> &LF, std::vector<double> &BTC);
 
+        void convolute(std::vector<double> &LF, std::vector<double> &BTC, std::vector<double> &preBTC, double initconc);
+
         /**
          *
          * @param urf_file prints the full expanded urf into file
@@ -81,6 +83,7 @@ namespace mantisServer{
         double paramB;
         //! This is a vector where the expanded values of the urfs will be stored.
         std::vector<double> urf;
+        std::vector<double> invert_cumurf;
         //! calc_urf expands the urf. This takes place during contruction.
         void calc_urf();
         /**
@@ -105,22 +108,31 @@ namespace mantisServer{
         ade_opt = ade_opt_in;
 
         urf.resize(Nyrs, 0);
+        invert_cumurf.resize(Nyrs,1);
 
         if (type == URFTYPE::LGNRM){
             if (std::abs(paramA) < 0.000000001){
                 return;
             }
             if (std::abs(paramA + 1) < 0.0000001){
+                double cumurf = 0;
                 for (unsigned int i = 0; i < OneYear.size(); ++i){
-                    if (i < urf.size())
+                    if (i < urf.size()){
                         urf[i] = OneYear[i];
+                        cumurf = cumurf + urf[i];
+                        invert_cumurf[i] = 1.0 - cumurf;
+                    }
                 }
                 return;
             }
             else if(std::abs(paramA + 2) < 0.0000001){
+                double cumurf = 0;
                 for (unsigned int i = 0; i < TwoYears.size(); ++i){
-                    if (i < urf.size())
+                    if (i < urf.size()){
                         urf[i] = TwoYears[i];
+                        cumurf = cumurf + urf[i];
+                        invert_cumurf[i] = 1.0 - cumurf;
+                    }
                 }
                 return;
             }
@@ -226,8 +238,11 @@ namespace mantisServer{
                     v_prev = v_curr;
                 }
             }
-
             sumurf += urf[i];
+            invert_cumurf[i] = 1.0 - sumurf;
+            if (sumurf > 1.0){
+                invert_cumurf[i] = 0.0;
+            }
         }
         if (sumurf > 1.0){
             for (int i = 0; i < static_cast<int>(urf.size()); ++i){
@@ -254,6 +269,22 @@ namespace mantisServer{
             if (std::abs(LF[i] - 0) > zeroLoading) {
                 for (int k = shift; k < static_cast<int>(LF.size()); ++k) {
                     //std::cout << k - shift << " : " << urf[k - shift] << " " << LF[i] << std::endl;
+                    BTC[k] = BTC[k] + urf[k - shift] * LF[i];
+                }
+            }
+            shift = shift + 1;
+        }
+    }
+
+    void URF::convolute(std::vector<double> &LF, std::vector<double> &BTC, std::vector<double> &preBTC,
+                        double initconc) {
+        double cumurf = 0.0;
+        unsigned int shift = 0;
+        for (int i = 0; i < static_cast<int>(LF.size()); ++i){
+            cumurf = cumurf + urf[i];
+            preBTC[i] = initconc * (1.0 - cumurf);
+            if (std::abs(LF[i] - 0) > zeroLoading){
+                for (int k = shift; k < static_cast<int>(LF.size()); ++k){
                     BTC[k] = BTC[k] + urf[k - shift] * LF[i];
                 }
             }

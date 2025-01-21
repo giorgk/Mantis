@@ -9,6 +9,21 @@
 
 namespace mantisServer {
 
+    struct InitConcParam{
+        double mean = 1;
+        double std = 1;
+        double minv = 1;
+        double maxv = 1;
+        bool bUse = false;
+        void reset(){
+            mean = 1;
+            std = 1;
+            minv = 1;
+            maxv = 1;
+            bUse = false;
+        }
+    };
+
 /**
 	 * @brief Scenario is a struct variable that contains all the information needed for each simulation scenario.
 	 *
@@ -158,6 +173,7 @@ namespace mantisServer {
         URFTYPE urfType = URFTYPE::LGNRM;
         double adeLambda = 0.0;
         double adeR = 1.0;
+        InitConcParam initcondparam;
     };
 
 /**
@@ -215,6 +231,7 @@ namespace mantisServer {
         urfType = URFTYPE::LGNRM;
         adeLambda = 0.0;
         adeR = 1.0;
+        initcondparam.reset();
     }
 
     bool Scenario::parse_incoming_msg(std::string &msg, std::string &outmsg){
@@ -451,6 +468,22 @@ namespace mantisServer {
                 printWellIds = tmp != 0;
                 continue;
             }
+
+            if (test == "initConcParam"){
+                ss >> initcondparam.mean;
+                ss >> initcondparam.std;
+                ss >> initcondparam.minv;
+                ss >> initcondparam.maxv;
+                if (initcondparam.mean < -90 || initcondparam.std < 0 || initcondparam.minv < 0 || initcondparam.maxv < 0){
+                    initcondparam.reset();
+                }
+                else{
+                    initcondparam.bUse = true;
+                }
+
+                continue;
+            }
+
             if (test ==  "DebugID") {
                 ss >> debugID;
                 //if (!debugID.empty())

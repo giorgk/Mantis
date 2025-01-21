@@ -251,6 +251,7 @@ namespace mantisServer{
         std::vector<int> wellids;
         int NsimulationYears = scenario.endSimulationYear - scenario.startSimulationYear;
         Bmaps.getWells(scenario.mapID, scenario.regionIDs, scenario.flowWellScen, wellids);
+        std::cout << "# of wells " <<  wellids.size() << " Simulating..." << std::endl;
         int startWell = 0;
         int endWell = 0;
         double rch,clprc;
@@ -269,6 +270,9 @@ namespace mantisServer{
         std::map<std::string, RechargeScenario>::iterator rchit = Rch.RechargeList.find(scenario.rchName);
 
 
+        // Initialize random generator
+        boost::random::lognormal_distribution<>lognrmDist(scenario.initcondparam.mean, scenario.initcondparam.std);
+
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);
         nWellBTC = 0;
         for (int iw = startWell; iw < endWell; ++iw){
@@ -276,6 +280,18 @@ namespace mantisServer{
 
             if (!wellit->second.bsimulateThis(scenario))
                 continue;
+
+            // Assign an initial value from the log normal distribution
+            double wellInitConc = 0.0;
+            if (scenario.initcondparam.bUse){
+                wellInitConc = lognrmDist(gen);
+                if (wellInitConc > scenario.initcondparam.maxv){
+                    wellInitConc = scenario.initcondparam.maxv;
+                }
+                if (wellInitConc < scenario.initcondparam.minv){
+                    wellInitConc = scenario.initcondparam.minv;
+                }
+            }
 
             std::vector<double> WellBTC(NsimulationYears, 0);
 
@@ -320,10 +336,10 @@ namespace mantisServer{
 
                 //Build the main load
                 std::vector<double> mainload(NsimulationYears, 0);
-                mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario);
+                mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario, wellInitConc);
                 if (scenario.buseLoadTransition){
                     std::vector<double> preload(NsimulationYears, 0);
-                    preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario);
+                    preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario, wellInitConc);
                     // blend the two
                     double dYear = 0;
                     for (int i = 0; i < NsimulationYears; ++i){
@@ -369,7 +385,8 @@ namespace mantisServer{
                 }
 
                 std::vector<double> BTC(NsimulationYears, 0);
-                urf.convolute(mainload, BTC);
+                std::vector<double> preBTC(NsimulationYears, 0);
+                urf.convolute(mainload, BTC, preBTC, wellInitConc);
 
                 if (scenario.printBTC){
                     btc_file << wellit->first << " " << strmlit->first << " "
@@ -380,7 +397,7 @@ namespace mantisServer{
                 }
 
                 for (unsigned int i = 0; i < BTC.size(); ++i){
-                    WellBTC[i] = WellBTC[i] + BTC[i] * strmlit->second.w;
+                    WellBTC[i] = WellBTC[i] + (BTC[i] + preBTC[i]) * strmlit->second.w;
                 }
             }
             if (scenario.printWellBTC){
