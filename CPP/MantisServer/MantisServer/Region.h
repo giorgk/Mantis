@@ -251,7 +251,7 @@ namespace mantisServer{
         std::vector<int> wellids;
         int NsimulationYears = scenario.endSimulationYear - scenario.startSimulationYear;
         Bmaps.getWells(scenario.mapID, scenario.regionIDs, scenario.flowWellScen, wellids);
-        std::cout << "# of wells " <<  wellids.size() << " Simulating..." << std::endl;
+        std::cout << "Simulating " <<  wellids.size() << " wells ..." << std::endl;
         int startWell = 0;
         int endWell = 0;
         double rch,clprc;
@@ -271,6 +271,7 @@ namespace mantisServer{
 
 
         // Initialize random generator
+        gen.seed(std::time(0));
         boost::random::lognormal_distribution<>lognrmDist(scenario.initcondparam.mean, scenario.initcondparam.std);
 
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);
