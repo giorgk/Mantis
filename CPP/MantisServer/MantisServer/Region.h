@@ -139,7 +139,7 @@ namespace mantisServer{
         {// Read the loading maps
             std::cout << "-------- NO3 Loading --------" << std::endl;
             std::string nLoadfile =  vm_ro["Data.NO3"].as<std::string>();
-            bool tf = NLL.readData(path, nLoadfile);
+            bool tf = NLL.readData(path, nLoadfile, raster.Ncell());
             if (!tf)
                 return false;
         }
@@ -199,6 +199,50 @@ namespace mantisServer{
                 outmsg += "does not have the Loading Scenario [" + scenario.loadScen + "]";
                 return false;
             }
+            else{
+                std::map<std::string, NLoad>::iterator loadit = NLL.NLoadMaps.find(scenario.loadScen);
+                if (loadit->second.getLtype() == LoadType::RASTER){
+                    bool testforSubScen = false;
+                    if (!scenario.modifierName.empty()){
+                        scenario.userRasterLoad.setNoDataValue(0.0);
+                        tf = scenario.userRasterLoad.readData(scenario.modifierName, raster.Ncell());
+                        if (!tf){
+                            outmsg += "0 ERROR: While reading user supplied loading [";
+                            outmsg += scenario.modifierName;
+                            outmsg += "]";
+                            return false;
+                        }
+                        if (scenario.modifierType == RasterOperation::Multiply){
+                            testforSubScen = true;
+                        }
+                        else if (scenario.modifierType == RasterOperation::Replace){
+                            testforSubScen = false;
+                        }
+                        else{
+                            outmsg += "0 ERROR: The modifier type is UNKNOWN. Valid options are (Replace or Multiply)";
+                            return false;
+                        }
+
+                    }
+                    else{
+                        testforSubScen = true;
+                        scenario.modifierType = RasterOperation::DONTUSE;
+                    }
+
+                    if (testforSubScen){
+                        scenario.loadSubScenID = loadit->second.getScenarioID(scenario.loadSubScen);
+                        if (scenario.loadSubScenID == -1){
+                            outmsg += "0 ERROR: The subScenario: (";
+                            outmsg += scenario.loadSubScen;
+                            outmsg += ") is not a valid option for the loading scenario ";
+                            outmsg += scenario.loadScen;
+                            return false;
+                        }
+                    }
+                }
+
+            }
+
             if (scenario.loadScen.compare(scenario.LoadTransitionName) == 0){
                 scenario.buseLoadTransition = false;
             }else{

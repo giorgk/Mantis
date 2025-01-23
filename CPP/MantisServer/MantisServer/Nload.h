@@ -408,17 +408,6 @@ namespace mantisServer{
                 //load_value += scen_value*user_value;
             }
         }
-        //load_value = load_value/static_cast<double>(cellIndex.size());
-
-        //if (scenario.maxConc > 0){
-        //    if (load_value > scenario.maxConc){
-        //        load_value = scenario.maxConc;
-        //    }
-        //}
-
-        //int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
-        //LF.clear();
-        //LF.resize(Nyears, load_value);
 
         int istartReduction = scenario.startReductionYear - scenario.startSimulationYear;
         int iendReduction = scenario.endReductionYear - scenario.startSimulationYear;
@@ -439,11 +428,12 @@ namespace mantisServer{
                 }
             }
             for (int i = 0; i < load_vals.size(); ++i){
-                int lfidx = iyr + tau_vals[i];
-                if (lfidx >= Nyears){
-                    continue;
+                if (iyr < tau_vals[i]){
+                    LF[iyr] = LF[iyr] + initConc;
                 }
-                LF[lfidx] = LF[lfidx] + load_vals[i]*(1-adoptionCoeff) + load_vals[i]*adoptionCoeff;
+                else{
+                    LF[iyr] = LF[iyr] + load_vals[i]*(1-adoptionCoeff) + (load_vals[i]*scenario.constReduction)*adoptionCoeff;
+                }
             }
         }
         double nLoadValues = static_cast<double>(cellIndex.size());
@@ -613,7 +603,7 @@ namespace mantisServer{
         NLoadList(){}
 
         std::map<std::string, NLoad> NLoadMaps;
-        bool readData(std::string path, std::string filename);
+        bool readData(std::string path, std::string filename, int ncells);
         bool hasLoading(std::string loadName);
     };
 
@@ -626,7 +616,7 @@ namespace mantisServer{
         return true;
     }
 
-    bool NLoadList::readData(std::string path, std::string filename){
+    bool NLoadList::readData(std::string path, std::string filename, int ncells){
         auto start = std::chrono::high_resolution_clock::now();
         filename = path + filename;
         std::ifstream no3MainFile;
@@ -666,9 +656,9 @@ namespace mantisServer{
                 if (Ltype.compare("GTL") == 0){
                     tf = NLoadMaps[Lname].readData(Lfile, LoadType::GTL , loadunit, xm);
                 }
-                //else if (Ltype.compare("RASTER") == 0){
-                //    bool tf = NLoadMaps[Lname].readData(Lfile, LoadType::RASTER, loadunit, options.Npixels);
-                //}
+                else if (Ltype.compare("RASTER") == 0){
+                    tf = NLoadMaps[Lname].readData(Lfile, LoadType::RASTER, loadunit, ncells);
+                }
                 else{
                     std::cout << "Unknown loading type " << Ltype << std::endl;
                     return false;
