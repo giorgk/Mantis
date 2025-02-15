@@ -45,7 +45,7 @@ namespace MS{
 
     int HRU_Raster::getHRU(int IJ) {
         if (IJ < 0 || IJ >= Ncells ){
-            return 0.0;
+            return -9;
         }
         return hrus[IJ];
     }

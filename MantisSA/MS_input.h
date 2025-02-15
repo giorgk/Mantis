@@ -26,6 +26,7 @@ namespace MS {
         int porosity;
         int Nwells;
         int dbg_id;
+        int nBuffer;
         bool doDebug = false;
         bool noFeedback = false;
         //int nurfsVI;
@@ -35,7 +36,10 @@ namespace MS {
         double minDepth;
         double minRch;
         double maxConc;
+        double maxAge;
         double SurfConcValue;
+        double riverConcValue;
+        double OutofAreaConc;
         std::string configFile;
         std::string swat_input_file;
         std::string HRU_raster_file;
@@ -67,6 +71,8 @@ namespace MS {
         bool printURFs;
         bool printLoad;
         bool printBTCs;
+        bool bUseInitConcVI;
+        bool bUseInitConcVD;
 
     private:
         boost::mpi::communicator world;
@@ -76,7 +82,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.13";
+        Version = "0.0.19";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -127,7 +133,11 @@ namespace MS {
             ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 1-6")
             ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
+            ("Simulation.RiverConcValue", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
+            ("Simulation.OutofAreaConc", po::value<double>()->default_value(-9), "Concentration for streamlines outside the study area. Negative skip the streamlines")
+            ("Simulation.MaxAge", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
             ("Simulation.noFeedback", po::value<int>()->default_value(0), "Set this to non zero to run without feedback")
+            ("Simulation.nBuffer", po::value<int>()->default_value(1), "Number of buffer zones around each streamline")
 
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.HRU_Raster", po::value<std::string>(), "HRU raster file")
@@ -184,7 +194,13 @@ namespace MS {
                 npsat_VD_file = vm_cfg["Simulation.NPSAT_VD"].as<std::string>();
                 //nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
                 init_salt_VI_file = vm_cfg["Simulation.InitSaltVI"].as<std::string>();
+                if (init_salt_VI_file.empty()) {
+                    bUseInitConcVI = false;
+                }
                 init_salt_VD_file = vm_cfg["Simulation.InitSaltVD"].as<std::string>();
+                if (init_salt_VD_file.empty()) {
+                    bUseInitConcVD = false;
+                }
                 cell_well_file = vm_cfg["Simulation.DistribPump"].as<std::string>();
 
                 {// Read Raster
@@ -201,8 +217,12 @@ namespace MS {
                 NswatYears = vm_cfg["Simulation.NSwatYears"].as<int>();
                 porosity = vm_cfg["Simulation.Porosity"].as<int>();
                 maxConc = vm_cfg["Simulation.MaxConc"].as<double>();
+                maxAge = vm_cfg["Simulation.MaxAge"].as<double>();
                 SurfConcValue = vm_cfg["Simulation.SurfConcValue"].as<double>();
+                riverConcValue = vm_cfg["Simulation.RiverConcValue"].as<double>();
+                OutofAreaConc = vm_cfg["Simulation.OutofAreaConc"].as<double>();
                 noFeedback = vm_cfg["Simulation.noFeedback"].as<int>()!= 0;
+                nBuffer = vm_cfg["Simulation.nBuffer"].as<int>();
 
                 depth_input_file = vm_cfg["UNSAT.Depth_file"].as<std::string>();
                 depth_name = vm_cfg["UNSAT.Depth_name"].as<std::string>();

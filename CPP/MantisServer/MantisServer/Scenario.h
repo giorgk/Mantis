@@ -120,6 +120,7 @@ namespace mantisServer {
         double unsatMinRch = 10.0;
         double unsatRchOffset = 0.0;
         double unsatRchMult = 1;
+        double maxAge = 400;
 
         /**
          * This is an id for the current scenario. e.g. test001.
@@ -167,6 +168,7 @@ namespace mantisServer {
 
         bool bNarrowSelection;
         bool printWellIds;
+        bool printWellinfo;
 
         sourceArea SourceArea;
         int maxSourceCells;
@@ -203,6 +205,7 @@ namespace mantisServer {
         unsatZoneMobileWaterContent = 0.0;
         minRecharge = 10;// mm/year
         maxConc = 250;
+        maxAge = 400;
         PixelRadius = 0;
         RadSelect.clear();
         RectSelect.clear();
@@ -221,6 +224,7 @@ namespace mantisServer {
         porosityIndex = 0;
         SourceArea.clear();
         printWellIds = false;
+        printWellinfo = false;
         debugID = "";
         printLF = false;
         printURF = false;
@@ -344,15 +348,23 @@ namespace mantisServer {
                 }
                 continue;
             }
+
             if (test == "maxConc") {
                 ss >> maxConc;
                 continue;
             }
+
+            if (test == "maxAge"){
+                ss >> maxAge;
+                continue;
+            }
+
             if (test == "constRed"){
                 userSuppliedConstRed = true;
                 ss >> constReduction;
                 continue;
             }
+
             if (test == "loadTrans"){
                 ss >> LoadTransitionName;
                 ss >> LoadTransitionStart;
@@ -466,6 +478,13 @@ namespace mantisServer {
                 int tmp;
                 ss >> tmp;
                 printWellIds = tmp != 0;
+                continue;
+            }
+
+            if (test == "getotherinfo"){
+                int tmp;
+                ss >> tmp;
+                printWellinfo = tmp != 0;
                 continue;
             }
 

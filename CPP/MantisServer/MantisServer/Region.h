@@ -339,15 +339,19 @@ namespace mantisServer{
             }
 
             std::vector<double> WellBTC(NsimulationYears, 0);
+            int count_rivers = 0;
+            int count_max_age = 0;
 
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++strmlit){
 
                 // If the streamline originates from stream it has zero loading
                 if (strmlit->second.inRiver){
+                    count_rivers = count_rivers + 1;
                     continue;
                 }
                 // If the travel time of the streamline is higher than 400 years the assume zero loading
-                if (strmlit->second.age[scenario.porosityIndex] > 400){
+                if (strmlit->second.age[scenario.porosityIndex] > scenario.maxAge){
+                    count_max_age = count_max_age + 1;
                     continue;
                 }
 
@@ -411,17 +415,18 @@ namespace mantisServer{
 
                 //Build the URF
                 URF urf;
-                if (scenario.urfType == URFTYPE::LGNRM){
-                    urf.init(NsimulationYears, strmlit->second.mu[scenario.porosityIndex],
-                             strmlit->second.std[scenario.porosityIndex],URFTYPE::LGNRM);
-
-                }
-                else if (scenario.urfType == URFTYPE::ADE){
+                if (scenario.urfType == URFTYPE::ADE ||
+                    strmlit->second.mu[scenario.porosityIndex] < -65 ||
+                    std::abs(strmlit->second.mu[scenario.porosityIndex]) < 0.0001){
                     ADEoptions ade_opt;
                     ade_opt.lambda = scenario.adeLambda;
                     ade_opt.R = scenario.adeR;
                     urf.init(NsimulationYears, strmlit->second.len,
                              strmlit->second.age[scenario.porosityIndex],URFTYPE::ADE, ade_opt);
+                }
+                else if (scenario.urfType == URFTYPE::LGNRM){
+                    urf.init(NsimulationYears, strmlit->second.mu[scenario.porosityIndex],
+                             strmlit->second.std[scenario.porosityIndex],URFTYPE::LGNRM);
                 }
 
                 if (scenario.printURF){
@@ -455,6 +460,13 @@ namespace mantisServer{
             if (scenario.printWellIds){
                 replymsg[threadid] += std::to_string(wellit->first);
                 replymsg[threadid] += " ";
+                if (scenario.printWellinfo){
+                    replymsg[threadid] += std::to_string(count_rivers);
+                    replymsg[threadid] += " ";
+                    replymsg[threadid] += std::to_string(count_max_age);
+                    replymsg[threadid] += " ";
+
+                }
             }
 
             for (unsigned int i = 0; i < WellBTC.size(); ++i){

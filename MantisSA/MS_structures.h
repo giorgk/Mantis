@@ -26,6 +26,7 @@ namespace MS{
         int urfI;
         int urfJ;
         int IJ;
+        bool inRiv;
         //int hru_idx;
         double W;
         double Len;
@@ -50,6 +51,7 @@ namespace MS{
         std::vector<int> Sid;
         std::vector<int> urfI;
         std::vector<int> urfJ;
+        std::vector<bool> inRiv;
         std::vector<int> hru_idx;
         std::vector<double> W;
         std::vector<double> Len;

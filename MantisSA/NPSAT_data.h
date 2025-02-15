@@ -47,17 +47,20 @@ namespace MS{
 #endif
         }
         else {
-            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, 4, true, world, 500000);
+            int intNumCol= 5;
+            int dblNumCol = 2;
+            int msaNumCol = 18;
+            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, intNumCol, true, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, 2, true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dblNumCol, true, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, 18, true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msaNumCol, true, world, 500000);
             if (!tf){return false;}
 
             if (PrintMatrices){
-                printMatrixForAllProc<int>(ints, world, 0, 4, 0, 10);
-                printMatrixForAllProc<double>(dbls, world, 0, 2, 0, 10);
-                printMatrixForAllProc<double>(msas, world, 0, 18, 0, 10);
+                printMatrixForAllProc<int>(ints, world, 0, intNumCol, 0, 10);
+                printMatrixForAllProc<double>(dbls, world, 0, dblNumCol, 0, 10);
+                printMatrixForAllProc<double>(msas, world, 0, msaNumCol, 0, 10);
             }
             //return false;
 
@@ -102,6 +105,7 @@ namespace MS{
             itwtmp->second.Sid.push_back(ints[1][i]);
             itwtmp->second.urfI.push_back(ints[2][i]);
             itwtmp->second.urfJ.push_back(ints[3][i]);
+            itwtmp->second.inRiv.push_back(ints[4][i] == 1);
             //itwtmp->second.hru_idx.push_back(ints[4][i]);
             itwtmp->second.W.push_back(dbls[0][i]);
             itwtmp->second.Len.push_back(dbls[1][i]);
@@ -120,11 +124,16 @@ namespace MS{
             }
             WELL w;
             for (unsigned int i = 0; i < itwtmp->second.urfJ.size(); ++i){
+                //if (itwtmp->first == 21539){
+                //    bool stop = true;
+                //}
+
                 STRML s;
                 s.Sid = itwtmp->second.Sid[i];
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
+                s.inRiv = itwtmp->second.inRiv[i];
                 //s.hru_idx = itwtmp->second.hru_idx[i];
                 s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
                 s.Len = itwtmp->second.Len[i];

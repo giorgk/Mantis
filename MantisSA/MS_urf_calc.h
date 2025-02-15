@@ -22,16 +22,19 @@ namespace MS{
     std::vector<double> urfTwo {0.00095171, 0.19513243, 0.41957050, 0.25244126, 0.09333424, 0.02803643, 0.00771540, 0.00206063, 0.00055016, 0.00014916, 0.00004141, 0.00001182, 0.00000347, 0.00000106, 0.00000032};
 
     void calcURFs(int N, double m, double s, double a, double l, std::vector<double>& urf){
+        double sumurf = 0.0;
         urf.clear();
         urf.resize(N,0.0);
         if (std::abs(m + 1) < 0.0001){
-            for (unsigned int i = 1; i < std::min(static_cast<int>(urfOne.size()),N); ++i){
+            for (unsigned int i = 0; i < std::min(static_cast<int>(urfOne.size()),N); ++i){
                 urf[i] = urfOne[i];
+                sumurf = sumurf + urf[i];
             }
         }
         else if (std::abs(m + 2) < 0.0001){
             for (unsigned int i = 0; i < std::min(static_cast<int>(urfTwo.size()),N); ++i){
                 urf[i] = urfTwo[i];
+                sumurf = sumurf + urf[i];
             }
         }
         else if (m < -65 || std::abs(m) < 0.0001){
@@ -54,6 +57,7 @@ namespace MS{
                       std::erfc((x + v*t )/sqrDtx2);
 
                 urf[i] = std::max(0.0, c_next - c_prev);
+                sumurf = sumurf + urf[i];
                 //std::cout << urf[i] << " ";
                 t = t + 1.0;
                 c_prev = c_next;
@@ -69,11 +73,18 @@ namespace MS{
                 p2 = -p2 * p2;
                 p2 = p2 / (2 * s*s);
                 urf[i] = p1*exp(p2);
+                sumurf = sumurf + urf[i];
 
                 t = t + 1.0;
                 //std::cout << urf[i] << " ";
             }
             //std::cout << std::endl;
+        }
+
+        if (sumurf > 1.0){
+            for (int i = 0; i < static_cast<int>(urf.size()); ++i){
+                urf[i] = urf[i]/sumurf;
+            }
         }
 
     }

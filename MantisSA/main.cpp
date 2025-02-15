@@ -40,6 +40,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    if (world.rank() == 0){
+        std::cout << "MantisSA version: " + UI.Version << std::endl;
+    }
+    world.barrier();
+
 
     MS::HRU_Raster hru_raster;
     tf = hru_raster.read(UI.HRU_raster_file, world);
@@ -106,11 +111,15 @@ int main(int argc, char* argv[]) {
     std::vector<std::vector<int>> Eid_proc;
     sendWellEids(VI, Eid_proc, world);
 
+    if (UI.bUseInitConcVI) {
+        tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI);
+        if (!tf){return 0;}
+    }
+    if (UI.bUseInitConcVD) {
+        tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD);
+        if (!tf){return 0;}
+    }
 
-    tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI);
-    if (!tf){return 0;}
-    tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD);
-    if (!tf){return 0;}
 
     std::cout << "Proc: " << world.rank() << " has " << VI.size() << " VI wells and " << VD.size() << " VD wells" << std::endl;
 
@@ -142,92 +151,124 @@ int main(int argc, char* argv[]) {
             int cntS = 0;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 //std::cout << i << " " << std::flush;
-                //hruidx = itw->second.strml[i].hru_idx - 1;
-                int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
-                int hruidx = swat.hru_index(hru);
-                if (hruidx < 0){
+                //Calculate the C_SWAT
+                double c_swat = 0.0;
+                int hruidx = -9;
+                double Mfeed = 0.0;
+                bool addThis = false;
+
+                if (itw->second.strml[i].inRiv){
+                    c_swat = UI.riverConcValue;
+                    addThis = true;
+                }
+                else if (itw->second.strml[i].a > UI.maxAge){
+                    c_swat = itw->second.initConc;
+                    addThis = true;
+                }
+                else{
+                    double n_cswat = 0.0;
+                    double cell_cswat = 0.0;
+                    double cell_mfeed = 0.0;
+                    for (int ii = itw->second.strml[i].urfI - UI.nBuffer; ii <= itw->second.strml[i].urfI + UI.nBuffer; ++ii){
+                        for(int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj){
+                            int IJ = backRaster.IJ(ii, jj);
+                            if (IJ < 0){
+                                continue;
+                            }
+                            int shift = UZ.traveltime(IJ);
+                            if (shift > iyr){
+                                cell_cswat = itw->second.initConc;
+                            }
+                            else{
+                                int hru = hru_raster.getHRU(IJ);
+                                hruidx = swat.hru_index(hru);
+                                if (hruidx < 0){
+                                    if (UI.OutofAreaConc < 0){
+                                        continue;
+                                    }
+                                    else{
+                                        cell_cswat = UI.OutofAreaConc;
+                                    }
+                                }
+                                else{
+                                    if (swat.perc_mm[iswat][hruidx] < 0.01){
+                                        itw->second.strml[i].Mfeed.push_back(0.0);
+                                        cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
+                                    }
+                                    else{
+                                        // Calculate the ratio of groundwater to the total
+                                        double gw_ratio = 0.0;
+                                        if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
+                                            gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                        }
+
+                                        // irrigated Salt Mass. The Salts that come from the pumped water
+                                        double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
+                                        //Calculate the percolated groundwater volume
+                                        double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+
+                                        // Calculate concentration from NPSAT spreading (Feedback)
+                                        double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
+
+                                        cell_mfeed = m_npsat - m_gw;
+                                        if (cell_mfeed < 0) {
+                                            cell_mfeed = 0.0;
+                                        }
+                                        if (UI.noFeedback) {
+                                            cell_mfeed = 0.0;
+                                        }
+
+                                        cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 / swat.perc_mm[iswat][hruidx];
+                                    }
+                                }
+                                if (UI.SurfConcValue > 0){
+                                    double surf_perc = UZ.getSurfPerc(IJ);
+                                    if (surf_perc > 0){
+                                        cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                                    }
+                                }
+                            }
+                            c_swat = c_swat + cell_cswat;
+                            Mfeed = Mfeed + cell_mfeed;
+                            n_cswat = n_cswat + 1.0;
+                            addThis = true;
+                        }// loop jj
+                    }// loop ii
+                    c_swat = c_swat / n_cswat;
+                    Mfeed = Mfeed / n_cswat;
+
+                    if (c_swat > UI.maxConc){
+                        c_swat = UI.maxConc;
+                    }
+
+                }
+                if (!addThis){
                     continue;
                 }
 
-                // Calculate the ratio of groundwater to the total
-                double gw_ratio = 0.0;
-                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
-                    gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
-                }
-
-                // irrigated Salt Mass. The Salts that come from the pumped water
-                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
-
-                //Calculate the C_SWAT
-                double c_swat = 0.0;
-
-                if (swat.perc_mm[iswat][hruidx] < 0.01){
-                    itw->second.strml[i].Mfeed.push_back(0.0);
-                    c_swat = swat.Salt_perc_ppm[iswat][hruidx];
-                }
-                else{
-                    //Calculate the percolated groundwater volume
-                    double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
-
-                    // Calculate concentration from NPSAT spreading (Feedback)
-                    double m_npsat = 0.0;
-                    if (itw->second.strml[i].IJ > 0){
-                        m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
-                    }
-
-                    double Mfeed = m_npsat - m_gw;
-                    if (Mfeed < 0) {
-                        Mfeed = 0.0;
-                    }
-                    if (UI.noFeedback) {
-                        Mfeed = 0.0;
-                    }
-                    itw->second.strml[i].Mfeed.push_back(Mfeed);
-
-                    c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
-                }
-
-                if (c_swat > UI.maxConc){
-                    c_swat = UI.maxConc;
-                }
-
-                if (UI.SurfConcValue > 0){
-                    double surf_perc = UZ.getSurfPerc(itw->second.strml[i].IJ);
-                    if (surf_perc > 0){
-                        c_swat = c_swat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
-                    }
-                }
-
+                itw->second.strml[i].Mfeed.push_back(Mfeed);
                 itw->second.strml[i].lf.push_back(c_swat);
 
                 std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
                 std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
                 MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf, btc, prebtc, itw->second.initConc);
-                int shift = UZ.traveltime(itw->second.strml[i].IJ);
+
 
                 for (unsigned int j = 0; j < btc.size(); ++j){
-                    if (j <= shift){
-                        wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
-                        if (iyr == UI.NsimYears-1){
-                            itw->second.strml[i].btc.push_back(itw->second.initConc);
-                        }
-                    }
-                    else{
-                        wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
-                        if (iyr == UI.NsimYears-1){
-                            itw->second.strml[i].btc.push_back(btc[j-shift] + prebtc[j-shift]);
-                        }
+                    wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j] + prebtc[j]);
+                    if (iyr == UI.NsimYears-1){
+                        itw->second.strml[i].btc.push_back(btc[j] + prebtc[j]);
                     }
                 }
 
                 sumW = sumW + itw->second.strml[i].W;
                 cntS = cntS + 1;
 
-                if (printThis){
-                    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
-                            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
-                            << c_swat << ", " << shift << std::endl;
-                }
+                //if (printThis){
+                //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
+                //            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
+                //            << c_swat << ", " << shift << std::endl;
+                //}
             }// Loop streamlines
 
             if (cntS == 0){
@@ -252,64 +293,100 @@ int main(int argc, char* argv[]) {
         for (itw = VD.begin(); itw != VD.end(); ++itw){
             //std::cout << itw->first << std::endl;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                //std::cout << i << " " << std::flush;
-                //hruidx = itw->second.strml[i].hru_idx - 1;
-                int hru = hru_raster.getHRU(itw->second.strml[i].IJ);
-                int hruidx = swat.hru_index(hru);
-                if (hruidx < 0){
-                    continue;
-                }
-
-                // Calculate the groundwater concentration
-                double gw_ratio = 0.0;
-                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
-                    gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
-                }
-
-                // irrigated Salt Mass
-                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
-
-                //Calculate the C_SWAT
                 double c_swat = 0.0;
+                double Mfeed = 0.0;
+                int hruidx = -9;
+                bool addThis = false;
 
-                if (swat.perc_mm[iswat][hruidx] < 0.01){
-                    itw->second.strml[i].Mfeed.push_back(0.0);
-                    c_swat = swat.Salt_perc_ppm[iswat][hruidx];
+                if (itw->second.strml[i].inRiv){
+                    c_swat = UI.riverConcValue;
+                    addThis = true;
                 }
-                else{
-                    //Calculate the percolated groundwater volume
-                    double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+                else if(itw->second.strml[i].a > UI.maxAge){
+                    c_swat = itw->second.initConc;
+                    addThis = true;
+                }
+                else {
+                    double n_cswat = 0.0;
+                    double cell_cswat = 0.0;
+                    double cell_mfeed = 0.0;
+                    for (int ii = itw->second.strml[i].urfI - UI.nBuffer; ii <= itw->second.strml[i].urfI + UI.nBuffer; ++ii) {
+                        for (int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj) {
+                            int IJ = backRaster.IJ(ii, jj);
+                            if (IJ < 0) {
+                                continue;
+                            }
+                            int shift = UZ.traveltime(IJ);
+                            if (shift > iyr) {
+                                cell_cswat = itw->second.initConc;
+                            } else {
+                                int hru = hru_raster.getHRU(IJ);
+                                hruidx = swat.hru_index(hru);
+                                if (hruidx < 0) {
+                                    if (UI.OutofAreaConc < 0) {
+                                        continue;
+                                    } else {
+                                        cell_cswat = UI.OutofAreaConc;
+                                    }
+                                } else {
+                                    if (swat.perc_mm[iswat][hruidx] < 0.01) {
+                                        itw->second.strml[i].Mfeed.push_back(0.0);
+                                        cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
+                                    }
+                                    else {
+                                        // Calculate the ratio of groundwater to the total
+                                        double gw_ratio = 0.0;
+                                        if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) >
+                                            0.00000001) {
+                                            gw_ratio = swat.irrGW_mm[iswat][hruidx] /
+                                                       (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                        }
 
-                    // Calculate concentration from NPSAT spreading (Feedback)
-                    double m_npsat = 0.0;
-                    if (itw->second.strml[i].IJ > 0){
-                        m_npsat = ConcFromPump[itw->second.strml[i].IJ] * v_gw / 100.0;
-                    }
+                                        // irrigated Salt Mass. The Salts that come from the pumped water
+                                        double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
-                    double Mfeed = m_npsat - m_gw;
-                    if (Mfeed < 0) {
-                        Mfeed = 0.0;
+                                        //Calculate the percolated groundwater volume
+                                        double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+
+                                        // Calculate concentration from NPSAT spreading (Feedback)
+                                        double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
+                                        cell_mfeed = m_npsat - m_gw;
+                                        if (cell_mfeed < 0) {
+                                            cell_mfeed = 0.0;
+                                        }
+                                        if (UI.noFeedback) {
+                                            cell_mfeed = 0.0;
+                                        }
+                                        cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 /
+                                                     swat.perc_mm[iswat][hruidx];
+                                    }
+                                }
+                                if (UI.SurfConcValue > 0) {
+                                    double surf_perc = UZ.getSurfPerc(IJ);
+                                    if (surf_perc > 0) {
+                                        cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.SurfConcValue;
+                                    }
+                                }
+                            }
+                            c_swat = c_swat + cell_cswat;
+                            Mfeed = Mfeed + cell_mfeed;
+                            n_cswat = n_cswat + 1.0;
+                            addThis = true;
+                        }// loop jj
+                    }// loop ii
+
+                    c_swat = c_swat / n_cswat;
+                    Mfeed = Mfeed / n_cswat;
+
+                    if (c_swat > UI.maxConc) {
+                        c_swat = UI.maxConc;
                     }
-                    if (UI.noFeedback) {
-                        Mfeed = 0.0;
-                    }
+                }
+                if (addThis){
                     itw->second.strml[i].Mfeed.push_back(Mfeed);
-
-                    c_swat = (swat.totpercsalt_kgha[iswat][hruidx] + Mfeed) * 100 / swat.perc_mm[iswat][hruidx];
+                    itw->second.strml[i].lf.push_back(c_swat);
                 }
 
-                if (c_swat > UI.maxConc){
-                    c_swat = UI.maxConc;
-                }
-
-                if (UI.SurfConcValue > 0){
-                    double surf_perc = UZ.getSurfPerc(itw->second.strml[i].IJ);
-                    if (surf_perc > 0){
-                        c_swat = c_swat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
-                    }
-                }
-
-                itw->second.strml[i].lf.push_back(c_swat);
             }
         }
 
@@ -336,8 +413,22 @@ int main(int argc, char* argv[]) {
                 MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
                 world.barrier();
             }
+            world.barrier();
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            if (world.rank() == 0){
+                std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+            }
         }
         else{ // if this is the last year of the simulation calculate the domestic wells
+            world.barrier();
+            auto finish = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double> elapsed = finish - start;
+            if (world.rank() == 0){
+                std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+            }
+
+            start = std::chrono::high_resolution_clock::now();
             if (world.rank() == 0){
                 std::cout << "Simulating VD BTCs ..." << std::endl;
             }
@@ -347,20 +438,17 @@ int main(int argc, char* argv[]) {
                 double sumW = 0;
                 int cntS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                    if (itw->second.strml[i].lf.size() == 0){
+                        continue;
+                    }
                     std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
                     std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
                     MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf, btc, prebtc, itw->second.initConc);
-                    int shift = UZ.traveltime(itw->second.strml[i].IJ);
+                    //int shift = UZ.traveltime(itw->second.strml[i].IJ);
 
                     for (unsigned int j = 0; j < btc.size(); ++j){
-                        if (j <= shift){
-                            wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * itw->second.initConc;
-                            itw->second.strml[i].btc.push_back(itw->second.initConc);
-                        }
-                        else{
-                            wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j-shift] + prebtc[j-shift]);
-                            itw->second.strml[i].btc.push_back(btc[j-shift] + prebtc[j-shift]);
-                        }
+                        wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j] + prebtc[j]);
+                        itw->second.strml[i].btc.push_back(btc[j] + prebtc[j]);
                     }
                     sumW = sumW + itw->second.strml[i].W;
                     cntS = cntS + 1;
@@ -372,13 +460,13 @@ int main(int argc, char* argv[]) {
                     itw->second.wellBtc.push_back(wellbtc[i] / sumW);
                 }
             }
-        }
 
-        world.barrier();
-        auto finish = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = finish - start;
-        if (world.rank() == 0){
-            std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+            finish = std::chrono::high_resolution_clock::now();
+            elapsed = finish - start;
+            if (world.rank() == 0){
+                std::cout << "VD simulation time : " << elapsed.count() << std::endl;
+            }
+
         }
         iswat = iswat + 1;
         if (iswat >= UI.NswatYears){

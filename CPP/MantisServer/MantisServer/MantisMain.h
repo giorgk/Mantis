@@ -1926,6 +1926,9 @@ namespace mantisServer {
 		int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
 		if (scenario.printWellIds){
 		    Nyears = Nyears + 1;
+            if (scenario.printWellinfo){
+                Nyears = Nyears + 2;
+            }
 		}
 		outmsg += " " + std::to_string(Nyears);
 
