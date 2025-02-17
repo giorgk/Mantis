@@ -173,61 +173,75 @@ int main(int argc, char* argv[]) {
                         for(int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj){
                             int IJ = backRaster.IJ(ii, jj);
                             if (IJ < 0){
-                                continue;
-                            }
-                            int shift = UZ.traveltime(IJ);
-                            if (shift > iyr){
-                                cell_cswat = itw->second.initConc;
-                            }
-                            else{
-                                int hru = hru_raster.getHRU(IJ);
-                                hruidx = swat.hru_index(hru);
-                                if (hruidx < 0){
-                                    if (UI.OutofAreaConc < 0){
-                                        continue;
-                                    }
-                                    else{
-                                        cell_cswat = UI.OutofAreaConc;
-                                    }
+                                if (UI.bUseInitConc4OutofArea){
+                                    cell_cswat = itw->second.initConc;
+                                }
+                                else if (UI.OutofAreaConc < 0){
+                                    continue;
                                 }
                                 else{
-                                    if (swat.perc_mm[iswat][hruidx] < 0.01){
-                                        itw->second.strml[i].Mfeed.push_back(0.0);
-                                        cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
+                                    cell_cswat = UI.OutofAreaConc;
+                                }
+                            }
+                            else{
+                                int shift = UZ.traveltime(IJ);
+                                if (shift > iyr){
+                                    cell_cswat = itw->second.initConc;
+                                }
+                                else{
+                                    int hru = hru_raster.getHRU(IJ);
+                                    hruidx = swat.hru_index(hru);
+                                    if (hruidx < 0){
+                                        if (UI.bUseInitConc4OutofArea){
+                                            cell_cswat = itw->second.initConc;
+                                        }
+                                        else if (UI.OutofAreaConc < 0){
+                                            continue;
+                                        }
+                                        else{
+                                            cell_cswat = UI.OutofAreaConc;
+                                        }
                                     }
                                     else{
-                                        // Calculate the ratio of groundwater to the total
-                                        double gw_ratio = 0.0;
-                                        if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
-                                            gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                        if (swat.perc_mm[iswat][hruidx] < 0.01){
+                                            itw->second.strml[i].Mfeed.push_back(0.0);
+                                            cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
+                                        else{
+                                            // Calculate the ratio of groundwater to the total
+                                            double gw_ratio = 0.0;
+                                            if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
+                                                gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                            }
 
-                                        // irrigated Salt Mass. The Salts that come from the pumped water
-                                        double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
-                                        //Calculate the percolated groundwater volume
-                                        double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+                                            // irrigated Salt Mass. The Salts that come from the pumped water
+                                            double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
+                                            //Calculate the percolated groundwater volume
+                                            double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
 
-                                        // Calculate concentration from NPSAT spreading (Feedback)
-                                        double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
+                                            // Calculate concentration from NPSAT spreading (Feedback)
+                                            double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
 
-                                        cell_mfeed = m_npsat - m_gw;
-                                        if (cell_mfeed < 0) {
-                                            cell_mfeed = 0.0;
+                                            cell_mfeed = m_npsat - m_gw;
+                                            if (cell_mfeed < 0) {
+                                                cell_mfeed = 0.0;
+                                            }
+                                            if (UI.noFeedback) {
+                                                cell_mfeed = 0.0;
+                                            }
+
+                                            cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 / swat.perc_mm[iswat][hruidx];
                                         }
-                                        if (UI.noFeedback) {
-                                            cell_mfeed = 0.0;
-                                        }
-
-                                        cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 / swat.perc_mm[iswat][hruidx];
                                     }
-                                }
-                                if (UI.SurfConcValue > 0){
-                                    double surf_perc = UZ.getSurfPerc(IJ);
-                                    if (surf_perc > 0){
-                                        cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                                    if (UI.SurfConcValue > 0){
+                                        double surf_perc = UZ.getSurfPerc(IJ);
+                                        if (surf_perc > 0){
+                                            cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                                        }
                                     }
                                 }
                             }
+
                             c_swat = c_swat + cell_cswat;
                             Mfeed = Mfeed + cell_mfeed;
                             n_cswat = n_cswat + 1.0;
@@ -272,6 +286,14 @@ int main(int argc, char* argv[]) {
             }// Loop streamlines
 
             if (cntS == 0){
+                if (iyr == UI.NsimYears-1 && UI.OutofAreaConc < 0){
+                    // if we ignore out of area streamlines we have to ignore the wells
+                    // with streamlines that originate from outside. To avoid breaking the printing procedures
+                    // we will print -9
+                    for (unsigned int i = 0; i < wellbtc.size(); ++i){
+                        wellbtc[i] = -9.0;
+                    }
+                }
                 sumW = 1;
             }
 
@@ -314,60 +336,76 @@ int main(int argc, char* argv[]) {
                         for (int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj) {
                             int IJ = backRaster.IJ(ii, jj);
                             if (IJ < 0) {
-                                continue;
+                                if (UI.bUseInitConc4OutofArea){
+                                    cell_cswat = itw->second.initConc;
+                                }
+                                else if (UI.OutofAreaConc < 0){
+                                    continue;
+                                }
+                                else{
+                                    cell_cswat = UI.OutofAreaConc;
+                                }
                             }
-                            int shift = UZ.traveltime(IJ);
-                            if (shift > iyr) {
-                                cell_cswat = itw->second.initConc;
-                            } else {
-                                int hru = hru_raster.getHRU(IJ);
-                                hruidx = swat.hru_index(hru);
-                                if (hruidx < 0) {
-                                    if (UI.OutofAreaConc < 0) {
-                                        continue;
+                            else{
+                                int shift = UZ.traveltime(IJ);
+                                if (shift > iyr) {
+                                    cell_cswat = itw->second.initConc;
+                                }
+                                else {
+                                    int hru = hru_raster.getHRU(IJ);
+                                    hruidx = swat.hru_index(hru);
+                                    if (hruidx < 0) {
+                                        if (UI.bUseInitConc4OutofArea){
+                                            cell_cswat = itw->second.initConc;
+                                        }
+                                        else if (UI.OutofAreaConc < 0) {
+                                            continue;
+                                        }
+                                        else {
+                                            cell_cswat = UI.OutofAreaConc;
+                                        }
                                     } else {
-                                        cell_cswat = UI.OutofAreaConc;
-                                    }
-                                } else {
-                                    if (swat.perc_mm[iswat][hruidx] < 0.01) {
-                                        itw->second.strml[i].Mfeed.push_back(0.0);
-                                        cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
-                                    }
-                                    else {
-                                        // Calculate the ratio of groundwater to the total
-                                        double gw_ratio = 0.0;
-                                        if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) >
-                                            0.00000001) {
-                                            gw_ratio = swat.irrGW_mm[iswat][hruidx] /
-                                                       (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                        if (swat.perc_mm[iswat][hruidx] < 0.01) {
+                                            itw->second.strml[i].Mfeed.push_back(0.0);
+                                            cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
+                                        else {
+                                            // Calculate the ratio of groundwater to the total
+                                            double gw_ratio = 0.0;
+                                            if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) >
+                                                0.00000001) {
+                                                gw_ratio = swat.irrGW_mm[iswat][hruidx] /
+                                                           (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
+                                            }
 
-                                        // irrigated Salt Mass. The Salts that come from the pumped water
-                                        double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
+                                            // irrigated Salt Mass. The Salts that come from the pumped water
+                                            double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
 
-                                        //Calculate the percolated groundwater volume
-                                        double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
+                                            //Calculate the percolated groundwater volume
+                                            double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
 
-                                        // Calculate concentration from NPSAT spreading (Feedback)
-                                        double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
-                                        cell_mfeed = m_npsat - m_gw;
-                                        if (cell_mfeed < 0) {
-                                            cell_mfeed = 0.0;
+                                            // Calculate concentration from NPSAT spreading (Feedback)
+                                            double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
+                                            cell_mfeed = m_npsat - m_gw;
+                                            if (cell_mfeed < 0) {
+                                                cell_mfeed = 0.0;
+                                            }
+                                            if (UI.noFeedback) {
+                                                cell_mfeed = 0.0;
+                                            }
+                                            cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 /
+                                                         swat.perc_mm[iswat][hruidx];
                                         }
-                                        if (UI.noFeedback) {
-                                            cell_mfeed = 0.0;
-                                        }
-                                        cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 /
-                                                     swat.perc_mm[iswat][hruidx];
                                     }
-                                }
-                                if (UI.SurfConcValue > 0) {
-                                    double surf_perc = UZ.getSurfPerc(IJ);
-                                    if (surf_perc > 0) {
-                                        cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.SurfConcValue;
+                                    if (UI.SurfConcValue > 0) {
+                                        double surf_perc = UZ.getSurfPerc(IJ);
+                                        if (surf_perc > 0) {
+                                            cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.SurfConcValue;
+                                        }
                                     }
                                 }
                             }
+
                             c_swat = c_swat + cell_cswat;
                             Mfeed = Mfeed + cell_mfeed;
                             n_cswat = n_cswat + 1.0;
@@ -454,6 +492,14 @@ int main(int argc, char* argv[]) {
                     cntS = cntS + 1;
                 }
                 if (cntS == 0){
+                    if (iyr == UI.NsimYears-1 && UI.OutofAreaConc < 0){
+                        // if we ignore out of area streamlines we have to ignore the wells
+                        // with streamlines that originate from outside. To avoid breaking the printing procedures
+                        // we will print -9
+                        for (unsigned int i = 0; i < wellbtc.size(); ++i){
+                            wellbtc[i] = -9.0;
+                        }
+                    }
                     sumW = 1;
                 }
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){

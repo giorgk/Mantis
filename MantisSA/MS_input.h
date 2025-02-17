@@ -29,6 +29,7 @@ namespace MS {
         int nBuffer;
         bool doDebug = false;
         bool noFeedback = false;
+        bool bUseInitConc4OutofArea = false;
         //int nurfsVI;
         //int nurfsVD;
         //int nSelectWells;
@@ -82,7 +83,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.19";
+        Version = "0.0.20";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -135,6 +136,7 @@ namespace MS {
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
             ("Simulation.RiverConcValue", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
             ("Simulation.OutofAreaConc", po::value<double>()->default_value(-9), "Concentration for streamlines outside the study area. Negative skip the streamlines")
+            ("Simulation.OutofAreaUseInitConc", po::value<int>()->default_value(1), "Use the initial concentration if outside of area.")
             ("Simulation.MaxAge", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
             ("Simulation.noFeedback", po::value<int>()->default_value(0), "Set this to non zero to run without feedback")
             ("Simulation.nBuffer", po::value<int>()->default_value(1), "Number of buffer zones around each streamline")
@@ -221,6 +223,7 @@ namespace MS {
                 SurfConcValue = vm_cfg["Simulation.SurfConcValue"].as<double>();
                 riverConcValue = vm_cfg["Simulation.RiverConcValue"].as<double>();
                 OutofAreaConc = vm_cfg["Simulation.OutofAreaConc"].as<double>();
+                bUseInitConc4OutofArea = vm_cfg["Simulation.OutofAreaUseInitConc"].as<int>()!= 0;
                 noFeedback = vm_cfg["Simulation.noFeedback"].as<int>()!= 0;
                 nBuffer = vm_cfg["Simulation.nBuffer"].as<int>();
 
