@@ -154,7 +154,7 @@ namespace MS{
 
     }
 
-    bool readInitSaltConc(std::string filename, WELLS &wells){
+    bool readInitSaltConc(std::string filename, WELLS &wells, int rank){
         std::ifstream datafile;
         datafile.open(filename);
         if (!datafile.is_open()) {
@@ -162,6 +162,9 @@ namespace MS{
             return false;
         }
         else{
+            if (rank == 0){
+                std::cout << "Reading " << filename << std::endl;
+            }
             WELLS::iterator itw;
             std::string line;
             int eid;

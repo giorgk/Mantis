@@ -112,11 +112,11 @@ int main(int argc, char* argv[]) {
     sendWellEids(VI, Eid_proc, world);
 
     if (UI.bUseInitConcVI) {
-        tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI);
+        tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI, world.rank());
         if (!tf){return 0;}
     }
     if (UI.bUseInitConcVD) {
-        tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD);
+        tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD, world.rank());
         if (!tf){return 0;}
     }
 
