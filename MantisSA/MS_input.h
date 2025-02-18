@@ -83,7 +83,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.20";
+        Version = "0.0.21";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -197,10 +197,12 @@ namespace MS {
                 //nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
                 init_salt_VI_file = vm_cfg["Simulation.InitSaltVI"].as<std::string>();
                 if (init_salt_VI_file.empty()) {
+                    std::cout << "no initconc for VI" << std::endl;
                     bUseInitConcVI = false;
                 }
                 init_salt_VD_file = vm_cfg["Simulation.InitSaltVD"].as<std::string>();
                 if (init_salt_VD_file.empty()) {
+                    std::cout << "no initconc for VI" << std::endl;
                     bUseInitConcVD = false;
                 }
                 cell_well_file = vm_cfg["Simulation.DistribPump"].as<std::string>();
