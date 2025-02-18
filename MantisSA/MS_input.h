@@ -83,7 +83,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.21";
+        Version = "0.0.22";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -171,6 +171,22 @@ namespace MS {
             ("Other.Version", po::value<std::string>(), "version number")
         ;
 
+        if (vm_cmd.count("help")) {
+            if (world.rank() == 0) {
+                std::cout << " To run ICHNOS specify the configuration file as" << std::endl;
+                std::cout << "-c config" << std::endl << std::endl;;
+                std::cout << "Other command line options are:" << std::endl;
+                std::cout << commandLineOptions << std::endl;
+
+                std::cout << "ICHNOS configuration file options:" << std::endl;
+                std::cout << "The options without default values are mandatory" << std::endl;
+                std::cout << "(All options are case sensitive)" << std::endl;
+                std::cout << "------------------------------" << std::endl;
+                std::cout << config_options << std::endl;
+            }
+            return false;
+        }
+
         po::variables_map vm_cfg;
         if (vm_cmd.count("config")){
             try {
@@ -197,13 +213,17 @@ namespace MS {
                 //nurfsVD = vm_cfg["Simulation.NURFS_VD"].as<int>();
                 init_salt_VI_file = vm_cfg["Simulation.InitSaltVI"].as<std::string>();
                 if (init_salt_VI_file.empty()) {
-                    std::cout << "no initconc for VI" << std::endl;
                     bUseInitConcVI = false;
+                }
+                else{
+                    bUseInitConcVI = true;
                 }
                 init_salt_VD_file = vm_cfg["Simulation.InitSaltVD"].as<std::string>();
                 if (init_salt_VD_file.empty()) {
-                    std::cout << "no initconc for VI" << std::endl;
                     bUseInitConcVD = false;
+                }
+                else{
+                    bUseInitConcVD = true;
                 }
                 cell_well_file = vm_cfg["Simulation.DistribPump"].as<std::string>();
 
