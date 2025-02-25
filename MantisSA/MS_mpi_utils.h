@@ -134,7 +134,7 @@ namespace MS{
             bool tf = readMatrix<T>(filename, Mtmp,  nCols, freq);
             readSuccess = static_cast<int>(tf);
         }
-        world.barrier(); //Wait for the root processor to read
+        world.barrier(); //Wait for the root processor to read_v0
 
         // Check if reading was successful
         sendScalarFromRoot2AllProc<int>(readSuccess, world);

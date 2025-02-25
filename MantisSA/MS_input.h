@@ -27,8 +27,9 @@ namespace MS {
         int Nwells;
         int dbg_id;
         int nBuffer;
+        int SWAT_data_version;
         bool doDebug = false;
-        bool noFeedback = false;
+        bool EnableFeedback = false;
         bool bUseInitConc4OutofArea = false;
         //int nurfsVI;
         //int nurfsVD;
@@ -83,7 +84,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.22";
+        Version = "0.0.24";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -138,9 +139,10 @@ namespace MS {
             ("Simulation.OutofAreaConc", po::value<double>()->default_value(-9), "Concentration for streamlines outside the study area. Negative skip the streamlines")
             ("Simulation.OutofAreaUseInitConc", po::value<int>()->default_value(1), "Use the initial concentration if outside of area.")
             ("Simulation.MaxAge", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
-            ("Simulation.noFeedback", po::value<int>()->default_value(0), "Set this to non zero to run without feedback")
+            ("Simulation.EnableFeedback", po::value<int>()->default_value(0), "Set this to non zero to run with feedback")
             ("Simulation.nBuffer", po::value<int>()->default_value(1), "Number of buffer zones around each streamline")
 
+            ("Simulation.SWAT_data_version", po::value<int>()->default_value(1), "Swat data version")
             ("Simulation.SWAT_Data", po::value<std::string>(), "Swat input file")
             ("Simulation.HRU_Raster", po::value<std::string>(), "HRU raster file")
             ("Simulation.SWAT_HRUs", po::value<std::string>(), "Swat HRU index map")
@@ -205,6 +207,7 @@ namespace MS {
                     return false;
                 }
                 HRU_raster_file = vm_cfg["Simulation.HRU_Raster"].as<std::string>();
+                SWAT_data_version = vm_cfg["Simulation.SWAT_data_version"].as<int>();
                 swat_input_file = vm_cfg["Simulation.SWAT_Data"].as<std::string>();
                 hru_idx_file = vm_cfg["Simulation.SWAT_HRUs"].as<std::string>();
                 npsat_VI_file = vm_cfg["Simulation.NPSAT_VI"].as<std::string>();
@@ -246,7 +249,7 @@ namespace MS {
                 riverConcValue = vm_cfg["Simulation.RiverConcValue"].as<double>();
                 OutofAreaConc = vm_cfg["Simulation.OutofAreaConc"].as<double>();
                 bUseInitConc4OutofArea = vm_cfg["Simulation.OutofAreaUseInitConc"].as<int>()!= 0;
-                noFeedback = vm_cfg["Simulation.noFeedback"].as<int>()!= 0;
+                EnableFeedback = vm_cfg["Simulation.EnableFeedback"].as<int>() != 0;
                 nBuffer = vm_cfg["Simulation.nBuffer"].as<int>();
 
                 depth_input_file = vm_cfg["UNSAT.Depth_file"].as<std::string>();

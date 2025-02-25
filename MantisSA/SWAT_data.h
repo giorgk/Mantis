@@ -33,7 +33,9 @@ namespace MS {
     class SWAT_data{
     public:
         SWAT_data(){}
-        bool read(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
+        bool read(const std::string filename, int NSwatYears, int swat_version, boost::mpi::communicator &world);
+        bool read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
+        bool read_v1(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
         bool read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world);
         int hru_index(int HRU);
 
@@ -45,6 +47,10 @@ namespace MS {
         std::vector<std::vector<double>> irrGW_mm;
         std::vector<std::vector<double>> irrsaltSW_kgha;
         std::vector<std::vector<double>> irrsaltGW_Kgha;
+        std::vector<std::vector<double>> fertsalt_kgha;
+        std::vector<std::vector<double>> dssl_kgha;
+        std::vector<std::vector<double>> uptk_kgha;
+        std::vector<std::vector<double>> pGW;
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
         std::vector<std::vector<double>> Salt_perc_ppm;
@@ -55,9 +61,7 @@ namespace MS {
     };
 
 
-
-
-    bool SWAT_data::read(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
+    bool SWAT_data::read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
 
         std::string ext = getExtension(filename);
 
@@ -130,6 +134,111 @@ namespace MS {
 
             return true;
         }
+    }
+
+    bool SWAT_data::read_v1(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
+        std::string ext = getExtension(filename);
+
+        if (ext.compare("h5") == 0){
+#if _USEHF > 0
+            //const std::string HRUSNameSet("HRUS");
+            //const std::string irrtotal_mm_NameSet("irrtotal_mm");
+            const std::string irrSW_mm_NameSet("irrSW_mm");
+            const std::string irrGW_mm_NameSet("irrGW_mm");
+            const std::string irrsaltSW_kgha_NameSet("irrsaltSW_kgha");
+            const std::string irrsaltGW_Kgha_NameSet("irrsaltGW_Kgha");
+            const std::string fertsalt_kgha_NameSet("fertsalt_kgha");
+            const std::string dssl_kgha_NameSet("dssl_kgha");
+            const std::string uptk_kgha_NameSet("uptk_kgha");
+            const std::string pGW_NameSet("pGW");
+            //const std::string totpercsalt_kgha_NameSet("totpercsalt_kgha");
+            const std::string perc_mm_NameSet("perc_mm");
+            const std::string Salt_perc_ppm_NameSet("Salt_perc_ppm");
+
+            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+
+            //HighFive::DataSet dataset_HRUS = HDFNfile.getDataSet(HRUSNameSet);
+            //HighFive::DataSet dataset_irrtotal_mm = HDFNfile.getDataSet(irrtotal_mm_NameSet);
+            HighFive::DataSet dataset_irrSW_mm = HDFNfile.getDataSet(irrSW_mm_NameSet);
+            HighFive::DataSet dataset_irrGW_mm = HDFNfile.getDataSet(irrGW_mm_NameSet);
+            HighFive::DataSet dataset_irrsaltSW_kgha = HDFNfile.getDataSet(irrsaltSW_kgha_NameSet);
+            HighFive::DataSet dataset_irrsaltGW_Kgha = HDFNfile.getDataSet(irrsaltGW_Kgha_NameSet);
+            HighFive::DataSet dataset_fertsalt_kgha = HDFNfile.getDataSet(fertsalt_kgha_NameSet);
+            HighFive::DataSet dataset_dssl_kgha = HDFNfile.getDataSet(dssl_kgha_NameSet);
+            HighFive::DataSet dataset_uptk_kgha = HDFNfile.getDataSet(uptk_kgha_NameSet);
+            HighFive::DataSet dataset_pGW = HDFNfile.getDataSet(pGW_NameSet);
+            //HighFive::DataSet dataset_totpercsalt_kgha = HDFNfile.getDataSet(totpercsalt_kgha_NameSet);
+            HighFive::DataSet dataset_perc_mm = HDFNfile.getDataSet(perc_mm_NameSet);
+            HighFive::DataSet dataset_Salt_perc_ppm = HDFNfile.getDataSet(Salt_perc_ppm_NameSet);
+
+            //dataset_HRUS.read(HRUS);
+            //dataset_irrtotal_mm.read(irrtotal_mm);
+            dataset_irrSW_mm.read(irrSW_mm);
+            dataset_irrGW_mm.read(irrGW_mm);
+            dataset_irrsaltSW_kgha.read(irrsaltSW_kgha);
+            dataset_irrsaltGW_Kgha.read(irrsaltGW_Kgha);
+            dataset_fertsalt_kgha.read(fertsalt_kgha);
+            dataset_dssl_kgha.read(dssl_kgha);
+            dataset_uptk_kgha.read(uptk_kgha);
+            dataset_pGW.read(pGW);
+            //dataset_totpercsalt_kgha.read(totpercsalt_kgha);
+            dataset_perc_mm.read(perc_mm);
+            dataset_Salt_perc_ppm.read(Salt_perc_ppm);
+
+            return true;
+
+#endif
+        }
+        else{
+            //bool tf = RootReadsMatrixFileDistrib<int>(filename + "hrus.dat", HRUS,1,false,world);
+            //if (!tf){ return false;}
+            //int nHRUs = HRUS[0].size();
+
+            //bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, true, world);
+            //if (!tf){ return false;}
+            //if (PrintMatrices){printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);}
+            //tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, true, world);
+            //if (!tf){ return false;}
+            //if (PrintMatrices){printMatrixForAllProc(irrSW_mm,world,0,10,34,40);}
+            bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(irrGW_mm,world,0,10,34,40);}
+            //tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, true, world);
+            //if (!tf){ return false;}
+            //if (PrintMatrices){printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_Kgha.dat", irrsaltGW_Kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(irrsaltGW_Kgha,world,0,10,34,40);}
+
+            tf = RootReadsMatrixFileDistrib<double>(filename + "pGW.dat", pGW, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(pGW,world,0,10,34,40);}
+
+            tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);}
+
+            tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "Salt_perc_ppm.dat", Salt_perc_ppm, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(Salt_perc_ppm,world,0,10,34,40);}
+
+            return true;
+        }
+    }
+
+    bool SWAT_data::read(const std::string filename, int NSwatYears, int swat_version,
+                         boost::mpi::communicator &world) {
+        bool tf = false;
+        if (swat_version == 0){
+            tf = read_v0(filename, NSwatYears,world);
+        }
+        else if(swat_version == 1){
+            tf = read_v1(filename, NSwatYears, world);
+        }
+        return tf;
     }
 
     bool SWAT_data::read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world){
