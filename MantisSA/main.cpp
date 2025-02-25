@@ -40,7 +40,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+    auto startTotalSimulation = std::chrono::high_resolution_clock::now();
     if (world.rank() == 0){
+        std::time_t result = std::time(nullptr);
+        std::cout << "MantisSA started at " << std::asctime(std::localtime(&result)) << std::endl;
+        std::cout << "MantisSA will run using " << world.size() << " processors" << std::endl;
         std::cout << "MantisSA version: " + UI.Version << std::endl;
     }
     world.barrier();
@@ -163,6 +167,8 @@ int main(int argc, char* argv[]) {
 
     // Main simulation loop
 
+    //double min_neg_m = 0;
+
     //int hruidx;
     //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
@@ -263,6 +269,13 @@ int main(int argc, char* argv[]) {
                                                               swat.fertsalt_kgha[iswat][hruidx] +
                                                               swat.dssl_kgha[iswat][hruidx] - swat.uptk_kgha[iswat][hruidx];
                                                     m_total = m_total * swat.pGW[iswat][hruidx];
+                                                    if (m_total < 0){
+                                                        m_total = 0;
+                                                        //bool check_this = true;
+                                                        //if (m_total < min_neg_m){
+                                                        //    min_neg_m = m_total;
+                                                        //}
+                                                    }
 
 
                                                     //cell_mfeed = m_npsat - swat.irrsaltGW_Kgha[iswat][hruidx];
@@ -469,6 +482,13 @@ int main(int argc, char* argv[]) {
                                                               swat.fertsalt_kgha[iswat][hruidx] +
                                                               swat.dssl_kgha[iswat][hruidx] - swat.uptk_kgha[iswat][hruidx];
                                                     m_total = m_total * swat.pGW[iswat][hruidx];
+                                                    if (m_total < 0){
+                                                        m_total = 0;
+                                                        //bool check_this = true;
+                                                        //if (m_total < min_neg_m){
+                                                        //    min_neg_m = m_total;
+                                                        //}
+                                                    }
 
                                                     //cell_mfeed = m_npsat - swat.irrsaltGW_Kgha[iswat][hruidx];
                                                     //if (cell_mfeed > 0){
@@ -763,6 +783,17 @@ int main(int argc, char* argv[]) {
 
     if (UI.doDebug){
         dbg_file.close();
+    }
+
+    world.barrier();
+    auto finishTotalSimulation = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> elapsedTotalSimulation = finishTotalSimulation - startTotalSimulation;
+
+    world.barrier();
+    if (world.rank() == 0){
+        std::time_t result = std::time(nullptr);
+        std::cout << "MantisSA Finished at " << std::asctime(std::localtime(&result)) << std::endl;
+        std::cout << "Total simulation for : " << elapsedTotalSimulation.count() / 60.0 << " min" << std::endl;
     }
 
     return 0;
