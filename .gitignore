@@ -52,9 +52,9 @@
 ###!*.Rproj
 
 # "un-ignore the URFSprep folder =========URFSprep========
-####!/URFSprep
+!/URFSprep
 #Now ignore all the content of the folder Local
-####/URFSprep/*
+/URFSprep/*
 #Un-ignore the usefull files
 ####!/URFSprep/*.m
 ####!/URFSprep/*.mat
