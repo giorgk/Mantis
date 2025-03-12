@@ -12,27 +12,7 @@
 #!*MAPS.mat
 #!*MantisServer.opt
 
-# "un-ignore the gh_pages folder =========gh_pages========
-!/gh_pages
-#Now ignore all the content of the folder gh_pages
-/gh_pages/*
-#Un-ignore the source code
-!/gh_pages/*.html
-!/gh_pages/*.css
-!/gh_pages/*.js
-!/gh_pages/*.png
-!/gh_pages/*.jpg
-!/gh_pages/*.jpeg
-!/gh_pages/*.gif
-!/gh_pages/*.svg
-!/gh_pages/*.pdf
-!/gh_pages/*.ico
-!/gh_pages/*.txt
-!/gh_pages/*.xml
-!/gh_pages/*.json
-!/gh_pages/*.yml
-!/gh_pages/*.md
-!/gh_pages/*.Rmd
+
 
 # "un-ignore the Local folder =========Local========
 !/Local
