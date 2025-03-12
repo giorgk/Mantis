@@ -18,6 +18,8 @@
 /docs/*
 #Un-ignore the source code
 !/docs/*.md
+!/docs/*.jpeg
+!/docs/*.jpg
 
 # "un-ignore the Local folder =========Local========
 !/Local

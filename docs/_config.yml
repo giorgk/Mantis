@@ -5,7 +5,9 @@ plugins:
 #gem "github-pages", group: :jekyll_plugins
 
 title: Mantis
+logo: mantis1_logo.jpg
 description: [A Server application of Non Point Source pollution Simulation]
+show_downloads: true
 
 #show_downloads: ["true" or "false" (unquoted) to indicate whether to provide a download URL]
 #google_analytics: [Your Google Analytics tracking ID]
