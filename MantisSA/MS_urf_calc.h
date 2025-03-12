@@ -98,8 +98,8 @@ namespace MS{
                 std::cout << urf[i] << " ";
             }
             std::cout << std::endl;
-            for (int i = 0; i < lf.size(); ++i ){
-                std::cout << lf[i] << " ";
+            for (int i = 0; i < lf_conc.size(); ++i ){
+                std::cout << lf_conc[i] << " ";
             }
             std::cout << std::endl;
         }*/

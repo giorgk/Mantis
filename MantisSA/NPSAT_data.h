@@ -343,8 +343,8 @@ namespace MS{
                         v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge
                         v.push_back(UN.getSurfPerc(itw->second.strml[i].IJ)); // Surface percentage
                         for (int k = 0; k < Nyears; ++k) {
-                            v.push_back(itw->second.strml[i].lf[k]);
-                            m.push_back(itw->second.strml[i].Mfeed[k]);
+                            v.push_back(itw->second.strml[i].lf_conc[k]);
+                            m.push_back(itw->second.strml[i].gw_mass[k]);
                         }
                     }
                 }
@@ -494,7 +494,7 @@ namespace MS{
         out_file.open(filename.c_str());
         out_file << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc";
         for (int i = 0; i < Nyears; ++i){
-            out_file << ", lf" << i+1;
+            out_file << ", lf_conc" << i+1;
         }
         out_file << std::endl;
 

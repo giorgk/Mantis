@@ -34,8 +34,10 @@ namespace MS{
         double s;
         double a;
         std::vector<double> urf;
-        std::vector<double> lf;
-        std::vector<double> Mfeed;
+        std::vector<double> lf_conc;
+        //std::vector<double> lf_mass;
+        std::vector<double> gw_mass;
+        //std::vector<double> gw_conc;
         std::vector<double> btc;
 
     };

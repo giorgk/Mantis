@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     std::ofstream dbg_file;
     if (UI.doDebug){
         dbg_file.open(UI.dbg_file.c_str());
-        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, Mfeed, c_swat, UNshift" << std::endl;
+        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_mass, c_swat, UNshift" << std::endl;
     }
 
 
@@ -246,7 +246,7 @@ int main(int argc, char* argv[]) {
                                     else{
                                         if (swat.perc_mm[iswat][hruidx] < 0.01){
                                             // How to modify concentration if perc is zero?
-                                            itw->second.strml[i].Mfeed.push_back(0.0);
+                                            itw->second.strml[i].gw_mass.push_back(0.0);
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else{
@@ -352,12 +352,12 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                itw->second.strml[i].Mfeed.push_back(Mfeed);
-                itw->second.strml[i].lf.push_back(c_swat);
+                itw->second.strml[i].gw_mass.push_back(Mfeed);
+                itw->second.strml[i].lf_conc.push_back(c_swat);
 
-                std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
-                std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
-                MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf, btc, prebtc, itw->second.initConc);
+                std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
+                std::vector<double> prebtc(itw->second.strml[i].lf_conc.size(), 0);
+                MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf_conc, btc, prebtc, itw->second.initConc);
 
 
                 for (unsigned int j = 0; j < btc.size(); ++j){
@@ -372,7 +372,7 @@ int main(int argc, char* argv[]) {
 
                 //if (printThis){
                 //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
-                //            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << Mfeed << ", "
+                //            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << gw_mass << ", "
                 //            << c_swat << ", " << shift << std::endl;
                 //}
             }// Loop streamlines
@@ -459,7 +459,7 @@ int main(int argc, char* argv[]) {
                                         }
                                     } else {
                                         if (swat.perc_mm[iswat][hruidx] < 0.01) {
-                                            itw->second.strml[i].Mfeed.push_back(0.0);
+                                            itw->second.strml[i].gw_mass.push_back(0.0);
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else {
@@ -562,8 +562,8 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 if (addThis){
-                    itw->second.strml[i].Mfeed.push_back(Mfeed);
-                    itw->second.strml[i].lf.push_back(c_swat);
+                    itw->second.strml[i].gw_mass.push_back(Mfeed);
+                    itw->second.strml[i].lf_conc.push_back(c_swat);
                 }
             }
         }
@@ -616,12 +616,12 @@ int main(int argc, char* argv[]) {
                 double sumW = 0;
                 int cntS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                    if (itw->second.strml[i].lf.size() == 0){
+                    if (itw->second.strml[i].lf_conc.size() == 0){
                         continue;
                     }
-                    std::vector<double> btc(itw->second.strml[i].lf.size(), 0);
-                    std::vector<double> prebtc(itw->second.strml[i].lf.size(), 0);
-                    MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf, btc, prebtc, itw->second.initConc);
+                    std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
+                    std::vector<double> prebtc(itw->second.strml[i].lf_conc.size(), 0);
+                    MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf_conc, btc, prebtc, itw->second.initConc);
                     //int shift = UZ.traveltime(itw->second.strml[i].IJ);
 
                     for (unsigned int j = 0; j < btc.size(); ++j){
