@@ -12,7 +12,12 @@
 #!*MAPS.mat
 #!*MantisServer.opt
 
-
+# "un-ignore the Local folder =========Local========
+!/docs
+#Now ignore all the content of the folder Local
+/docs/*
+#Un-ignore the source code
+!/docs/*.md
 
 # "un-ignore the Local folder =========Local========
 !/Local
