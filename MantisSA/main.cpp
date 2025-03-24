@@ -267,7 +267,10 @@ int main(int argc, char* argv[]) {
                                                     m_total = swat.irrsaltSW_kgha[iswat][hruidx] +
                                                               m_npsat +
                                                               swat.fertsalt_kgha[iswat][hruidx] +
-                                                              swat.dssl_kgha[iswat][hruidx] - swat.uptk_kgha[iswat][hruidx];
+                                                              swat.dssl_kgha[iswat][hruidx] -
+                                                              swat.Qsalt_kgha[iswat][hruidx] -
+                                                              swat.uptk_kgha[iswat][hruidx] -
+                                                              swat.dSoilSalt_kgha[iswat][hruidx];
                                                     m_total = m_total * swat.pGW[iswat][hruidx];
                                                     if (m_total < 0){
                                                         m_total = 0;
@@ -480,7 +483,10 @@ int main(int argc, char* argv[]) {
                                                     m_total = swat.irrsaltSW_kgha[iswat][hruidx] +
                                                               m_npsat +
                                                               swat.fertsalt_kgha[iswat][hruidx] +
-                                                              swat.dssl_kgha[iswat][hruidx] - swat.uptk_kgha[iswat][hruidx];
+                                                              swat.dssl_kgha[iswat][hruidx] -
+                                                              swat.Qsalt_kgha[iswat][hruidx] -
+                                                              swat.uptk_kgha[iswat][hruidx] -
+                                                              swat.dSoilSalt_kgha[iswat][hruidx];
                                                     m_total = m_total * swat.pGW[iswat][hruidx];
                                                     if (m_total < 0){
                                                         m_total = 0;

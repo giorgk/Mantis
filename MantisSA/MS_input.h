@@ -84,7 +84,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.24";
+        Version = "0.0.25";
     }
 
     bool UserInput::read(int argc, char **argv) {

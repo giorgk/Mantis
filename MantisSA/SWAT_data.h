@@ -49,8 +49,10 @@ namespace MS {
         std::vector<std::vector<double>> irrsaltGW_Kgha;
         std::vector<std::vector<double>> fertsalt_kgha;
         std::vector<std::vector<double>> dssl_kgha;
+        std::vector<std::vector<double>> Qsalt_kgha;
         std::vector<std::vector<double>> uptk_kgha;
         std::vector<std::vector<double>> pGW;
+        std::vector<std::vector<double>> dSoilSalt_kgha;
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
         std::vector<std::vector<double>> Salt_perc_ppm;
@@ -149,8 +151,10 @@ namespace MS {
             const std::string irrsaltGW_Kgha_NameSet("irrsaltGW_Kgha");
             const std::string fertsalt_kgha_NameSet("fertsalt_kgha");
             const std::string dssl_kgha_NameSet("dssl_kgha");
+            const std::string Qsalt_kgha_NameSet("Qsalt_kgha");
             const std::string uptk_kgha_NameSet("uptk_kgha");
             const std::string pGW_NameSet("pGW");
+            const std::string dSoilSalt_kgha_NameSet("dSoilSalt_kgha");
             //const std::string totpercsalt_kgha_NameSet("totpercsalt_kgha");
             const std::string perc_mm_NameSet("perc_mm");
             const std::string Salt_perc_ppm_NameSet("Salt_perc_ppm");
@@ -165,8 +169,10 @@ namespace MS {
             HighFive::DataSet dataset_irrsaltGW_Kgha = HDFNfile.getDataSet(irrsaltGW_Kgha_NameSet);
             HighFive::DataSet dataset_fertsalt_kgha = HDFNfile.getDataSet(fertsalt_kgha_NameSet);
             HighFive::DataSet dataset_dssl_kgha = HDFNfile.getDataSet(dssl_kgha_NameSet);
+            HighFive::DataSet dataset_Qsalt_kgha = HDFNfile.getDataSet(Qsalt_kgha_NameSet);
             HighFive::DataSet dataset_uptk_kgha = HDFNfile.getDataSet(uptk_kgha_NameSet);
             HighFive::DataSet dataset_pGW = HDFNfile.getDataSet(pGW_NameSet);
+            HighFive::DataSet dataset_dSoilSalt_kgha = HDFNfile.getDataSet(dSoilSalt_kgha_NameSet);
             //HighFive::DataSet dataset_totpercsalt_kgha = HDFNfile.getDataSet(totpercsalt_kgha_NameSet);
             HighFive::DataSet dataset_perc_mm = HDFNfile.getDataSet(perc_mm_NameSet);
             HighFive::DataSet dataset_Salt_perc_ppm = HDFNfile.getDataSet(Salt_perc_ppm_NameSet);
@@ -179,8 +185,10 @@ namespace MS {
             dataset_irrsaltGW_Kgha.read(irrsaltGW_Kgha);
             dataset_fertsalt_kgha.read(fertsalt_kgha);
             dataset_dssl_kgha.read(dssl_kgha);
+            dataset_Qsalt_kgha.read(Qsalt_kgha);
             dataset_uptk_kgha.read(uptk_kgha);
             dataset_pGW.read(pGW);
+            dataset_dSoilSalt_kgha.read(dSoilSalt_kgha);
             //dataset_totpercsalt_kgha.read(totpercsalt_kgha);
             dataset_perc_mm.read(perc_mm);
             dataset_Salt_perc_ppm.read(Salt_perc_ppm);
@@ -223,6 +231,10 @@ namespace MS {
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(dssl_kgha,world,0,10,34,40);}
 
+            tf = RootReadsMatrixFileDistrib<double>(filename + "Qsalt_kgha.dat", Qsalt_kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(Qsalt_kgha,world,0,10,34,40);}
+
             tf = RootReadsMatrixFileDistrib<double>(filename + "uptk_kgha.dat", uptk_kgha, NSwatYears, true, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(uptk_kgha,world,0,10,34,40);}
@@ -230,6 +242,10 @@ namespace MS {
             tf = RootReadsMatrixFileDistrib<double>(filename + "pGW.dat", pGW, NSwatYears, true, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(pGW,world,0,10,34,40);}
+
+            tf = RootReadsMatrixFileDistrib<double>(filename + "dSoilSalt_kgha.dat", dSoilSalt_kgha, NSwatYears, true, world);
+            if (!tf){ return false;}
+            if (PrintMatrices){printMatrixForAllProc(dSoilSalt_kgha,world,0,10,34,40);}
 
             //tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
             //if (!tf){ return false;}
