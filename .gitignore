@@ -20,6 +20,8 @@
 !/docs/*.md
 !/docs/*.jpeg
 !/docs/*.jpg
+!/docs/*.html
+!/docs/*.yml
 
 # "un-ignore the Local folder =========Local========
 !/Local
