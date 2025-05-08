@@ -73,6 +73,7 @@ namespace mantisServer{
         if (!path.empty()){
             filename = path + filename;
         }
+        std::cout << "Reading " << filename << std::endl;
         rchMainFile.open(filename);
         if (!rchMainFile.is_open()){
             std::cout << "Cant open file: " << filename << std::endl;
@@ -99,6 +100,9 @@ namespace mantisServer{
                 bool tf = rch.readData(scenarioFile,Nr);
                 if (tf){
                     RechargeList.insert(std::pair<std::string, RechargeScenario>(scenarioName, rch));
+                }
+                else{
+                    return false;
                 }
             }
         }

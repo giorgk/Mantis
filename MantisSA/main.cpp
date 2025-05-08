@@ -64,9 +64,10 @@ int main(int argc, char* argv[]) {
     }
 
 
-    std::vector<int> VIids, VDids;
-    if (!UI.SelectedWells_file.empty()){
-        MS::readSelectedWells(UI.SelectedWells_file, VIids, VDids, world);
+    //std::vector<int> VIids, VDids;
+    std::map<int,MS::SelectedWellsGroup> SWGmap;
+    if (!UI.SelectedWells_file.empty() && !UI.SelectedWellsGroupFile.empty()){
+        tf = MS::readSelectedWells(UI.SelectedWells_file, UI.SelectedWellsGroupFile, SWGmap, world);
     }
 
 
@@ -689,7 +690,7 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
         if (world.rank() == 0){
             std::cout << "Printing VI BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outfileVI,UI.NsimYears);
+            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outfile + "_VI.dat",UI.NsimYears);
         }
     }
 
@@ -701,91 +702,120 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
         if (world.rank() == 0){
             std::cout << "Printing VD BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfileVD,UI.NsimYears);
+            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfile + "_VD.dat",UI.NsimYears);
         }
     }
 
-    if (!VIids.empty()){ // Printing output for selected VI
+    //if (!VIids.empty()){ // Printing output for selected VI
         if (UI.printLoad){
             world.barrier();
-            std::vector<double> thisProcDATA;
-            std::vector<double> thisProcMfeed;
-            MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, VIids,UZ, hru_raster, swat, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            std::vector<std::vector<double>> AllProcMfeed;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VI Salt load data ..." << std::endl;
-                MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVIdetail,UI.NsimYears);
-                MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVImfeed,UI.NsimYears);
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                std::vector<double> thisProcMfeed;
+                MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, it->second.idVI ,UZ, hru_raster, swat, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                std::vector<std::vector<double>> AllProcMfeed;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VI Salt load data for " << it->second.groupName << "..." << std::endl;
+                    std::string lf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_lf.dat";
+                    std::string mf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_mf.dat";
+                    MS::printDetailOutputFromAllProc(AllProcDATA, lf_file_name, UI.NsimYears);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.NsimYears);
+                }
             }
         }
 
         if (UI.printURFs){
             world.barrier();
-            std::vector<double> thisProcDATA;
-            MS::linearizeURFS(VI, thisProcDATA, VIids,swat, hru_raster, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VI URFs ..." << std::endl;
-                MS::printURFsFromAllProc(AllProcDATA, UI.outfileVIurfs, UI.NsimYears);
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                MS::linearizeURFS(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VI URFs " << it->second.groupName << "..." << std::endl;
+                    std::string urf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_urf.dat";
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.NsimYears);
+                }
             }
         }
 
         if (UI.printBTCs){
             world.barrier();
-            std::vector<double> thisProcDATA;
-            MS::linearizeBTCs(VI, thisProcDATA, VIids,swat, hru_raster, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VI BTCs ..." << std::endl;
-                MS::printBTCssFromAllProc(AllProcDATA, UI.outfileVIbtcs, UI.NsimYears);
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                MS::linearizeBTCs(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VI BTCs " << it->second.groupName << "..." << std::endl;
+                    std::string btc_file_name = UI.outfile + "_" + it->second.groupName + "_VI_btc.dat";
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.NsimYears);
+                }
             }
         }
-    }
+    //}
 
-    if (!VDids.empty()){ // Printing detailed output for VD
+    //if (!VDids.empty()){ // Printing detailed output for VD
         if (UI.printLoad){
             world.barrier();
-            std::vector<double> thisProcDATA;
-            std::vector<double> thisProcMfeed;
-            MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, VDids,UZ, hru_raster, swat, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            std::vector<std::vector<double>> AllProcMfeed;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VD Salt Load data ..." << std::endl;
-                MS::printDetailOutputFromAllProc(AllProcDATA,UI.outfileVDdetail,UI.NsimYears);
-                MS::printMfeedFromAllProc(AllProcMfeed,UI.outfileVDmfeed,UI.NsimYears);
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                std::vector<double> thisProcMfeed;
+                MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, it->second.idVD, UZ, hru_raster, swat, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                std::vector<std::vector<double>> AllProcMfeed;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VD Salt load data for " << it->second.groupName << "..." << std::endl;
+                    std::string lf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_lf.dat";
+                    std::string mf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_mf.dat";
+                    MS::printDetailOutputFromAllProc(AllProcDATA,lf_file_name, UI.NsimYears);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.NsimYears);
+                }
             }
         }
+
         if (UI.printURFs){
-            std::vector<double> thisProcDATA;
-            MS::linearizeURFS(VD, thisProcDATA, VDids, swat, hru_raster, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VD URFs ..." << std::endl;
-                MS::printURFsFromAllProc(AllProcDATA, UI.outfileVDurfs, UI.NsimYears);
+            world.barrier();
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                MS::linearizeURFS(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VD URFs " << it->second.groupName << "..." << std::endl;
+                    std::string urf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_urf.dat";
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.NsimYears);
+                }
             }
         }
 
         if (UI.printBTCs){
             world.barrier();
-            std::vector<double> thisProcDATA;
-            MS::linearizeBTCs(VD, thisProcDATA, VDids,swat, hru_raster, UI.NsimYears);
-            std::vector<std::vector<double>> AllProcDATA;
-            MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
-            if (world.rank() == 0){
-                std::cout << "Printing VD BTCs ..." << std::endl;
-                MS::printBTCssFromAllProc(AllProcDATA, UI.outfileVDbtcs, UI.NsimYears);
+            std::map<int,MS::SelectedWellsGroup>::iterator it;
+            for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
+                std::vector<double> thisProcDATA;
+                MS::linearizeBTCs(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.NsimYears);
+                std::vector<std::vector<double>> AllProcDATA;
+                MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
+                if (world.rank() == 0){
+                    std::cout << "Printing VD BTCs " << it->second.groupName << "..." << std::endl;
+                    std::string btc_file_name = UI.outfile + "_" + it->second.groupName + "_VD_btc.dat";
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.NsimYears);
+                }
+
             }
         }
-    }
+    //}
 
     if (UI.doDebug){
         dbg_file.close();

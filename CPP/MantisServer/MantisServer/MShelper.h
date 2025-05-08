@@ -448,6 +448,7 @@ namespace mantisServer {
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
             try {
+                std::cout << "Reading " << filename << std::endl;
                 const std::string NamesNameSet("Names");
                 const std::string DataNameSet("Data");
                 HighFive::File HDFfile(filename, HighFive::File::ReadOnly);

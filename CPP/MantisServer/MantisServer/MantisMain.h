@@ -1220,7 +1220,10 @@ namespace mantisServer {
                 std::map<std::string, Region>::iterator it = RegionList.find(RegionName);
                 if (it != RegionList.end()){
                     std::cout << "||============= " << RegionName << " (" << filename << ") ============||" << std::endl;
-                    it->second.readRegionData(filename);
+                    bool tf = it->second.readRegionData(filename);
+                    if (!tf){
+                        return false;
+                    }
                 }
             }
         }

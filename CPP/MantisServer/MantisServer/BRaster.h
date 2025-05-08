@@ -61,14 +61,38 @@ namespace mantisServer{
             const std::string NameSet("Raster");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
-            dataset.read(raster);
+            std::vector<std::vector<int>> tmp_raster;
+            dataset.read(tmp_raster);
+            if (tmp_raster.size() == Ncols & tmp_raster[0].size() == Nrows){
+                raster = tmp_raster;
+                bHFread = true;
+            }
+            else if (tmp_raster.size() == 2 & tmp_raster[0].size() == Ncells){
+                raster.clear();
+                raster.resize(Nrows,std::vector<int>(Ncols,-1));
+                int r, c;
+                for (int i = 0; i < Ncells; ++i){
+                    r = tmp_raster[0][i];
+                    c = tmp_raster[1][i];c;
+                    if (r < Nrows && c < Ncols)
+                        raster[r][c] = i;
+                    else{
+                        std::cout << "I can't assign pixel (" << r << "," << c << ") in raster map" << std::endl;
+                    }
+                }
+                bHFread = false;
+            }
+            else{
+                std::cout << "The raster dimensions in the file " << filename << " do not agree with the raster dimensions in Raster options" << std::endl;
+            }
+            /*dataset.read(raster);
             if (raster.size() != Ncols){
                 std::cout << "The number of columns of the raster (" << raster.size() << ") is not equal to Ncols: " << Ncols << std::endl;
             }
             if (raster[0].size() != Nrows){
                 std::cout << "The number of rows of the raster (" << raster[0].size() << ") is not equal to Nrows: " << Nrows << std::endl;
-            }
-            bHFread = true;
+            }*/
+
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
             std::cout << "Read CV raster in " << elapsed.count() << " sec" << std::endl;

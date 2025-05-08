@@ -55,20 +55,21 @@ namespace MS {
         std::string depth_name;
         std::string rch_input_file;
         std::string SelectedWells_file;
+        std::string SelectedWellsGroupFile;
         std::string dbg_file;
 
         RasterOptions rasteroptions;
 
-        std::string outfileVI;
-        std::string outfileVD;
-        std::string outfileVIdetail;
-        std::string outfileVDdetail;
-        std::string outfileVImfeed;
-        std::string outfileVDmfeed;
-        std::string outfileVIurfs;
-        std::string outfileVDurfs;
-        std::string outfileVIbtcs;
-        std::string outfileVDbtcs;
+        std::string outfile;
+        //std::string outfileVD;
+        //std::string outfileVIdetail;
+        //std::string outfileVDdetail;
+        //std::string outfileVImfeed;
+        //std::string outfileVDmfeed;
+        //std::string outfileVIurfs;
+        //std::string outfileVDurfs;
+        //std::string outfileVIbtcs;
+        //std::string outfileVDbtcs;
         std::string Version;
         bool printURFs;
         bool printLoad;
@@ -84,7 +85,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.25";
+        Version = "0.0.26";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -163,7 +164,8 @@ namespace MS {
 
             ("Other.OutFile", po::value<std::string>(), "Output filename")
             ("Other.SelectedWells", po::value<std::string>(), "Selected wells for detailed output")
-            ("Other.NselectWells", po::value<int>(), "Number of Selected wells")
+            ("Other.SelectedWellsGroups", po::value<std::string>(), "A file with group Ids and names")
+            //("Other.NselectWells", po::value<int>(), "Number of Selected wells")
             ("Other.dbg_File", po::value<std::string>(), "Debugging output filename")
             ("Other.dbg_ids", po::value<int>(), "well ids for debugging")
             ("Other.PrintMatrices", po::value<int>(), "Print Matrices to test communication works")
@@ -259,22 +261,23 @@ namespace MS {
                 minDepth = vm_cfg["UNSAT.minDepth"].as<double>();
                 minRch = vm_cfg["UNSAT.minRch"].as<double>();
 
-                std::string mainOutfile = vm_cfg["Other.OutFile"].as<std::string>();
+                outfile = vm_cfg["Other.OutFile"].as<std::string>();
 
-                outfileVI = mainOutfile + "VI.dat";
-                outfileVD = mainOutfile + "VD.dat";
+                //outfileVI = mainOutfile + "VI.dat";
+                //outfileVD = mainOutfile + "VD.dat";
 
                 SelectedWells_file = vm_cfg["Other.SelectedWells"].as<std::string>();
+                SelectedWellsGroupFile = vm_cfg["Other.SelectedWellsGroups"].as<std::string>();
                 //nSelectWells = vm_cfg["Other.NselectWells"].as<int>();
 
-                outfileVIdetail = mainOutfile + "VI_lf.dat";
-                outfileVDdetail = mainOutfile + "VD_lf.dat";
-                outfileVImfeed = mainOutfile + "VI_mf.dat";
-                outfileVDmfeed = mainOutfile + "VD_mf.dat";
-                outfileVIurfs = mainOutfile + "VI_urf.dat";
-                outfileVDurfs = mainOutfile + "VD_urf.dat";
-                outfileVIbtcs = mainOutfile + "VI_btc.dat";
-                outfileVDbtcs = mainOutfile + "VD_btc.dat";
+                //outfileVIdetail = mainOutfile + "VI_lf.dat";
+                //outfileVDdetail = mainOutfile + "VD_lf.dat";
+                //outfileVImfeed = mainOutfile + "VI_mf.dat";
+                //outfileVDmfeed = mainOutfile + "VD_mf.dat";
+                //outfileVIurfs = mainOutfile + "VI_urf.dat";
+                //outfileVDurfs = mainOutfile + "VD_urf.dat";
+                //outfileVIbtcs = mainOutfile + "VI_btc.dat";
+                //outfileVDbtcs = mainOutfile + "VD_btc.dat";
                 dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
                 dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
                 PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;

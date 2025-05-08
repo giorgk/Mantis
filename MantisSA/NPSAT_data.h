@@ -538,24 +538,44 @@ namespace MS{
         out_file.close();
     }
 
-    void readSelectedWells(std::string filename, std::vector<int> &idsVI, std::vector<int> &idsVD,
+    bool readSelectedWells(std::string filename, std::string groupFilename,
+                           /*std::vector<int> &idsVI, std::vector<int> &idsVD,*/
+                           std::map<int,MS::SelectedWellsGroup> &SWGmap,
                            boost::mpi::communicator &world){
+
+        bool tf = readSelectedWellsGroupInfo(groupFilename, SWGmap);
+        if (!tf){
+            return false;
+        }
         std::vector<std::vector<int>> T;
-        bool tf = RootReadsMatrixFileDistrib<int>(filename,T,2, false,world);
+        tf = RootReadsMatrixFileDistrib<int>(filename,T,3, false,world);
+        if (!tf){
+            return false;
+        }
         if (PrintMatrices){
-            printMatrixForAllProc<int>(T, world, 910, 917, 0, 2);
+            printMatrixForAllProc<int>(T, world, 910, 917, 0, 3);
         }
         //bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
-        if (tf){
-            for (unsigned int i = 0; i < T.size(); ++i){
+
+        std::map<int,MS::SelectedWellsGroup>::iterator it;
+        for (unsigned int i = 0; i < T.size(); ++i){
+            it = SWGmap.find(T[i][2]);
+            if (it != SWGmap.end()){
                 if (T[i][0] == 1){
-                    idsVI.push_back(T[i][1]);
+                    //idsVI.push_back(T[i][1]);
+                    it->second.idVI.push_back(T[i][1]);
                 }
                 else if (T[i][0] == 2){
-                    idsVD.push_back(T[i][1]);
+                    //idsVD.push_back(T[i][1]);
+                    it->second.idVD.push_back(T[i][1]);
                 }
             }
+            else{
+                std::cout << "The group id " << T[i][2] << "of the well id " << T[i][1] << " of type "  << T[i][0] << " is not listed in the Groups file" << std::endl;
+                return false;
+            }
         }
+        return true;
     }
 }
 

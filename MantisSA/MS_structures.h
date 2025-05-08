@@ -8,7 +8,11 @@
 #include <fstream>
 namespace MS{
 
-
+    struct SelectedWellsGroup{
+        std::string groupName;
+        std::vector<int> idVI;
+        std::vector<int> idVD;
+    };
 
 
     struct RasterOptions {
@@ -95,6 +99,41 @@ namespace MS{
                 std::istringstream inp(line.c_str());
                 inp >> v;
                 data.push_back(v);
+            }
+            datafile.close();
+        }
+        return true;
+    }
+
+    bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map){
+        std::ifstream datafile(filename.c_str());
+        if (!datafile.good()) {
+            std::cout << "Can't open the file " << filename << std::endl;
+            return false;
+        }
+        else{
+            swg_map.clear();
+            std::cout << "Reading " << filename << std::endl;
+            std::string line;
+            while (getline(datafile, line)){
+                if (line.size() > 0){
+                    std::istringstream inp(line.c_str());
+                    std::string groupName;
+                    int groupId;
+                    inp >> groupId;
+                    inp >> groupName;
+                    std::map<int,SelectedWellsGroup>::iterator it;
+                    it = swg_map.find(groupId);
+                    if (it != swg_map.end()){
+                        std::cout << "Selected Wells Group with id " << groupId << " was found more than once" <<std::endl;
+                        return false;
+                    }
+                    else{
+                        SelectedWellsGroup swg;
+                        swg.groupName = groupName;
+                        swg_map.insert(std::pair<int, SelectedWellsGroup>(groupId, swg));
+                    }
+                }
             }
             datafile.close();
         }
