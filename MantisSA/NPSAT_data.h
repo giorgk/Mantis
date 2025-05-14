@@ -335,6 +335,7 @@ namespace MS{
                     if (hru_idx >= 0){
                         v.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid
                         m.push_back(static_cast<double>(itw->second.strml[i].Sid)); // Sid m
+                        m.push_back(static_cast<double>(itw->second.strml[i].wellSourceId)); // Well id that this well receives its applied water from
                         v.push_back(static_cast<double>(itw->second.strml[i].urfI)); // UrfI
                         v.push_back(static_cast<double>(itw->second.strml[i].urfJ)); // UrfJ
                         v.push_back(static_cast<double>(hru)); // hru
@@ -344,7 +345,7 @@ namespace MS{
                         v.push_back(UN.getSurfPerc(itw->second.strml[i].IJ)); // Surface percentage
                         for (int k = 0; k < Nyears; ++k) {
                             v.push_back(itw->second.strml[i].lf_conc[k]);
-                            m.push_back(itw->second.strml[i].gw_mass[k]);
+                            m.push_back(itw->second.strml[i].gw_conc[k]);
                         }
                     }
                 }
@@ -378,7 +379,7 @@ namespace MS{
         std::ofstream out_file;
         out_file.open(filename.c_str());
 
-        out_file << "Eid, Sid";
+        out_file << "Eid, Sid, Aid";
         for (int i = 0; i < Nyears; ++i){
             out_file << ", MF" << i+1;
         }
@@ -395,7 +396,9 @@ namespace MS{
                 for (int k = 0; k < Ns; ++k){
                     int sid = static_cast<int>(AllProcData[i][idx]);
                     idx = idx + 1;
-                    out_file << std::fixed << eid << ", " << sid;
+                    int aid = static_cast<int>(AllProcData[i][idx]);
+                    idx = idx + 1;
+                    out_file << std::fixed << eid << ", " << sid << ", " << aid;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
                         out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
                         idx = idx + 1;

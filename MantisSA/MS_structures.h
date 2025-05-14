@@ -37,10 +37,11 @@ namespace MS{
         double m;
         double s;
         double a;
+        int wellSourceId;
         std::vector<double> urf;
         std::vector<double> lf_conc;
         //std::vector<double> lf_mass;
-        std::vector<double> gw_mass;
+        std::vector<double> gw_conc;
         //std::vector<double> gw_conc;
         std::vector<double> btc;
 

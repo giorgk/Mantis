@@ -60,7 +60,7 @@ int main(int argc, char* argv[]) {
     std::ofstream dbg_file;
     if (UI.doDebug){
         dbg_file.open(UI.dbg_file.c_str());
-        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_mass, c_swat, UNshift" << std::endl;
+        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_conc, c_swat, UNshift" << std::endl;
     }
 
 
@@ -113,8 +113,8 @@ int main(int argc, char* argv[]) {
 
 
 
-    std::vector<std::vector<int>> Eid_proc;
-    sendWellEids(VI, Eid_proc, world);
+    //std::vector<std::vector<int>> Eid_proc;
+    //sendWellEids(VI, Eid_proc, world);
 
     if (UI.bUseInitConcVI) {
         tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI, world.rank());
@@ -131,6 +131,7 @@ int main(int argc, char* argv[]) {
     //std::cout << "Here1" << std::endl;
 
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
+    std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
     // Initialize Concentration from pumping with the initial concentration
     world.barrier();
 
@@ -141,6 +142,7 @@ int main(int argc, char* argv[]) {
         }
         std::vector<double> wellInitConc;
         for (itw = VI.begin(); itw != VI.end(); ++itw){
+            wellInitConc.push_back(static_cast<double>(itw->first));
             wellInitConc.push_back(itw->second.initConc);
         }
         std::vector<std::vector<double>> AllwellsInitConc(world.size());
@@ -149,11 +151,13 @@ int main(int argc, char* argv[]) {
         if (world.rank() == 0){
             MS::WELL_CELLS::iterator it; // well_cells
             for (int i = 0; i < world.size(); ++i){
-                for (int j = 0; j < static_cast<int>(AllwellsInitConc[i].size()); ++j){
-                    it = well_cells.find(Eid_proc[i][j]);
+                for (int j = 0; j < static_cast<int>(AllwellsInitConc[i].size()); j = j + 2){
+                    int eid = static_cast<int>(AllwellsInitConc[i][j]);
+                    it = well_cells.find(eid);
                     if (it != well_cells.end()){
                         for (int k = 0; k < it->second.size(); ++k){
-                            ConcFromPump[it->second[k]] = AllwellsInitConc[i][j];
+                            ConcFromPump[it->second[k]] = AllwellsInitConc[i][j+1];
+                            WellEidFromPump[it->second[k]] = eid;
                         }
                     }
                 }
@@ -162,6 +166,23 @@ int main(int argc, char* argv[]) {
         world.barrier();
         MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
         world.barrier();
+        MS::sendVectorFromRoot2AllProc(WellEidFromPump, world);
+        for (itw = VI.begin(); itw != VI.end(); ++itw){
+            for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
+                if (IJ >= 0){
+                    itw->second.strml[i].wellSourceId = WellEidFromPump[IJ];
+                }
+            }
+        }
+        for (itw = VD.begin(); itw != VD.end(); ++itw){
+            for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+                int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
+                if (IJ >= 0){
+                    itw->second.strml[i].wellSourceId = WellEidFromPump[IJ];
+                }
+            }
+        }
     }
     world.barrier();
 
@@ -247,7 +268,7 @@ int main(int argc, char* argv[]) {
                                     else{
                                         if (swat.perc_mm[iswat][hruidx] < 0.01){
                                             // How to modify concentration if perc is zero?
-                                            itw->second.strml[i].gw_mass.push_back(0.0);
+                                            itw->second.strml[i].gw_conc.push_back(0.0);
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else{
@@ -356,7 +377,7 @@ int main(int argc, char* argv[]) {
                     continue;
                 }
 
-                itw->second.strml[i].gw_mass.push_back(Mfeed);
+                itw->second.strml[i].gw_conc.push_back(Mfeed);
                 itw->second.strml[i].lf_conc.push_back(c_swat);
 
                 std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
@@ -376,7 +397,7 @@ int main(int argc, char* argv[]) {
 
                 //if (printThis){
                 //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
-                //            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << gw_mass << ", "
+                //            //<< gw_ratio << ", " << m_gw << ", " << v_gw << ", " << m_npsat << ", " << gw_conc << ", "
                 //            << c_swat << ", " << shift << std::endl;
                 //}
             }// Loop streamlines
@@ -400,6 +421,7 @@ int main(int argc, char* argv[]) {
                 }
             }
             else{
+                wellConc.push_back(static_cast<double>(itw->first));
                 wellConc.push_back(wellbtc.back()/sumW);
             }
             if (printThis){printThis = false;}
@@ -463,7 +485,7 @@ int main(int argc, char* argv[]) {
                                         }
                                     } else {
                                         if (swat.perc_mm[iswat][hruidx] < 0.01) {
-                                            itw->second.strml[i].gw_mass.push_back(0.0);
+                                            itw->second.strml[i].gw_conc.push_back(0.0);
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else {
@@ -569,7 +591,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 if (addThis){
-                    itw->second.strml[i].gw_mass.push_back(Mfeed);
+                    itw->second.strml[i].gw_conc.push_back(Mfeed);
                     itw->second.strml[i].lf_conc.push_back(c_swat);
                 }
             }
@@ -584,11 +606,12 @@ int main(int argc, char* argv[]) {
                 if (world.rank() == 0){
                     MS::WELL_CELLS::iterator it; // well_cells
                     for (int i = 0; i < world.size(); ++i){
-                        for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); ++j){
-                            it = well_cells.find(Eid_proc[i][j]);
+                        for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); j = j + 2){
+                            int eid = static_cast<int>(AllwellsConc[i][j]);
+                            it = well_cells.find(eid);
                             if (it != well_cells.end()){
                                 for (int k = 0; k < it->second.size(); ++k){
-                                    ConcFromPump[it->second[k]] = AllwellsConc[i][j];
+                                    ConcFromPump[it->second[k]] = AllwellsConc[i][j+1];
                                 }
                             }
                         }
