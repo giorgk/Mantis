@@ -1,12 +1,15 @@
-# Mantis overview
+# Mantis
 
-<table style="border: none;"> <tr> <td width="70%">
-Mantis (from Greek Μάντις, "seer") is a high-performance modeling server application designed to simulate and predict contaminant transport from diffuse pollution sources in groundwater basins. Like its namesake, Mantis acts as a modern oracle—transforming complex hydrological data into actionable insights for environmental forecasting. Built for scalability, it enables scientists and water managers to assess long-term impacts of non-point-source pollution across groundwater basins.
-
-</td> <td width="30%">
-<img src="MantisMain_final_640_cropped.png" alt="drawing" style="width:150px;"/>
-
-</td> </tr> </table>
+<table cellspacing="0" cellpadding="0" style="border-collapse: collapse;">
+  <tr>
+    <td width="70%" style="border: none; vertical-align: top;">
+      Mantis (from Greek Μάντις, "seer") is a high-performance modeling server application designed to simulate and predict contaminant transport from diffuse pollution sources in groundwater basins. Like its namesake, Mantis acts as a modern oracle—transforming complex hydrological data into actionable insights for environmental forecasting. Built for scalability, it enables scientists and water managers to assess long-term impacts of non-point-source pollution across groundwater basins.
+    </td>
+    <td width="30%" style="border: none; vertical-align: top;">
+      <img src="MantisMain_final_640_cropped.png" alt="drawing" style="width:150px;" />
+    </td>
+  </tr>
+</table>
 
 
 
