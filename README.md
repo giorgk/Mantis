@@ -25,10 +25,10 @@ The code is written in C++ and relies on libraries that are available for all ma
 * **Windows**: Pre-compiled executables are provided  
 * **Other OS**: Users will need to compile the code from source.
 
-Detailed instructions for obtaining and building the code can be found on the [page](page) 
+Detailed instructions for obtaining and building the code can be found on the [page](https://github.com/giorgk/Mantis/wiki/Building-Mantis) 
 
 # Getting Started
-Our [wiki](wiki) provides comprehensive documentation, including detailed guides on using Mantis.
+Our [wiki](https://github.com/giorgk/Mantis/wiki) provides comprehensive documentation, including detailed guides on using Mantis.
 
 # Who do I talk to
 The appropriate contact depends on your inquiry:
