@@ -7,6 +7,8 @@
 
 #include <fstream>
 #include <vector>
+#include <map>
+#include <boost/mpi.hpp>
 
 #if _USEHF > 0
 #include <highfive/H5DataSet.hpp>
@@ -37,7 +39,7 @@ namespace MS {
         bool read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
         bool read_v1(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
         bool read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world);
-        int hru_index(int HRU);
+        int hru_index(int HRU) const;
 
 
         //std::vector<SWAT_row> SWAT_TAB;
@@ -286,11 +288,11 @@ namespace MS {
         return true;
     }
 
-    int SWAT_data::hru_index(int HRU){
+    int SWAT_data::hru_index(int HRU) const{
         if (HRU < 0){
             return -9;
         }
-        std::map<int,int>::iterator it = hru_idx_map.find(HRU);
+        std::map<int,int>::const_iterator  it = hru_idx_map.find(HRU);
         if (it != hru_idx_map.end()){
             return it->second;
         }

@@ -25,12 +25,82 @@ namespace MS{
         std::string File;
     };
 
+    struct SwatOptions{
+        int Nyears;
+        int StartYear;
+        int version;
+        std::string HRU_raster_file;
+        std::string HRU_index_file;
+        std::string Data_file;
+    };
+
+    struct HistoricOptions{
+        int StartYear;
+        int EndYear;
+        int Interval;
+        int BlendStart;
+        int BlendEnd;
+        std::string filename;
+        std::string ext;
+
+    };
+
+    struct NpsatOptions{
+        bool bUseInitConcVI;
+        bool bUseInitConcVD;
+        int version;
+        std::string VIdataFile;
+        std::string VDdataFile;
+        std::string InitSaltVIFile;
+        std::string InitSaltVDFile;
+        std::string DistribuPumpFile;
+    };
+
+    struct RiverOptions{
+        double StartDist;
+        double EndDist;
+        double ConcValue;
+    };
+
+    struct SimOptions{
+        bool EnableFeedback;
+        bool OutofAreaUseInitConc;
+        int StartYear;
+        int Nyears;
+        int Porosity;
+        int nBuffer;
+        double MaxConc;
+        double MaxAge;
+        double SurfConcValue;
+        double OutofAreaConc;
+    };
+
+    struct UnsatOptions{
+        double wc;
+        double minDepth;
+        double minRch;
+        std::string Depth_file;
+        std::string Depth_name;
+        std::string Rch_file;
+    };
+
+    struct OutputOptions{
+        bool printLoad;
+        bool printURFs;
+        bool printBTCs;
+        bool printSelectedWells;
+        std::string OutFile;
+        std::string SelectedWells;
+        std::string SelectedWellGroups;
+    };
+
     struct STRML{
         int Sid;
         int urfI;
         int urfJ;
         int IJ;
         bool inRiv;
+        double rivRist;
         //int hru_idx;
         double W;
         double Len;
@@ -59,6 +129,7 @@ namespace MS{
         std::vector<int> urfI;
         std::vector<int> urfJ;
         std::vector<bool> inRiv;
+        std::vector<double> rivDist;
         std::vector<int> hru_idx;
         std::vector<double> W;
         std::vector<double> Len;
@@ -241,6 +312,85 @@ namespace MS{
             ifile.close();
         }
         return true;
+    }
+
+    double calcRiverInfluence(const double &dist, const RiverOptions &ropt){
+        double u = 1.0;
+        if (dist < ropt.StartDist){
+            u = 0.0;
+        }
+        else if (dist > ropt.EndDist){
+            u = 1.0;
+        }
+        else{
+            u = (dist - ropt.StartDist)/(ropt.EndDist - ropt.EndDist);
+        }
+        return u;
+    }
+
+    bool readNPSATinfo(std::string filename, std::vector<int> &M){
+        std::ifstream datafile(filename.c_str());
+        if (!datafile.good()){
+            std::cout << "Can't open the file " << filename << std::endl;
+            return false;
+        }
+        else{
+            std::cout << "Reading " << filename << std::endl;
+            std::string line, propname;
+            int count = 0;
+            int version;
+            std::vector<int> por_values, int_size, dbl_size, msa_size;
+            while (getline(datafile, line)){
+                std::istringstream inp(line);
+                inp >> propname;
+                if (propname.compare("Version") == 0){
+                    inp >> version;
+                    continue;
+                }
+                if (propname.compare("Por") == 0){
+                    int value;
+                    while (inp >> value) {
+                        por_values.push_back(value);
+                    }
+                    continue;
+                }
+                if (propname.compare("INT") == 0){
+                    int value;
+                    while (inp >> value) {
+                        int_size.push_back(value);
+                    }
+                    continue;
+                }
+                if (propname.compare("DBL") == 0){
+                    int value;
+                    while (inp >> value) {
+                        dbl_size.push_back(value);
+                    }
+                    continue;
+                }
+                if (propname.compare("MSA") == 0){
+                    int value;
+                    while (inp >> value) {
+                        msa_size.push_back(value);
+                    }
+                    continue;
+                }
+
+                count++;
+                if (count > 40){
+                    return false;
+                }
+            }
+            datafile.close();
+            M.push_back(version);
+            M.push_back(por_values.size());
+            M.insert(M.end(), por_values.begin(), por_values.end());
+            M.insert(M.end(), int_size.begin(), int_size.end());
+            M.insert(M.end(), dbl_size.begin(), dbl_size.end());
+            M.insert(M.end(), msa_size.begin(), msa_size.end());
+
+            return true;
+        }
     }
 
 }

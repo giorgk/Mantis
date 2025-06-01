@@ -12,6 +12,7 @@ bool PrintMatrices = false;
 #include "NPSAT_data.h"
 #include "MS_unsat.h"
 #include "MS_HRU_raster.h"
+#include "MS_loading.h"
 #include "MSdebug.h"
 
 
@@ -50,13 +51,6 @@ int main(int argc, char* argv[]) {
     world.barrier();
 
 
-    MS::HRU_Raster hru_raster;
-    tf = hru_raster.read(UI.HRU_raster_file, world);
-    if (!tf){
-        return 0;
-    }
-
-
     std::ofstream dbg_file;
     if (UI.doDebug){
         dbg_file.open(UI.dbg_file.c_str());
@@ -66,45 +60,67 @@ int main(int argc, char* argv[]) {
 
     //std::vector<int> VIids, VDids;
     std::map<int,MS::SelectedWellsGroup> SWGmap;
-    if (!UI.SelectedWells_file.empty() && !UI.SelectedWellsGroupFile.empty()){
-        tf = MS::readSelectedWells(UI.SelectedWells_file, UI.SelectedWellsGroupFile, SWGmap, world);
+    if (UI.outputOptions.printSelectedWells){
+        tf = MS::readSelectedWells(UI.outputOptions.SelectedWells, UI.outputOptions.SelectedWellGroups, SWGmap, world);
     }
 
 
     MS::BackgroundRaster backRaster;
-    tf = backRaster.readData(UI.rasteroptions.File,UI.rasteroptions.Nrows,UI.rasteroptions.Ncols,UI.rasteroptions.Ncells, world);
+    tf = backRaster.readData(UI.rasterOptions.File, UI.rasterOptions.Nrows, UI.rasterOptions.Ncols, UI.rasterOptions.Ncells, world);
     if (!tf){
         return 0;
     }
 
     MS::UNSAT UZ;
-    tf = UZ.readdata(UI.depth_input_file,UI.depth_name,UI.rch_input_file,
-                     UI.wc, UI.minDepth,UI.minRch, world);
+    tf = UZ.readdata(UI.unsatOptions.Depth_file, UI.unsatOptions.Depth_name, UI.unsatOptions.Rch_file,
+                     UI.unsatOptions.wc, UI.unsatOptions.minDepth,UI.unsatOptions.minRch, world);
     if (!tf){ return 0;}
 
     MS::WELLS VI;
     MS::WELLS VD;
     {
-        tf = MS::readNPSATdata(UI.npsat_VI_file, VI, UI.porosity, UI.NsimYears, backRaster, world);
+        tf = MS::readNPSATdata(UI.npsatOptions.VIdataFile, VI, UI.simOptions.Porosity, UI.simOptions.Nyears,
+                               UI.npsatOptions.version, backRaster, world);
         if (!tf){return 0;}
-        tf = MS::readNPSATdata(UI.npsat_VD_file, VD, UI.porosity, UI.NsimYears, backRaster, world);
+        tf = MS::readNPSATdata(UI.npsatOptions.VDdataFile, VD, UI.simOptions.Porosity, UI.simOptions.Nyears,
+                               UI.npsatOptions.version, backRaster, world);
         if (!tf){return 0;}
     }
 
+    MS::HRU_Raster hru_raster;
+    tf = hru_raster.read(UI.swatOptions.HRU_raster_file, world);
+    if (!tf){
+        return 0;
+    }
     MS::SWAT_data swat;
-    tf = swat.read_HRU_idx_Map(UI.hru_idx_file, world);
-    tf = swat.read(UI.swat_input_file, UI.NswatYears, UI.SWAT_data_version, world);
+    tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
+    if (!tf){
+        return 0;
+    }
+    tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.Nyears, UI.swatOptions.version, world);
     if (!tf){
         return 0;
     }
 
+    MS::HistoricLoading HIST;
+    if (!UI.historicOptions.filename.empty()){
+        tf = HIST.Setup(UI.historicOptions.StartYear,
+                       UI.historicOptions.EndYear,
+                       UI.historicOptions.Interval,
+                       UI.historicOptions.filename,
+                       UI.historicOptions.ext,
+                       world);
+        if (!tf){
+            return 0;
+        }
+    }
 
 
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
     MS::WELL_CELLS well_cells;
     if (world.rank() == 0){
-        bool tf = MS::readDistribPumping(UI.cell_well_file, well_cells);
+        bool tf = MS::readDistribPumping(UI.npsatOptions.DistribuPumpFile, well_cells);
         if (!tf){
             return 0;
         }
@@ -116,12 +132,12 @@ int main(int argc, char* argv[]) {
     //std::vector<std::vector<int>> Eid_proc;
     //sendWellEids(VI, Eid_proc, world);
 
-    if (UI.bUseInitConcVI) {
-        tf = MS::readInitSaltConc(UI.init_salt_VI_file, VI, world.rank());
+    if (UI.npsatOptions.bUseInitConcVI) {
+        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVIFile, VI, world.rank());
         if (!tf){return 0;}
     }
-    if (UI.bUseInitConcVD) {
-        tf = MS::readInitSaltConc(UI.init_salt_VD_file, VD, world.rank());
+    if (UI.npsatOptions.bUseInitConcVD) {
+        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVDFile, VD, world.rank());
         if (!tf){return 0;}
     }
 
@@ -136,7 +152,7 @@ int main(int argc, char* argv[]) {
     world.barrier();
 
     MS::WELLS ::iterator itw;
-    if (UI.EnableFeedback){
+    if (UI.simOptions.EnableFeedback){
         if (world.rank() == 0){
             std::cout << "Initialize Pumping distribution matrix..." << std::endl;
         }
@@ -195,7 +211,8 @@ int main(int argc, char* argv[]) {
     //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
     int iswat = 0;
-    for (int iyr = 0; iyr < UI.NsimYears; ++iyr){
+    int YYYY = UI.simOptions.StartYear;
+    for (int iyr = 0; iyr < UI.simOptions.Nyears; ++iyr){
         //std::cout << "Here1" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> wellConc;
@@ -212,38 +229,62 @@ int main(int argc, char* argv[]) {
             double sumW = 0;
             int cntS = 0;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+
+
                 //std::cout << i << " " << std::flush;
                 //Calculate the C_SWAT
-                double c_swat = 0.0;
+                double c_tot = 0.0;
+                double c_gw = 0.0;
+                double c_fut = 0.0;
+
+                MS::CreateLoadingForStreamline(c_fut, c_gw, iyr, iswat,
+                                               itw->second.strml[i], UI, itw->second.initConc,
+                                               backRaster, UZ, hru_raster, swat,
+                                               ConcFromPump);
+
+                if (YYYY < UI.historicOptions.BlendEnd){
+                    int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
+                    if (IJ >= 0){
+                        double c_hist = HIST.calculateConc(IJ, YYYY, world);
+                        double u = 0.0;
+                        MS::BlendLoading(c_tot, u, UI.historicOptions, c_hist, c_fut, YYYY);
+                        c_gw = c_gw * u;
+                    }
+                }
+                else{
+                    c_tot = c_fut;
+                }
+
+                /*
                 int hruidx = -9;
                 double Mfeed = 0.0;
                 bool addThis = false;
 
                 if (itw->second.strml[i].inRiv){
-                    c_swat = UI.riverConcValue;
+                    c_swat = UI.riverOptions.ConcValue;
                     addThis = true;
                 }
-                else if (itw->second.strml[i].a > UI.maxAge){
+                else if (itw->second.strml[i].a > UI.simOptions.MaxAge){
                     c_swat = itw->second.initConc;
                     addThis = true;
                 }
                 else{
                     double n_cswat = 0.0;
-                    for (int ii = itw->second.strml[i].urfI - UI.nBuffer; ii <= itw->second.strml[i].urfI + UI.nBuffer; ++ii){
-                        for(int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj){
+                    for (int ii = itw->second.strml[i].urfI - UI.simOptions.nBuffer; ii <= itw->second.strml[i].urfI + UI.simOptions.nBuffer; ++ii){
+                        for(int jj = itw->second.strml[i].urfJ - UI.simOptions.nBuffer; jj <= itw->second.strml[i].urfJ + UI.simOptions.nBuffer; ++jj){
                             double cell_cswat = 0.0;
                             double cell_mfeed = 0.0;
                             double cell_cgw = 0.0;
                             int IJ = backRaster.IJ(ii, jj);
                             if (IJ < 0){
-                                if (UI.bUseInitConc4OutofArea){
+                                if (UI.simOptions.OutofAreaUseInitConc){
                                     cell_cswat = itw->second.initConc;
                                 }
-                                else if (UI.OutofAreaConc < 0){
+                                else if (UI.simOptions.OutofAreaConc < 0){
                                     continue;
                                 }
                                 else{
-                                    cell_cswat = UI.OutofAreaConc;
+                                    cell_cswat = UI.simOptions.OutofAreaConc;
                                 }
                             }
                             else{
@@ -255,14 +296,14 @@ int main(int argc, char* argv[]) {
                                     int hru = hru_raster.getHRU(IJ);
                                     hruidx = swat.hru_index(hru);
                                     if (hruidx < 0){
-                                        if (UI.bUseInitConc4OutofArea){
+                                        if (UI.simOptions.OutofAreaUseInitConc){
                                             cell_cswat = itw->second.initConc;
                                         }
-                                        else if (UI.OutofAreaConc < 0){
+                                        else if (UI.simOptions.OutofAreaConc < 0){
                                             continue;
                                         }
                                         else{
-                                            cell_cswat = UI.OutofAreaConc;
+                                            cell_cswat = UI.simOptions.OutofAreaConc;
                                         }
                                     }
                                     else{
@@ -272,8 +313,8 @@ int main(int argc, char* argv[]) {
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else{
-                                            if (UI.SWAT_data_version == 1){// Version 1 of Feedback loop
-                                                if (UI.EnableFeedback == false) {
+                                            if (UI.swatOptions.version == 1){// Version 1 of Feedback loop
+                                                if (UI.simOptions.EnableFeedback == false) {
                                                     cell_cgw = 0.0;
                                                     cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                                 }
@@ -323,7 +364,7 @@ int main(int argc, char* argv[]) {
 
 
                                             }
-                                            else if (UI.SWAT_data_version == 0){
+                                            else if (UI.swatOptions.version == 0){
                                                 // Calculate the ratio of groundwater to the total
                                                 double gw_ratio = 0.0;
                                                 if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
@@ -342,7 +383,7 @@ int main(int argc, char* argv[]) {
                                                 if (cell_mfeed < 0) {
                                                     cell_mfeed = 0.0;
                                                 }
-                                                if (UI.EnableFeedback == false) {
+                                                if (UI.simOptions.EnableFeedback == false) {
                                                     cell_mfeed = 0.0;
                                                 }
 
@@ -350,10 +391,10 @@ int main(int argc, char* argv[]) {
                                             }
                                         }
                                     }
-                                    if (UI.SurfConcValue > 0){
+                                    if (UI.simOptions.SurfConcValue > 0){
                                         double surf_perc = UZ.getSurfPerc(IJ);
                                         if (surf_perc > 0){
-                                            cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.SurfConcValue;
+                                            cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.simOptions.SurfConcValue;
                                         }
                                     }
                                 }
@@ -368,17 +409,18 @@ int main(int argc, char* argv[]) {
                     c_swat = c_swat / n_cswat;
                     Mfeed = Mfeed / n_cswat;
 
-                    if (c_swat > UI.maxConc){
-                        c_swat = UI.maxConc;
+                    if (c_swat > UI.simOptions.MaxConc){
+                        c_swat = UI.simOptions.MaxConc;
                     }
-
                 }
                 if (!addThis){
                     continue;
                 }
 
-                itw->second.strml[i].gw_conc.push_back(Mfeed);
-                itw->second.strml[i].lf_conc.push_back(c_swat);
+                */
+
+                itw->second.strml[i].gw_conc.push_back(c_gw);
+                itw->second.strml[i].lf_conc.push_back(c_tot);
 
                 std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
                 std::vector<double> prebtc(itw->second.strml[i].lf_conc.size(), 0);
@@ -387,7 +429,7 @@ int main(int argc, char* argv[]) {
 
                 for (unsigned int j = 0; j < btc.size(); ++j){
                     wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j] + prebtc[j]);
-                    if (iyr == UI.NsimYears-1){
+                    if (iyr == UI.simOptions.Nyears-1){
                         itw->second.strml[i].btc.push_back(btc[j] + prebtc[j]);
                     }
                 }
@@ -403,7 +445,7 @@ int main(int argc, char* argv[]) {
             }// Loop streamlines
 
             if (cntS == 0){
-                if (iyr == UI.NsimYears-1 && UI.OutofAreaConc < 0){
+                if (iyr == UI.simOptions.Nyears - 1 && UI.simOptions.OutofAreaConc < 0){
                     // if we ignore out of area streamlines we have to ignore the wells
                     // with streamlines that originate from outside. To avoid breaking the printing procedures
                     // we will print -9
@@ -415,7 +457,7 @@ int main(int argc, char* argv[]) {
             }
 
             //std::cout << std::endl;
-            if (iyr == UI.NsimYears-1){
+            if (iyr == UI.simOptions.Nyears - 1){
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
                     itw->second.wellBtc.push_back(wellbtc[i] / sumW);
                 }
@@ -425,8 +467,6 @@ int main(int argc, char* argv[]) {
                 wellConc.push_back(wellbtc.back()/sumW);
             }
             if (printThis){printThis = false;}
-
-
         }// Loop wells
 
         // Go through the domestic wells but built only this year concentration
@@ -439,30 +479,30 @@ int main(int argc, char* argv[]) {
                 bool addThis = false;
 
                 if (itw->second.strml[i].inRiv){
-                    c_swat = UI.riverConcValue;
+                    c_swat = UI.riverOptions.ConcValue;
                     addThis = true;
                 }
-                else if(itw->second.strml[i].a > UI.maxAge){
+                else if(itw->second.strml[i].a > UI.simOptions.MaxAge){
                     c_swat = itw->second.initConc;
                     addThis = true;
                 }
                 else {
                     double n_cswat = 0.0;
-                    for (int ii = itw->second.strml[i].urfI - UI.nBuffer; ii <= itw->second.strml[i].urfI + UI.nBuffer; ++ii) {
-                        for (int jj = itw->second.strml[i].urfJ - UI.nBuffer; jj <= itw->second.strml[i].urfJ + UI.nBuffer; ++jj) {
+                    for (int ii = itw->second.strml[i].urfI - UI.simOptions.nBuffer; ii <= itw->second.strml[i].urfI + UI.simOptions.nBuffer; ++ii) {
+                        for (int jj = itw->second.strml[i].urfJ - UI.simOptions.nBuffer; jj <= itw->second.strml[i].urfJ + UI.simOptions.nBuffer; ++jj) {
                             double cell_cswat = 0.0;
                             double cell_mfeed = 0.0;
                             double cell_cgw = 0.0;
                             int IJ = backRaster.IJ(ii, jj);
                             if (IJ < 0) {
-                                if (UI.bUseInitConc4OutofArea){
+                                if (UI.simOptions.OutofAreaUseInitConc){
                                     cell_cswat = itw->second.initConc;
                                 }
-                                else if (UI.OutofAreaConc < 0){
+                                else if (UI.simOptions.OutofAreaConc < 0){
                                     continue;
                                 }
                                 else{
-                                    cell_cswat = UI.OutofAreaConc;
+                                    cell_cswat = UI.simOptions.OutofAreaConc;
                                 }
                             }
                             else{
@@ -474,14 +514,14 @@ int main(int argc, char* argv[]) {
                                     int hru = hru_raster.getHRU(IJ);
                                     hruidx = swat.hru_index(hru);
                                     if (hruidx < 0) {
-                                        if (UI.bUseInitConc4OutofArea){
+                                        if (UI.simOptions.OutofAreaUseInitConc){
                                             cell_cswat = itw->second.initConc;
                                         }
-                                        else if (UI.OutofAreaConc < 0) {
+                                        else if (UI.simOptions.OutofAreaConc < 0) {
                                             continue;
                                         }
                                         else {
-                                            cell_cswat = UI.OutofAreaConc;
+                                            cell_cswat = UI.simOptions.OutofAreaConc;
                                         }
                                     } else {
                                         if (swat.perc_mm[iswat][hruidx] < 0.01) {
@@ -489,8 +529,8 @@ int main(int argc, char* argv[]) {
                                             cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                         }
                                         else {
-                                            if (UI.SWAT_data_version == 1) {// Version 1 of Feedback loop
-                                                if (UI.EnableFeedback == false) {
+                                            if (UI.swatOptions.version == 1) {// Version 1 of Feedback loop
+                                                if (UI.simOptions.EnableFeedback == false) {
                                                     cell_cgw = 0.0;
                                                     cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
                                                 }
@@ -537,7 +577,7 @@ int main(int argc, char* argv[]) {
                                                     cell_cswat = m_total * 100 / swat.perc_mm[iswat][hruidx];
                                                 }
                                             }
-                                            else if (UI.SWAT_data_version == 0){
+                                            else if (UI.swatOptions.version == 0){
                                                 // Calculate the ratio of groundwater to the total
                                                 double gw_ratio = 0.0;
                                                 if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) >
@@ -558,7 +598,7 @@ int main(int argc, char* argv[]) {
                                                 if (cell_mfeed < 0) {
                                                     cell_mfeed = 0.0;
                                                 }
-                                                if (UI.EnableFeedback == false) {
+                                                if (UI.simOptions.EnableFeedback == false) {
                                                     cell_mfeed = 0.0;
                                                 }
                                                 cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 /
@@ -567,10 +607,16 @@ int main(int argc, char* argv[]) {
 
                                         }
                                     }
-                                    if (UI.SurfConcValue > 0) {
+
+                                    if (UI.npsatOptions.version == 1){
+                                        double u = MS::calcRiverInfluence(itw->second.strml[i].rivRist, UI.riverOptions);
+                                        cell_cswat = u * cell_cswat + (1-u) * UI.riverOptions.ConcValue;
+                                    }
+
+                                    if (UI.simOptions.SurfConcValue > 0) {
                                         double surf_perc = UZ.getSurfPerc(IJ);
                                         if (surf_perc > 0) {
-                                            cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.SurfConcValue;
+                                            cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.simOptions.SurfConcValue;
                                         }
                                     }
                                 }
@@ -586,8 +632,8 @@ int main(int argc, char* argv[]) {
                     c_swat = c_swat / n_cswat;
                     Mfeed = Mfeed / n_cswat;
 
-                    if (c_swat > UI.maxConc) {
-                        c_swat = UI.maxConc;
+                    if (c_swat > UI.simOptions.MaxConc) {
+                        c_swat = UI.simOptions.MaxConc;
                     }
                 }
                 if (addThis){
@@ -598,8 +644,8 @@ int main(int argc, char* argv[]) {
         }
 
         // Send this year pumped concentration to root processor
-        if (iyr < UI.NsimYears-1){
-            if (UI.EnableFeedback) {
+        if (iyr < UI.simOptions.Nyears-1){
+            if (UI.simOptions.EnableFeedback) {
                 std::vector<std::vector<double>> AllwellsConc(world.size());
                 MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
                 // Put the well concentrations in the right cells
@@ -642,7 +688,7 @@ int main(int argc, char* argv[]) {
             }
             world.barrier();
             for (itw = VD.begin(); itw != VD.end(); ++itw){
-                std::vector<double> wellbtc(UI.NsimYears, 0.0);
+                std::vector<double> wellbtc(UI.simOptions.Nyears, 0.0);
                 double sumW = 0;
                 int cntS = 0;
                 for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
@@ -662,7 +708,7 @@ int main(int argc, char* argv[]) {
                     cntS = cntS + 1;
                 }
                 if (cntS == 0){
-                    if (iyr == UI.NsimYears-1 && UI.OutofAreaConc < 0){
+                    if (iyr == UI.simOptions.Nyears-1 && UI.simOptions.OutofAreaConc < 0){
                         // if we ignore out of area streamlines we have to ignore the wells
                         // with streamlines that originate from outside. To avoid breaking the printing procedures
                         // we will print -9
@@ -685,7 +731,7 @@ int main(int argc, char* argv[]) {
 
         }
         iswat = iswat + 1;
-        if (iswat >= UI.NswatYears){
+        if (iswat >= UI.simOptions.Nyears){
             iswat = 0;
         }
     }
@@ -695,7 +741,7 @@ int main(int argc, char* argv[]) {
     auto finishTotal = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedTotal = finishTotal - startTotal;
     if (world.rank() == 0){
-        std::cout << "Total simulation for " << UI.NsimYears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
+        std::cout << "Total simulation for " << UI.simOptions.Nyears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
     }
 
     //{
@@ -713,7 +759,7 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
         if (world.rank() == 0){
             std::cout << "Printing VI BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outfile + "_VI.dat",UI.NsimYears);
+            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outputOptions.OutFile + "_VI.dat", UI.simOptions.Nyears);
         }
     }
 
@@ -725,115 +771,115 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
         if (world.rank() == 0){
             std::cout << "Printing VD BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outfile + "_VD.dat",UI.NsimYears);
+            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outputOptions.OutFile + "_VD.dat",UI.simOptions.Nyears);
         }
     }
 
     //if (!VIids.empty()){ // Printing output for selected VI
-        if (UI.printLoad){
+        if (UI.outputOptions.printLoad){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
                 std::vector<double> thisProcMfeed;
-                MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, it->second.idVI ,UZ, hru_raster, swat, UI.NsimYears);
+                MS::BundleDetailData(VI, thisProcDATA, thisProcMfeed, it->second.idVI ,UZ, hru_raster, swat, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 std::vector<std::vector<double>> AllProcMfeed;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI Salt load data for " << it->second.groupName << "..." << std::endl;
-                    std::string lf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_lf.dat";
-                    std::string mf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_mf.dat";
-                    MS::printDetailOutputFromAllProc(AllProcDATA, lf_file_name, UI.NsimYears);
-                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.NsimYears);
+                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_lf.dat";
+                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_mf.dat";
+                    MS::printDetailOutputFromAllProc(AllProcDATA, lf_file_name, UI.simOptions.Nyears);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears);
                 }
             }
         }
 
-        if (UI.printURFs){
+        if (UI.outputOptions.printURFs){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
-                MS::linearizeURFS(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.NsimYears);
+                MS::linearizeURFS(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI URFs " << it->second.groupName << "..." << std::endl;
-                    std::string urf_file_name = UI.outfile + "_" + it->second.groupName + "_VI_urf.dat";
-                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.NsimYears);
+                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_urf.dat";
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears);
                 }
             }
         }
 
-        if (UI.printBTCs){
+        if (UI.outputOptions.printBTCs){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
-                MS::linearizeBTCs(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.NsimYears);
+                MS::linearizeBTCs(VI, thisProcDATA, it->second.idVI, swat, hru_raster, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI BTCs " << it->second.groupName << "..." << std::endl;
-                    std::string btc_file_name = UI.outfile + "_" + it->second.groupName + "_VI_btc.dat";
-                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.NsimYears);
+                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_btc.dat";
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears);
                 }
             }
         }
     //}
 
     //if (!VDids.empty()){ // Printing detailed output for VD
-        if (UI.printLoad){
+        if (UI.outputOptions.printLoad){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
                 std::vector<double> thisProcMfeed;
-                MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, it->second.idVD, UZ, hru_raster, swat, UI.NsimYears);
+                MS::BundleDetailData(VD, thisProcDATA, thisProcMfeed, it->second.idVD, UZ, hru_raster, swat, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 std::vector<std::vector<double>> AllProcMfeed;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD Salt load data for " << it->second.groupName << "..." << std::endl;
-                    std::string lf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_lf.dat";
-                    std::string mf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_mf.dat";
-                    MS::printDetailOutputFromAllProc(AllProcDATA,lf_file_name, UI.NsimYears);
-                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.NsimYears);
+                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_lf.dat";
+                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_mf.dat";
+                    MS::printDetailOutputFromAllProc(AllProcDATA,lf_file_name, UI.simOptions.Nyears);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears);
                 }
             }
         }
 
-        if (UI.printURFs){
+        if (UI.outputOptions.printURFs){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
-                MS::linearizeURFS(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.NsimYears);
+                MS::linearizeURFS(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD URFs " << it->second.groupName << "..." << std::endl;
-                    std::string urf_file_name = UI.outfile + "_" + it->second.groupName + "_VD_urf.dat";
-                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.NsimYears);
+                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_urf.dat";
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears);
                 }
             }
         }
 
-        if (UI.printBTCs){
+        if (UI.outputOptions.printBTCs){
             world.barrier();
             std::map<int,MS::SelectedWellsGroup>::iterator it;
             for (it = SWGmap.begin(); it != SWGmap.end(); ++it){
                 std::vector<double> thisProcDATA;
-                MS::linearizeBTCs(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.NsimYears);
+                MS::linearizeBTCs(VD, thisProcDATA, it->second.idVD, swat, hru_raster, UI.simOptions.Nyears);
                 std::vector<std::vector<double>> AllProcDATA;
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD BTCs " << it->second.groupName << "..." << std::endl;
-                    std::string btc_file_name = UI.outfile + "_" + it->second.groupName + "_VD_btc.dat";
-                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.NsimYears);
+                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_btc.dat";
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears);
                 }
 
             }

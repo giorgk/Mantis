@@ -18,7 +18,7 @@ namespace MS{
     public:
         BackgroundRaster(){}
         bool readData(std::string filename, int Nr, int Nc, int Ncells, boost::mpi::communicator &world);
-        int IJ(int row, int col);
+        int IJ(int row, int col) const;
         int linear_index(int row, int col);
         int Nr(){return Nrows;}
         int Nc(){return Ncols;}
@@ -95,7 +95,7 @@ namespace MS{
         }
     }
 
-    int BackgroundRaster::IJ(int row, int col) {
+    int BackgroundRaster::IJ(int row, int col) const {
         if (row >=0 && col >=0 && row < Nrows && col < Ncols) {
                 return raster[col][row];
         }

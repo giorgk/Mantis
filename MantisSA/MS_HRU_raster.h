@@ -13,7 +13,7 @@ namespace MS{
     public:
         HRU_Raster(){}
         bool read(std::string filename, boost::mpi::communicator &world);
-        int getHRU(int IJ);
+        int getHRU(int IJ) const;
     private:
         std::vector<int> hrus;
         int Ncells;
@@ -43,7 +43,7 @@ namespace MS{
 
     }
 
-    int HRU_Raster::getHRU(int IJ) {
+    int HRU_Raster::getHRU(int IJ) const {
         if (IJ < 0 || IJ >= Ncells ){
             return -9;
         }

@@ -219,6 +219,27 @@ namespace MS{
         }
     }
 
+    bool RootReadsNPSATinfo(std::string filename, std::vector<int> &V, boost::mpi::communicator &world){
+        int readSuccess = 0;
+        V.clear();
+        world.barrier();
+        if (world.rank() == 0){
+            bool tf = readNPSATinfo(filename, V);
+            readSuccess = static_cast<int>(tf);
+        }
+        world.barrier(); //Wait for the root processor to read_v0
+
+        // Check if reading was successful
+        sendScalarFromRoot2AllProc<int>(readSuccess, world);
+        if (readSuccess == 0){
+            return false;
+        }
+        else{
+            sendVectorFromRoot2AllProc(V,world);
+            return true;
+        }
+    }
+
 
 }
 

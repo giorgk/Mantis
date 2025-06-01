@@ -19,12 +19,14 @@
 namespace MS{
 
 
-    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, BackgroundRaster& braster,
+    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, int ver, BackgroundRaster& braster,
                        boost::mpi::communicator &world){
         std::string ext = getExtension(filename);
         std::vector<std::vector<int>> ints;
         std::vector<std::vector<double>> dbls;
         std::vector<std::vector<double>> msas;
+        std::vector<int> version;
+        std::vector<double> porosities;
 
         if (ext.compare("h5") == 0) {
 #if _USEHF > 0
@@ -34,33 +36,62 @@ namespace MS{
             const std::string INT_NameSet("INT");
             const std::string DBL_NameSet("DBL");
             const std::string MSA_NameSet("MSA");
+            const std::string VER_NameSet("Version");
+            const std::string POR_NameSet("Por");
 
             HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
 
             HighFive::DataSet dataset_INT = HDFNfile.getDataSet(INT_NameSet);
             HighFive::DataSet dataset_DBL = HDFNfile.getDataSet(DBL_NameSet);
             HighFive::DataSet dataset_MSA = HDFNfile.getDataSet(MSA_NameSet);
+            HighFive::DataSet dataset_VER = HDFNfile.getDataSet(VER_NameSet);
+            HighFive::DataSet dataset_POR = HDFNfile.getDataSet(POR_NameSet);
 
             dataset_INT.read(ints);
             dataset_DBL.read(dbls);
             dataset_MSA.read(msas);
+            dataset_VER.read(version);
+            dataset_POR.read(porosities);
 #endif
         }
         else {
-            int intNumCol= 5;
-            int dblNumCol = 2;
-            int msaNumCol = 18;
-            bool tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, intNumCol, true, world, 500000);
+            std::vector<int> info;
+            bool tf = RootReadsNPSATinfo(filename + "info.dat", info, world);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dblNumCol, true, world, 500000);
+            if (info.size() < 2){
+                std::cout << filename + "info.dat should contain version, porosity and the int, dbl, msa matrices size" << std::endl;
+                return false;
+            }
+            int idx = info[1] + 2;
+            if (info.size() < idx+5){
+                std::cout << filename + "info.dat should contain version, porosity and the int, dbl, msa matrices size" << std::endl;
+                return false;
+            }
+            version.push_back(info[0]);
+            for (int i = 0; i < info[1]; ++i){
+                porosities.push_back(info[i + 1]);
+            }
+            std::vector<int> int_size;
+            std::vector<int> dbl_size;
+            std::vector<int> msa_size;
+            int_size.push_back(info[idx]);
+            int_size.push_back(info[idx+1]);
+            dbl_size.push_back(info[idx+2]);
+            dbl_size.push_back(info[idx+3]);
+            msa_size.push_back(info[idx+4]);
+            msa_size.push_back(info[idx+5]);
+
+            tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, int_size[1], true, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msaNumCol, true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dbl_size[1], true, world, 500000);
+            if (!tf){return false;}
+            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msa_size[1], true, world, 500000);
             if (!tf){return false;}
 
             if (PrintMatrices){
-                printMatrixForAllProc<int>(ints, world, 0, intNumCol, 0, 10);
-                printMatrixForAllProc<double>(dbls, world, 0, dblNumCol, 0, 10);
-                printMatrixForAllProc<double>(msas, world, 0, msaNumCol, 0, 10);
+                printMatrixForAllProc<int>(ints, world, 0, int_size[1], 0, 10);
+                printMatrixForAllProc<double>(dbls, world, 0, dbl_size[1], 0, 10);
+                printMatrixForAllProc<double>(msas, world, 0, msa_size[1], 0, 10);
             }
             //return false;
 
@@ -69,8 +100,16 @@ namespace MS{
         if (world.rank() == 0){
             std::cout << "Assembling NPSAT urf data ..." << std::endl;
         }
+        int por_idx;
+        {// find porosity index
+            for (int i = 0; i < porosities.size(); ++i){
+                if (porosities[i] == por){
+                    por_idx = i;
+                }
+            }
+        }
 
-        int por_idx = 3*(por-1);
+        por_idx = 3*(por_idx-1);
         WELLS::iterator itw = wells.end();
         std::pair<WELLS::iterator,bool> ret;
 
@@ -105,10 +144,15 @@ namespace MS{
             itwtmp->second.Sid.push_back(ints[1][i]);
             itwtmp->second.urfI.push_back(ints[2][i]);
             itwtmp->second.urfJ.push_back(ints[3][i]);
-            itwtmp->second.inRiv.push_back(ints[4][i] == 1);
+            if (ver == 0){
+                itwtmp->second.inRiv.push_back(ints[4][i] == 1);
+            }
             //itwtmp->second.hru_idx.push_back(ints[4][i]);
             itwtmp->second.W.push_back(dbls[0][i]);
             itwtmp->second.Len.push_back(dbls[1][i]);
+            if (ver == 1){
+                itwtmp->second.rivDist.push_back(dbls[2][i]);
+            }
             itwtmp->second.m.push_back(msas[por_idx][i]);
             itwtmp->second.s.push_back(msas[por_idx+1][i]);
             itwtmp->second.a.push_back(msas[por_idx+2][i]);
@@ -133,7 +177,13 @@ namespace MS{
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
-                s.inRiv = itwtmp->second.inRiv[i];
+                if (ver == 0){
+                    s.inRiv = itwtmp->second.inRiv[i];
+                }
+                if (ver == 1){
+                    s.rivRist = itwtmp->second.rivDist[i];
+                    s.inRiv = false;
+                }
                 //s.hru_idx = itwtmp->second.hru_idx[i];
                 s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
                 s.Len = itwtmp->second.Len[i];

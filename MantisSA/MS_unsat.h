@@ -12,10 +12,10 @@ namespace MS{
         bool readdata(std::string dpth_file, std::string dpth_name, std::string rch_file,
                       double wc_in, double d_in, double r_in, boost::mpi::communicator& world);
 
-        int traveltime(int IJ);
+        int traveltime(int IJ) const;
         double getDepth(int IJ);
         double getRch(int IJ);
-        double getSurfPerc(int IJ);
+        double getSurfPerc(int IJ) const;
     private:
         double wc;
         double minD;
@@ -179,7 +179,7 @@ namespace MS{
         return true;
     }
 
-    int UNSAT::traveltime(int IJ) {
+    int UNSAT::traveltime(int IJ) const {
         if (IJ < 0 || IJ >= Ncells ){
             return 0;
         }
@@ -210,7 +210,7 @@ namespace MS{
         }
         return Rch[IJ];
     }
-    double UNSAT::getSurfPerc(int IJ){
+    double UNSAT::getSurfPerc(int IJ) const{
         if (IJ < 0 || IJ >= Ncells ){
             return 0.0;
         }
