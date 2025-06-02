@@ -101,9 +101,6 @@ namespace MS {
             ("SWAT.Data", po::value<std::string>(), "Swat input file")
 
             // [Historic]
-            ("Historic.StartYear", po::value<int>()->default_value(1945), "Start year of historic loading")
-            ("Historic.EndYear", po::value<int>()->default_value(2005), "End year of historic loading")
-            ("Historic.Interval", po::value<int>()->default_value(2005), "Interval of historic loading")
             ("Historic.Prefix_name", po::value<std::string>(), "Prefix of historic loading")
             ("Historic.Ext", po::value<std::string>(), "Extension of historic loading without the dot e.g h5 or dat")
             ("Historic.BlendStart", po::value<int>()->default_value(1945), "Start year of historic loading")
@@ -209,9 +206,6 @@ namespace MS {
                 }
 
                 {// [Historic]
-                    historicOptions.StartYear = vm_cfg["Historic.StartYear"].as<int>();
-                    historicOptions.EndYear = vm_cfg["Historic.EndYear"].as<int>();
-                    historicOptions.Interval = vm_cfg["Historic.Interval"].as<int>();
                     historicOptions.filename = vm_cfg["Historic.Prefix_name"].as<std::string>();
                     historicOptions.ext = vm_cfg["Historic.Ext"].as<std::string>();
                     historicOptions.BlendStart = vm_cfg["Historic.BlendStart"].as<int>();

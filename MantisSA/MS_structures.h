@@ -35,9 +35,6 @@ namespace MS{
     };
 
     struct HistoricOptions{
-        int StartYear;
-        int EndYear;
-        int Interval;
         int BlendStart;
         int BlendEnd;
         std::string filename;

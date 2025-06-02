@@ -9,46 +9,51 @@ namespace MS{
     class HistoricLoading{
     public:
         HistoricLoading(){}
-        int StartYear;
-        int EndYear;
-        int Interval;
         int YearA;
         int YearB;
+        int idx;
         std::string Prefix;
         std::string Ext;
         std::vector<double> A;
         std::vector<double> B;
-        bool Setup(int sy, int ey, int dy, std::string pref, std::string ext, boost::mpi::communicator &world);
+        std::vector<int> Years;
+        bool Setup(std::string pref, std::string ext, boost::mpi::communicator &world);
         bool InitialLoading(boost::mpi::communicator &world);
         bool LoadNext(boost::mpi::communicator &world);
         double calculateConc(int IJ, int year,boost::mpi::communicator &world);
 
+        bool readInfo(std::string filename, boost::mpi::communicator &world);
         bool readRasterLoad(std::string filename, std::vector<double> &V,boost::mpi::communicator &world);
     };
 
     bool HistoricLoading::InitialLoading(boost::mpi::communicator &world) {
-        std::string fileA = Prefix + std::to_string(StartYear) + "." + Ext;
-        std::string fileB = Prefix + std::to_string(StartYear) + "." + Ext;
+        std::string fileA = Prefix + std::to_string(YearA) + "." + Ext;
+        std::string fileB = Prefix + std::to_string(YearB) + "." + Ext;
 
         bool tf = readRasterLoad(fileA, A, world);
         if (!tf){
             return tf;
         }
-        tf = readRasterLoad(fileB, B, world);
+        if (YearA != YearB){
+            tf = readRasterLoad(fileB, B, world);
+        }
         return tf;
     }
 
     double HistoricLoading::calculateConc(int IJ, int year, boost::mpi::communicator &world) {
         double conc = 0;
-        if (year >= YearA && year <= YearB){
+        if (YearA == YearB){
+            conc = A[IJ];
+        }
+        else if (year >= YearA && year <= YearB){
             double u = (static_cast<double>(year) - static_cast<double>(YearA))/
                        (static_cast<double>(YearB) - static_cast<double>(YearA));
             conc = (1-u) * A[IJ] + u * B[IJ];
         }
-        else if (year < YearA && YearA == StartYear){
+        else if (year < YearA && YearA == Years.front()){
             conc = A[IJ];
         }
-        else if (year > YearB && YearB == EndYear){
+        else if (year > YearB && YearB == Years.back()){
             conc = B[IJ];
         }
         else{
@@ -79,29 +84,50 @@ namespace MS{
         }
     }
 
+    bool HistoricLoading::readInfo(std::string filename, boost::mpi::communicator &world) {
+        std::vector<std::vector<int>> tmp;
+        bool tf = RootReadsMatrixFileDistrib<int>(filename, tmp, 1, true, world, 5000000);
+        if (!tf){ return false;}
+        Years = tmp[0];
+        return true;
+    }
+
     bool HistoricLoading::LoadNext(boost::mpi::communicator &world) {
         A.clear();
         A = std::move(B);
-        YearA = YearB;
-        YearB = YearB + Interval;
-        std::string fileB = Prefix + std::to_string(StartYear) + "." + Ext;
+        idx = idx + 1;
+        YearA = Years[idx];
+        YearB = Years[idx+1];
+        std::string fileB = Prefix + std::to_string(YearB) + "." + Ext;
         bool tf = readRasterLoad(fileB, B, world);
 
         return tf;
 
     }
 
-    bool HistoricLoading::Setup(int sy, int ey, int dy,
-                                std::string pref, std::string ext,
+    bool HistoricLoading::Setup(std::string pref, std::string ext,
                                 boost::mpi::communicator &world) {
-        StartYear = sy;
-        EndYear = ey;
-        Interval = dy;
+        std::string finfo = Prefix +  + "info.dat";
+        bool tf = readInfo(finfo,world);
+        if (!tf){return false;}
         Prefix = pref;
         Ext = ext;
-        YearA = StartYear;
-        YearB = YearA + Interval;
-        bool tf = InitialLoading(world);
+        if (Years.size() == 0){
+            std::cout << "No historic years were provided" << std::endl;
+            return false;
+        }
+        else if (Years.size() == 1){
+            std::cout << "Only one historic year was provided" << std::endl;
+            YearA = Years[0];
+            YearB = Years[0];
+            idx = 0;
+        }
+        else{
+            YearA = Years[0];
+            YearB = Years[1];
+            idx = 0;
+        }
+        tf = InitialLoading(world);
         return tf;
     }
 

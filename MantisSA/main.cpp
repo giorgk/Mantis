@@ -104,10 +104,7 @@ int main(int argc, char* argv[]) {
 
     MS::HistoricLoading HIST;
     if (!UI.historicOptions.filename.empty()){
-        tf = HIST.Setup(UI.historicOptions.StartYear,
-                       UI.historicOptions.EndYear,
-                       UI.historicOptions.Interval,
-                       UI.historicOptions.filename,
+        tf = HIST.Setup(UI.historicOptions.filename,
                        UI.historicOptions.ext,
                        world);
         if (!tf){
