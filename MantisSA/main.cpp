@@ -84,6 +84,11 @@ int main(int argc, char* argv[]) {
         if (!tf){return 0;}
     }
 
+    world.barrier();
+    if (world.rank() == 0){
+        std::cout << "The unsaturated data are using the old matlab format and should be updated if the depth data are updated to the new format" << std::endl;
+    }
+    world.barrier();
     MS::UNSAT UZ;
     tf = UZ.readdata(UI.unsatOptions.Depth_file, UI.unsatOptions.Depth_name, UI.unsatOptions.Rch_file,
                      UI.unsatOptions.wc, UI.unsatOptions.minDepth,UI.unsatOptions.minRch, world);

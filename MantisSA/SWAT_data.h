@@ -205,58 +205,58 @@ namespace MS {
             //if (!tf){ return false;}
             //int nHRUs = HRUS[0].size();
 
-            //bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, true, world);
+            //bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, false, world);
             //if (!tf){ return false;}
             //if (PrintMatrices){printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrSW_mm,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrGW_mm,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_kgha.dat", irrsaltGW_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_kgha.dat", irrsaltGW_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(irrsaltGW_kgha, world, 0, 10, 34, 40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "fertsalt_kgha.dat", fertsalt_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "fertsalt_kgha.dat", fertsalt_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(fertsalt_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "dssl_kgha.dat", dssl_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "dssl_kgha.dat", dssl_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(dssl_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "Qsalt_kgha.dat", Qsalt_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "Qsalt_kgha.dat", Qsalt_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(Qsalt_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "uptk_kgha.dat", uptk_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "uptk_kgha.dat", uptk_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(uptk_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "pGW.dat", pGW, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "pGW.dat", pGW, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(pGW,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "dSoilSalt_kgha.dat", dSoilSalt_kgha, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "dSoilSalt_kgha.dat", dSoilSalt_kgha, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(dSoilSalt_kgha,world,0,10,34,40);}
 
-            //tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, true, world);
+            //tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, false, world);
             //if (!tf){ return false;}
             //if (PrintMatrices){printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);}
 
-            tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "Salt_perc_ppm.dat", Salt_perc_ppm, NSwatYears, true, world);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "Salt_perc_ppm.dat", Salt_perc_ppm, NSwatYears, false, world);
             if (!tf){ return false;}
             if (PrintMatrices){printMatrixForAllProc(Salt_perc_ppm,world,0,10,34,40);}
 

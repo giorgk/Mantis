@@ -70,7 +70,7 @@ namespace MS{
             }
             version.push_back(info[0]);
             for (int i = 0; i < info[1]; ++i){
-                porosities.push_back(info[i + 1]);
+                porosities.push_back(info[i + 2]);
             }
             std::vector<int> int_size;
             std::vector<int> dbl_size;
@@ -82,11 +82,11 @@ namespace MS{
             msa_size.push_back(info[idx+4]);
             msa_size.push_back(info[idx+5]);
 
-            tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, int_size[1], true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, int_size[1], false, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dbl_size[1], true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dbl_size[1], false, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msa_size[1], true, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msa_size[1], false, world, 500000);
             if (!tf){return false;}
 
             if (PrintMatrices){
