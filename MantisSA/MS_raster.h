@@ -60,6 +60,7 @@ namespace MS{
         Nrows = Nr;
         Ncols = Nc;
         Ncells = Ncell;
+        std::vector<std::vector<int>> rasterCol;
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
 #if _USEHF>0
@@ -67,32 +68,28 @@ namespace MS{
             const std::string NameSet("Raster");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
-            dataset.read(raster);
-
-            return true;
+            dataset.read(rasterCol);
 #endif
         }
         else{
-            std::vector<std::vector<int>> rasterCol;
             bool tf = RootReadsMatrixFileDistrib(filename, rasterCol,2, false, world, 5000000);
             if (!tf){return false;}
             if (PrintMatrices){
                 printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
             }
-
-            raster.clear();
-            raster.resize(Ncols,std::vector<int>(Nrows,-1));
-            for (unsigned int i = 0; i < rasterCol.size(); ++i ) {
-                if (rasterCol[i][0] < Nrows && rasterCol[i][1] < Ncols)
-                    raster[rasterCol[i][1]][rasterCol[i][0]] = i;
-                else {
-                    std::cout << "I can't assign pixel (" << rasterCol[i][0] << "," << rasterCol[i][1]
-                              << ") in raster map" << std::endl;
-                }
-
-            }
-            return true;
         }
+        raster.clear();
+        raster.resize(Ncols,std::vector<int>(Nrows,-1));
+        for (int i = 0; i < rasterCol.size(); ++i ) {
+            if (rasterCol[i][0] < Nrows && rasterCol[i][1] < Ncols)
+                raster[rasterCol[i][1]][rasterCol[i][0]] = i;
+            else {
+                std::cout << "I can't assign pixel (" << rasterCol[i][0] << "," << rasterCol[i][1]
+                          << ") in raster map" << std::endl;
+            }
+        }
+
+        return true;
     }
 
     int BackgroundRaster::IJ(int row, int col) const {

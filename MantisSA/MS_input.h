@@ -107,7 +107,6 @@ namespace MS {
             ("Historic.BlendEnd", po::value<int>()->default_value(2005), "End year of historic loading")
 
             // [NPSAT]
-            ("NPSAT.Data_version", po::value<int>()->default_value(1), "NPSAT data version")
             ("NPSAT.VIwells", po::value<std::string>(), "NPSAT input file for VI")
             ("NPSAT.VDwells", po::value<std::string>(), "NPSAT input file for VI")
             ("NPSAT.InitSaltVI", po::value<std::string>(), "Initial salt concentration of VI wells")
@@ -117,13 +116,13 @@ namespace MS {
             // [Simulation]
             ("Simulation.Nyears", po::value<int>()->default_value(50), "Number of simulation years")
             ("Simulation.StartYear", po::value<int>()->default_value(1945), "Starting year of simulation")
-            ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 1-6")
+            ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 10, 20, 30,...")
             ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
             ("Simulation.MaxAge", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
-            ("Simulation.ConcValue", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
-            ("Simulation.StartDist", po::value<double>()->default_value(100), "Up to this distance the river influence is 1")
-            ("Simulation.EndDist", po::value<double>()->default_value(300), "After this distance the river influence is 0")
+            ("Simulation.RiverConcValue", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
+            ("Simulation.RiverStartDist", po::value<double>()->default_value(100), "Up to this distance the river influence is 1")
+            ("Simulation.RiverEndDist", po::value<double>()->default_value(300), "After this distance the river influence is 0")
             ("Simulation.OutofAreaConc", po::value<double>()->default_value(-9), "Concentration for streamlines outside the study area. Negative skip the streamlines")
             ("Simulation.OutofAreaUseInitConc", po::value<int>()->default_value(1), "Use the initial concentration if outside of area.")
             ("Simulation.EnableFeedback", po::value<int>()->default_value(0), "Set this to non zero to run with feedback")
@@ -213,7 +212,6 @@ namespace MS {
                 }
 
                 {// [NPSAT]
-                    npsatOptions.version = vm_cfg["NPSAT.Data_version"].as<int>();
                     npsatOptions.VIdataFile = vm_cfg["NPSAT.VIwells"].as<std::string>();
                     npsatOptions.VDdataFile = vm_cfg["NPSAT.VDwells"].as<std::string>();
                     npsatOptions.InitSaltVIFile = vm_cfg["NPSAT.InitSaltVI"].as<std::string>();
@@ -230,14 +228,13 @@ namespace MS {
                     simOptions.MaxConc = vm_cfg["Simulation.MaxConc"].as<double>();
                     simOptions.MaxAge = vm_cfg["Simulation.MaxAge"].as<double>();
                     simOptions.SurfConcValue = vm_cfg["Simulation.SurfConcValue"].as<double>();
-                    riverOptions.ConcValue = vm_cfg["Simulation.ConcValue"].as<double>();
-                    riverOptions.StartDist = vm_cfg["Simulation.StartDist"].as<double>();
-                    riverOptions.EndDist = vm_cfg["Simulation.EndDist"].as<double>();
+                    riverOptions.ConcValue = vm_cfg["Simulation.RiverConcValue"].as<double>();
+                    riverOptions.StartDist = vm_cfg["Simulation.RiverStartDist"].as<double>();
+                    riverOptions.EndDist = vm_cfg["Simulation.RiverEndDist"].as<double>();
                     simOptions.OutofAreaConc = vm_cfg["Simulation.OutofAreaConc"].as<double>();
                     simOptions.OutofAreaUseInitConc = vm_cfg["Simulation.OutofAreaUseInitConc"].as<int>()!= 0;
                     simOptions.EnableFeedback = vm_cfg["Simulation.EnableFeedback"].as<int>() != 0;
                     simOptions.nBuffer = vm_cfg["Simulation.nBuffer"].as<int>();
-
                 }
 
                 {// [UNSAT]
@@ -250,19 +247,25 @@ namespace MS {
                 }
 
                 {// [Output]
-                    outputOptions.OutFile = vm_cfg["Other.OutFile"].as<std::string>();
-                    outputOptions.SelectedWells = vm_cfg["Other.SelectedWells"].as<std::string>();
-                    outputOptions.SelectedWellGroups = vm_cfg["Other.SelectedWellsGroups"].as<std::string>();
+                    outputOptions.OutFile = vm_cfg["Output.FilePrefix"].as<std::string>();
+                    outputOptions.SelectedWells = vm_cfg["Output.SelectedWells"].as<std::string>();
+                    outputOptions.SelectedWellGroups = vm_cfg["Output.SelectedWellsGroups"].as<std::string>();
                     outputOptions.printSelectedWells = !outputOptions.SelectedWells.empty() && !outputOptions.SelectedWellGroups.empty();
-                    outputOptions.printBTCs = vm_cfg["Other.printBTCs"].as<int>() != 0;
-                    outputOptions.printLoad = vm_cfg["Other.printLoad"].as<int>() != 0;
-                    outputOptions.printURFs = vm_cfg["Other.printURFs"].as<int>() != 0;
+                    outputOptions.printBTCs = vm_cfg["Output.printBTCs"].as<int>() != 0;
+                    outputOptions.printLoad = vm_cfg["Output.printLoad"].as<int>() != 0;
+                    outputOptions.printURFs = vm_cfg["Output.printURFs"].as<int>() != 0;
                 }
 
-                dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
-                dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
-                PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
-                doDebug = !dbg_file.empty();
+                {// [Other
+                    dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
+                    dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
+                    PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
+                    doDebug = !dbg_file.empty();
+                }
+
+                simOptions.nYears_historic = historicOptions.BlendStart - simOptions.StartYear;
+                simOptions.nYears_blendEnd = historicOptions.BlendEnd - simOptions.StartYear;
+
             }
             catch (std::exception& E)
             {

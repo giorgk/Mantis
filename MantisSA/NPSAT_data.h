@@ -19,7 +19,8 @@
 namespace MS{
 
 
-    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears, int ver, BackgroundRaster& braster,
+    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears,
+                       BackgroundRaster& braster, RiverOptions &rivopt,
                        boost::mpi::communicator &world){
         std::string ext = getExtension(filename);
         std::vector<std::vector<int>> ints;
@@ -100,18 +101,20 @@ namespace MS{
         if (world.rank() == 0){
             std::cout << "Assembling NPSAT urf data ..." << std::endl;
         }
-        int por_idx;
+        wells.version = version[0];
+        int por_idx = 0;
         {// find porosity index
             for (int i = 0; i < porosities.size(); ++i){
                 if (porosities[i] == por){
                     por_idx = i;
+                    break;
                 }
             }
         }
 
         por_idx = 3*(por_idx-1);
-        WELLS::iterator itw = wells.end();
-        std::pair<WELLS::iterator,bool> ret;
+        std::map<int, WELL>::iterator itw = wells.wells.end();
+        std::pair<std::map<int, WELL>::iterator,bool> ret;
 
         tmpWELLS tw;
         tmpWELLS ::iterator itwtmp = tw.end();
@@ -119,44 +122,44 @@ namespace MS{
         //int count_wells = 0;
         //int wells_per_proc = Nwells/world.size();
         //int count_proc = 0;
-        for (int i = 0; i < ints[0].size(); ++i){
+        for (int i = 0; i < ints.size(); ++i){
             if (itwtmp == tw.end()){
-                itwtmp = tw.find(ints[0][i]);
+                itwtmp = tw.find(ints[i][0]);
                 if (itwtmp == tw.end()){
-                    tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
+                    tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[i][0], NPSATTMP()));
                     if (tmpret.second){
                         itwtmp = tmpret.first;
                     }
                 }
             }
             else{
-                if (itwtmp->first != ints[0][i]){
-                    itwtmp = tw.find(ints[0][i]);
+                if (itwtmp->first != ints[i][0]){
+                    itwtmp = tw.find(ints[i][0]);
                     if (itwtmp == tw.end()){
 
-                        tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[0][i], NPSATTMP()));
+                        tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[i][0], NPSATTMP()));
                         if (tmpret.second){
                             itwtmp = tmpret.first;
                         }
                     }
                 }
             }
-            itwtmp->second.Sid.push_back(ints[1][i]);
-            itwtmp->second.urfI.push_back(ints[2][i]);
-            itwtmp->second.urfJ.push_back(ints[3][i]);
-            if (ver == 0){
-                itwtmp->second.inRiv.push_back(ints[4][i] == 1);
+            itwtmp->second.Sid.push_back(ints[i][1]);
+            itwtmp->second.urfI.push_back(ints[i][2]);
+            itwtmp->second.urfJ.push_back(ints[i][3]);
+            if (version[0] == 0){
+                itwtmp->second.inRiv.push_back(ints[i][4] == 1);
             }
-            //itwtmp->second.hru_idx.push_back(ints[4][i]);
-            itwtmp->second.W.push_back(dbls[0][i]);
-            itwtmp->second.Len.push_back(dbls[1][i]);
-            if (ver == 1){
-                itwtmp->second.rivDist.push_back(dbls[2][i]);
+            //itwtmp->second.hru_idx.push_back(ints[i][4]);
+            itwtmp->second.W.push_back(dbls[i][0]);
+            itwtmp->second.Len.push_back(dbls[i][1]);
+            if (version[0] == 1){
+                itwtmp->second.rivDist.push_back(dbls[i][2]);
             }
-            itwtmp->second.m.push_back(msas[por_idx][i]);
-            itwtmp->second.s.push_back(msas[por_idx+1][i]);
-            itwtmp->second.a.push_back(msas[por_idx+2][i]);
-            itwtmp->second.sumW = itwtmp->second.sumW + dbls[0][i];
+            itwtmp->second.m.push_back(msas[i][por_idx]);
+            itwtmp->second.s.push_back(msas[i][por_idx+1]);
+            itwtmp->second.a.push_back(msas[i][por_idx+2]);
+            itwtmp->second.sumW = itwtmp->second.sumW + dbls[i][0];
         }
 
         //Normalize streamlines and split them according to the processors
@@ -177,11 +180,11 @@ namespace MS{
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
-                if (ver == 0){
+                if (version[0] == 0){
                     s.inRiv = itwtmp->second.inRiv[i];
                 }
-                if (ver == 1){
-                    s.rivRist = itwtmp->second.rivDist[i];
+                if (version[0] == 1){
+                    s.rivInfl = calcRiverInfluence(itwtmp->second.rivDist[i], rivopt);
                     s.inRiv = false;
                 }
                 //s.hru_idx = itwtmp->second.hru_idx[i];
@@ -194,7 +197,7 @@ namespace MS{
                 w.strml.push_back(s);
             }
 
-            wells.insert(std::pair<int,WELL>(itwtmp->first, w));
+            wells.wells.insert(std::pair<int,WELL>(itwtmp->first, w));
             count = count + 1;
             //std::cout << count << std::endl;
         }
@@ -215,7 +218,7 @@ namespace MS{
             if (rank == 0){
                 std::cout << "Reading " << filename << std::endl;
             }
-            WELLS::iterator itw;
+            std::map<int, WELL>::iterator itw;
             std::string line;
             int eid;
             double conc;
@@ -223,8 +226,8 @@ namespace MS{
                 std::istringstream inp(line.c_str());
                 inp >> eid;
                 inp >> conc;
-                itw = wells.find(eid);
-                if (itw != wells.end()){
+                itw = wells.wells.find(eid);
+                if (itw != wells.wells.end()){
                     itw->second.initConc = conc;
                 }
             }
@@ -275,9 +278,9 @@ namespace MS{
 
     void linearizeWellBTCs(WELLS &W, std::vector<double> &v){
         v.clear();
-        v.push_back(static_cast<double>(W.size()));
-        WELLS::iterator itw;
-        for (itw = W.begin(); itw != W.end(); ++itw){
+        v.push_back(static_cast<double>(W.wells.size()));
+        std::map<int, WELL>::iterator itw;
+        for (itw = W.wells.begin(); itw != W.wells.end(); ++itw){
             v.push_back(static_cast<double>(itw->first));
             for (unsigned int i = 0; i < itw->second.wellBtc.size(); ++i){
                 v.push_back(itw->second.wellBtc[i]);
@@ -287,11 +290,11 @@ namespace MS{
 
     void linearizeBTCs(WELLS &W, std::vector<double> &v, std::vector<int> ids, SWAT_data &swat, HRU_Raster &hru_raster, int Nyears){
         v.clear();
-        WELLS::iterator itw;
+        std::map<int, WELL>::iterator itw;
         int countWells = 0;
         for (unsigned int j = 0; j < ids.size(); ++j){
-            itw = W.find(ids[j]);
-            if (itw != W.end()){
+            itw = W.wells.find(ids[j]);
+            if (itw != W.wells.end()){
                 countWells = countWells + 1;
                 v.push_back(static_cast<double>(itw->first));// Eid
                 int countS = 0;
@@ -320,11 +323,11 @@ namespace MS{
 
     void linearizeURFS(WELLS &W, std::vector<double> &v, std::vector<int> ids, SWAT_data &swat, HRU_Raster &hru_raster, int Nyears){
         v.clear();
-        WELLS::iterator itw;
+        std::map<int, WELL>::iterator itw;
         int countWells = 0;
         for (unsigned int j = 0; j < ids.size(); ++j){
-            itw = W.find(ids[j]);
-            if (itw != W.end()){
+            itw = W.wells.find(ids[j]);
+            if (itw != W.wells.end()){
                 countWells = countWells + 1;
                 v.push_back(static_cast<double>(itw->first));// Eid
                 int countS = 0;
@@ -361,12 +364,12 @@ namespace MS{
                           UNSAT &UN, HRU_Raster &hru_raster, SWAT_data &swat, int Nyears){
         v.clear();
 
-        WELLS::iterator itw;
+        std::map<int, WELL>::iterator itw;
         int countWells = 0;
         for (unsigned int j = 0; j < ids.size(); ++j){
-            itw = W.find(ids[j]);
+            itw = W.wells.find(ids[j]);
             //std::cout << itw->first << std::endl;
-            if (itw != W.end()){
+            if (itw != W.wells.end()){
                 countWells = countWells + 1;
                 v.push_back(static_cast<double>(itw->first));// Eid
                 m.push_back(static_cast<double>(itw->first));// Eid m
@@ -393,6 +396,7 @@ namespace MS{
                         v.push_back(UN.getDepth(itw->second.strml[i].IJ)); // Depth
                         v.push_back(UN.getRch(itw->second.strml[i].IJ)); // Recharge
                         v.push_back(UN.getSurfPerc(itw->second.strml[i].IJ)); // Surface percentage
+                        v.push_back(static_cast<double>(itw->second.strml[i].rivInfl)); // RiverInfluence
                         for (int k = 0; k < Nyears; ++k) {
                             v.push_back(itw->second.strml[i].lf_conc[k]);
                             m.push_back(itw->second.strml[i].gw_conc[k]);
@@ -545,7 +549,7 @@ namespace MS{
     void printDetailOutputFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
         std::ofstream out_file;
         out_file.open(filename.c_str());
-        out_file << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc";
+        out_file << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc, RivInfl";
         for (int i = 0; i < Nyears; ++i){
             out_file << ", lf_conc" << i+1;
         }
@@ -576,10 +580,13 @@ namespace MS{
                     idx = idx + 1;
                     double sp = AllProcData[i][idx];
                     idx = idx + 1;
+                    double rivinfl = AllProcData[i][idx];
+                    idx = idx + 1;
                     out_file << std::fixed << eid << ", " << sid  << ", " << urfI  << ", " << urfJ  << ", " << hru  << ", " << hru_idx;
                     out_file << ", " << std::setw(10) << std::scientific <<  d
                              << ", " << std::setw(10) << std::scientific << r
-                             << ", " << std::setw(10) << std::scientific << sp;
+                             << ", " << std::setw(3) << std::scientific << sp
+                             << ", " << std::setw(3) << std::scientific << rivinfl;
                     for (int iyr = 0; iyr < Nyears; ++iyr){
                         out_file << ", " << std::setw(10) << std::scientific <<  AllProcData[i][idx];
                         idx = idx + 1;

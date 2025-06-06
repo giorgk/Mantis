@@ -40,6 +40,8 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
+    std::map<int, int> swatYRIDmap;
+    MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);
 
     auto startTotalSimulation = std::chrono::high_resolution_clock::now();
     if (world.rank() == 0){
@@ -71,21 +73,21 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    MS::UNSAT UZ;
-    tf = UZ.readdata(UI.unsatOptions.Depth_file, UI.unsatOptions.Depth_name, UI.unsatOptions.Rch_file,
-                     UI.unsatOptions.wc, UI.unsatOptions.minDepth,UI.unsatOptions.minRch, world);
-    if (!tf){ return 0;}
-
     MS::WELLS VI;
     MS::WELLS VD;
     {
         tf = MS::readNPSATdata(UI.npsatOptions.VIdataFile, VI, UI.simOptions.Porosity, UI.simOptions.Nyears,
-                               UI.npsatOptions.version, backRaster, world);
+                               backRaster, UI.riverOptions, world);
         if (!tf){return 0;}
         tf = MS::readNPSATdata(UI.npsatOptions.VDdataFile, VD, UI.simOptions.Porosity, UI.simOptions.Nyears,
-                               UI.npsatOptions.version, backRaster, world);
+                               backRaster, UI.riverOptions, world);
         if (!tf){return 0;}
     }
+
+    MS::UNSAT UZ;
+    tf = UZ.readdata(UI.unsatOptions.Depth_file, UI.unsatOptions.Depth_name, UI.unsatOptions.Rch_file,
+                     UI.unsatOptions.wc, UI.unsatOptions.minDepth,UI.unsatOptions.minRch, world);
+    if (!tf){ return 0;}
 
     MS::HRU_Raster hru_raster;
     tf = hru_raster.read(UI.swatOptions.HRU_raster_file, world);
@@ -102,11 +104,11 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-    MS::HistoricLoading HIST;
+    MS::HistoricLoading HISTLOAD;
     if (!UI.historicOptions.filename.empty()){
-        tf = HIST.Setup(UI.historicOptions.filename,
-                       UI.historicOptions.ext,
-                       world);
+        tf = HISTLOAD.Setup(UI.historicOptions.filename,
+                            UI.historicOptions.ext,
+                            world);
         if (!tf){
             return 0;
         }
@@ -139,7 +141,7 @@ int main(int argc, char* argv[]) {
     }
 
 
-    std::cout << "Proc: " << world.rank() << " has " << VI.size() << " VI wells and " << VD.size() << " VD wells" << std::endl;
+    std::cout << "Proc: " << world.rank() << " has " << VI.wells.size() << " VI wells and " << VD.wells.size() << " VD wells" << std::endl;
 
     //std::cout << "Here1" << std::endl;
 
@@ -148,13 +150,13 @@ int main(int argc, char* argv[]) {
     // Initialize Concentration from pumping with the initial concentration
     world.barrier();
 
-    MS::WELLS ::iterator itw;
+    std::map<int, MS::WELL>::iterator itw;
     if (UI.simOptions.EnableFeedback){
         if (world.rank() == 0){
             std::cout << "Initialize Pumping distribution matrix..." << std::endl;
         }
         std::vector<double> wellInitConc;
-        for (itw = VI.begin(); itw != VI.end(); ++itw){
+        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
             wellInitConc.push_back(static_cast<double>(itw->first));
             wellInitConc.push_back(itw->second.initConc);
         }
@@ -180,7 +182,7 @@ int main(int argc, char* argv[]) {
         MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
         world.barrier();
         MS::sendVectorFromRoot2AllProc(WellEidFromPump, world);
-        for (itw = VI.begin(); itw != VI.end(); ++itw){
+        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
                 if (IJ >= 0){
@@ -188,7 +190,7 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
-        for (itw = VD.begin(); itw != VD.end(); ++itw){
+        for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw){
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
                 int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
                 if (IJ >= 0){
@@ -207,15 +209,15 @@ int main(int argc, char* argv[]) {
     //int hruidx;
     //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
-    int iswat = 0;
     int YYYY = UI.simOptions.StartYear;
+    int iswat = swatYRIDmap.find(YYYY)->second;
     for (int iyr = 0; iyr < UI.simOptions.Nyears; ++iyr){
         //std::cout << "Here1" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         std::vector<double> wellConc;
         world.barrier();
         bool printThis = false;
-        for (itw = VI.begin(); itw != VI.end(); ++itw){
+        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
             if (UI.doDebug){
                 if (UI.dbg_id == itw->first){
                     printThis = true;
@@ -232,189 +234,13 @@ int main(int argc, char* argv[]) {
                 //Calculate the C_SWAT
                 double c_tot = 0.0;
                 double c_gw = 0.0;
-                double c_fut = 0.0;
 
-                MS::CreateLoadingForStreamline(c_fut, c_gw, iyr, iswat,
+
+                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
                                                itw->second.strml[i], UI, itw->second.initConc,
-                                               backRaster, UZ, hru_raster, swat,
+                                               HISTLOAD,backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
 
-                if (YYYY < UI.historicOptions.BlendEnd){
-                    int IJ = backRaster.IJ(itw->second.strml[i].urfI, itw->second.strml[i].urfJ);
-                    if (IJ >= 0){
-                        double c_hist = HIST.calculateConc(IJ, YYYY, world);
-                        double u = 0.0;
-                        MS::BlendLoading(c_tot, u, UI.historicOptions, c_hist, c_fut, YYYY);
-                        c_gw = c_gw * u;
-                    }
-                }
-                else{
-                    c_tot = c_fut;
-                }
-
-                /*
-                int hruidx = -9;
-                double Mfeed = 0.0;
-                bool addThis = false;
-
-                if (itw->second.strml[i].inRiv){
-                    c_swat = UI.riverOptions.ConcValue;
-                    addThis = true;
-                }
-                else if (itw->second.strml[i].a > UI.simOptions.MaxAge){
-                    c_swat = itw->second.initConc;
-                    addThis = true;
-                }
-                else{
-                    double n_cswat = 0.0;
-                    for (int ii = itw->second.strml[i].urfI - UI.simOptions.nBuffer; ii <= itw->second.strml[i].urfI + UI.simOptions.nBuffer; ++ii){
-                        for(int jj = itw->second.strml[i].urfJ - UI.simOptions.nBuffer; jj <= itw->second.strml[i].urfJ + UI.simOptions.nBuffer; ++jj){
-                            double cell_cswat = 0.0;
-                            double cell_mfeed = 0.0;
-                            double cell_cgw = 0.0;
-                            int IJ = backRaster.IJ(ii, jj);
-                            if (IJ < 0){
-                                if (UI.simOptions.OutofAreaUseInitConc){
-                                    cell_cswat = itw->second.initConc;
-                                }
-                                else if (UI.simOptions.OutofAreaConc < 0){
-                                    continue;
-                                }
-                                else{
-                                    cell_cswat = UI.simOptions.OutofAreaConc;
-                                }
-                            }
-                            else{
-                                int shift = UZ.traveltime(IJ);
-                                if (shift > iyr){
-                                    cell_cswat = itw->second.initConc;
-                                }
-                                else{
-                                    int hru = hru_raster.getHRU(IJ);
-                                    hruidx = swat.hru_index(hru);
-                                    if (hruidx < 0){
-                                        if (UI.simOptions.OutofAreaUseInitConc){
-                                            cell_cswat = itw->second.initConc;
-                                        }
-                                        else if (UI.simOptions.OutofAreaConc < 0){
-                                            continue;
-                                        }
-                                        else{
-                                            cell_cswat = UI.simOptions.OutofAreaConc;
-                                        }
-                                    }
-                                    else{
-                                        if (swat.perc_mm[iswat][hruidx] < 0.01){
-                                            // How to modify concentration if perc is zero?
-                                            itw->second.strml[i].gw_conc.push_back(0.0);
-                                            cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
-                                        }
-                                        else{
-                                            if (UI.swatOptions.version == 1){// Version 1 of Feedback loop
-                                                if (UI.simOptions.EnableFeedback == false) {
-                                                    cell_cgw = 0.0;
-                                                    cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
-                                                }
-                                                else{
-                                                    double m_total = 0;
-                                                    // What happens if irrGW_mm is 0. the m_npsat becomes zero.
-                                                    cell_cgw = ConcFromPump[IJ];
-                                                    double m_npsat = ConcFromPump[IJ] * swat.irrGW_mm[iswat][hruidx] / 100.0;
-                                                    if (m_npsat < 0.001){
-                                                        cell_cgw = 0.0;
-                                                    }
-
-                                                    m_total = swat.irrsaltSW_kgha[iswat][hruidx] +
-                                                              m_npsat +
-                                                              swat.fertsalt_kgha[iswat][hruidx] +
-                                                              swat.dssl_kgha[iswat][hruidx] -
-                                                              swat.Qsalt_kgha[iswat][hruidx] -
-                                                              swat.uptk_kgha[iswat][hruidx] -
-                                                              swat.dSoilSalt_kgha[iswat][hruidx];
-                                                    m_total = m_total * swat.pGW[iswat][hruidx];
-                                                    if (m_total < 0){
-                                                        m_total = 0;
-                                                        //bool check_this = true;
-                                                        //if (m_total < min_neg_m){
-                                                        //    min_neg_m = m_total;
-                                                        //}
-                                                    }
-
-
-                                                    //cell_mfeed = m_npsat - swat.irrsaltGW_Kgha[iswat][hruidx];
-                                                    //if (cell_mfeed > 0){
-                                                    //    cell_mfeed = cell_mfeed * swat.pGW[iswat][hruidx];
-                                                    //}
-
-                                                    //if (UI.EnableFeedback) {
-                                                    //    cell_mfeed = 0.0;
-                                                    //}
-
-                                                    //m_total = swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed;
-                                                    //if (m_total < 0){
-                                                    // This can happend when totpercsalt_kgha < irrsaltGW_Kgha
-                                                    //    m_total = 0;
-                                                    //}
-
-                                                    cell_cswat = m_total * 100 / swat.perc_mm[iswat][hruidx];
-                                                }
-
-
-                                            }
-                                            else if (UI.swatOptions.version == 0){
-                                                // Calculate the ratio of groundwater to the total
-                                                double gw_ratio = 0.0;
-                                                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) > 0.00000001){
-                                                    gw_ratio = swat.irrGW_mm[iswat][hruidx] / (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
-                                                }
-
-                                                // irrigated Salt Mass. The Salts that come from the pumped water
-                                                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
-                                                //Calculate the percolated groundwater volume
-                                                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
-
-                                                // Calculate concentration from NPSAT spreading (Feedback)
-                                                double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
-
-                                                cell_mfeed = m_npsat - m_gw;
-                                                if (cell_mfeed < 0) {
-                                                    cell_mfeed = 0.0;
-                                                }
-                                                if (UI.simOptions.EnableFeedback == false) {
-                                                    cell_mfeed = 0.0;
-                                                }
-
-                                                cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 / swat.perc_mm[iswat][hruidx];
-                                            }
-                                        }
-                                    }
-                                    if (UI.simOptions.SurfConcValue > 0){
-                                        double surf_perc = UZ.getSurfPerc(IJ);
-                                        if (surf_perc > 0){
-                                            cell_cswat = cell_cswat*(1-surf_perc) + surf_perc*UI.simOptions.SurfConcValue;
-                                        }
-                                    }
-                                }
-                            }
-
-                            c_swat = c_swat + cell_cswat;
-                            Mfeed = Mfeed + cell_cgw;
-                            n_cswat = n_cswat + 1.0;
-                            addThis = true;
-                        }// loop jj
-                    }// loop ii
-                    c_swat = c_swat / n_cswat;
-                    Mfeed = Mfeed / n_cswat;
-
-                    if (c_swat > UI.simOptions.MaxConc){
-                        c_swat = UI.simOptions.MaxConc;
-                    }
-                }
-                if (!addThis){
-                    continue;
-                }
-
-                */
 
                 itw->second.strml[i].gw_conc.push_back(c_gw);
                 itw->second.strml[i].lf_conc.push_back(c_tot);
@@ -467,176 +293,21 @@ int main(int argc, char* argv[]) {
         }// Loop wells
 
         // Go through the domestic wells but built only this year concentration
-        for (itw = VD.begin(); itw != VD.end(); ++itw){
+        for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw){
             //std::cout << itw->first << std::endl;
             for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                double c_swat = 0.0;
-                double Mfeed = 0.0;
-                int hruidx = -9;
-                bool addThis = false;
 
-                if (itw->second.strml[i].inRiv){
-                    c_swat = UI.riverOptions.ConcValue;
-                    addThis = true;
-                }
-                else if(itw->second.strml[i].a > UI.simOptions.MaxAge){
-                    c_swat = itw->second.initConc;
-                    addThis = true;
-                }
-                else {
-                    double n_cswat = 0.0;
-                    for (int ii = itw->second.strml[i].urfI - UI.simOptions.nBuffer; ii <= itw->second.strml[i].urfI + UI.simOptions.nBuffer; ++ii) {
-                        for (int jj = itw->second.strml[i].urfJ - UI.simOptions.nBuffer; jj <= itw->second.strml[i].urfJ + UI.simOptions.nBuffer; ++jj) {
-                            double cell_cswat = 0.0;
-                            double cell_mfeed = 0.0;
-                            double cell_cgw = 0.0;
-                            int IJ = backRaster.IJ(ii, jj);
-                            if (IJ < 0) {
-                                if (UI.simOptions.OutofAreaUseInitConc){
-                                    cell_cswat = itw->second.initConc;
-                                }
-                                else if (UI.simOptions.OutofAreaConc < 0){
-                                    continue;
-                                }
-                                else{
-                                    cell_cswat = UI.simOptions.OutofAreaConc;
-                                }
-                            }
-                            else{
-                                int shift = UZ.traveltime(IJ);
-                                if (shift > iyr) {
-                                    cell_cswat = itw->second.initConc;
-                                }
-                                else {
-                                    int hru = hru_raster.getHRU(IJ);
-                                    hruidx = swat.hru_index(hru);
-                                    if (hruidx < 0) {
-                                        if (UI.simOptions.OutofAreaUseInitConc){
-                                            cell_cswat = itw->second.initConc;
-                                        }
-                                        else if (UI.simOptions.OutofAreaConc < 0) {
-                                            continue;
-                                        }
-                                        else {
-                                            cell_cswat = UI.simOptions.OutofAreaConc;
-                                        }
-                                    } else {
-                                        if (swat.perc_mm[iswat][hruidx] < 0.01) {
-                                            itw->second.strml[i].gw_conc.push_back(0.0);
-                                            cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
-                                        }
-                                        else {
-                                            if (UI.swatOptions.version == 1) {// Version 1 of Feedback loop
-                                                if (UI.simOptions.EnableFeedback == false) {
-                                                    cell_cgw = 0.0;
-                                                    cell_cswat = swat.Salt_perc_ppm[iswat][hruidx];
-                                                }
-                                                else{
-                                                    double m_total = 0;
-                                                    // What happens if irrGW_mm is 0. the m_npsat becomes zero.
-                                                    cell_cgw = ConcFromPump[IJ];
-                                                    double m_npsat = ConcFromPump[IJ] * swat.irrGW_mm[iswat][hruidx] / 100.0;
-                                                    if (m_npsat < 0.001){
-                                                        cell_cgw = 0.0;
-                                                    }
+                double c_tot = 0.0;
+                double c_gw = 0.0;
 
-                                                    m_total = swat.irrsaltSW_kgha[iswat][hruidx] +
-                                                              m_npsat +
-                                                              swat.fertsalt_kgha[iswat][hruidx] +
-                                                              swat.dssl_kgha[iswat][hruidx] -
-                                                              swat.Qsalt_kgha[iswat][hruidx] -
-                                                              swat.uptk_kgha[iswat][hruidx] -
-                                                              swat.dSoilSalt_kgha[iswat][hruidx];
-                                                    m_total = m_total * swat.pGW[iswat][hruidx];
-                                                    if (m_total < 0){
-                                                        m_total = 0;
-                                                        //bool check_this = true;
-                                                        //if (m_total < min_neg_m){
-                                                        //    min_neg_m = m_total;
-                                                        //}
-                                                    }
 
-                                                    //cell_mfeed = m_npsat - swat.irrsaltGW_Kgha[iswat][hruidx];
-                                                    //if (cell_mfeed > 0){
-                                                    //    cell_mfeed = cell_mfeed * swat.pGW[iswat][hruidx];
-                                                    //}
+                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VD.version,
+                                               itw->second.strml[i], UI, itw->second.initConc,
+                                               HISTLOAD,backRaster, UZ, hru_raster, swat,
+                                               ConcFromPump);
 
-                                                    //if (UI.EnableFeedback) {
-                                                    //    cell_mfeed = 0.0;
-                                                    //}
-
-                                                    //m_total = swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed;
-                                                    //if (m_total < 0){
-                                                    // This can happend when totpercsalt_kgha < irrsaltGW_Kgha
-                                                    //    m_total = 0;
-                                                    //}
-
-                                                    cell_cswat = m_total * 100 / swat.perc_mm[iswat][hruidx];
-                                                }
-                                            }
-                                            else if (UI.swatOptions.version == 0){
-                                                // Calculate the ratio of groundwater to the total
-                                                double gw_ratio = 0.0;
-                                                if (std::abs(swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]) >
-                                                    0.00000001) {
-                                                    gw_ratio = swat.irrGW_mm[iswat][hruidx] /
-                                                               (swat.irrGW_mm[iswat][hruidx] + swat.irrSW_mm[iswat][hruidx]);
-                                                }
-
-                                                // irrigated Salt Mass. The Salts that come from the pumped water
-                                                double m_gw = swat.irrsaltGW_Kgha[iswat][hruidx];
-
-                                                //Calculate the percolated groundwater volume
-                                                double v_gw = swat.perc_mm[iswat][hruidx] * gw_ratio;
-
-                                                // Calculate concentration from NPSAT spreading (Feedback)
-                                                double m_npsat = ConcFromPump[IJ] * v_gw / 100.0;
-                                                cell_mfeed = m_npsat - m_gw;
-                                                if (cell_mfeed < 0) {
-                                                    cell_mfeed = 0.0;
-                                                }
-                                                if (UI.simOptions.EnableFeedback == false) {
-                                                    cell_mfeed = 0.0;
-                                                }
-                                                cell_cswat = (swat.totpercsalt_kgha[iswat][hruidx] + cell_mfeed) * 100 /
-                                                             swat.perc_mm[iswat][hruidx];
-                                            }
-
-                                        }
-                                    }
-
-                                    if (UI.npsatOptions.version == 1){
-                                        double u = MS::calcRiverInfluence(itw->second.strml[i].rivRist, UI.riverOptions);
-                                        cell_cswat = u * cell_cswat + (1-u) * UI.riverOptions.ConcValue;
-                                    }
-
-                                    if (UI.simOptions.SurfConcValue > 0) {
-                                        double surf_perc = UZ.getSurfPerc(IJ);
-                                        if (surf_perc > 0) {
-                                            cell_cswat = cell_cswat * (1 - surf_perc) + surf_perc * UI.simOptions.SurfConcValue;
-                                        }
-                                    }
-                                }
-                            }
-
-                            c_swat = c_swat + cell_cswat;
-                            Mfeed = Mfeed + cell_cgw;
-                            n_cswat = n_cswat + 1.0;
-                            addThis = true;
-                        }// loop jj
-                    }// loop ii
-
-                    c_swat = c_swat / n_cswat;
-                    Mfeed = Mfeed / n_cswat;
-
-                    if (c_swat > UI.simOptions.MaxConc) {
-                        c_swat = UI.simOptions.MaxConc;
-                    }
-                }
-                if (addThis){
-                    itw->second.strml[i].gw_conc.push_back(Mfeed);
-                    itw->second.strml[i].lf_conc.push_back(c_swat);
-                }
+                itw->second.strml[i].gw_conc.push_back(c_gw);
+                itw->second.strml[i].lf_conc.push_back(c_tot);
             }
         }
 
@@ -684,7 +355,7 @@ int main(int argc, char* argv[]) {
                 std::cout << "Simulating VD BTCs ..." << std::endl;
             }
             world.barrier();
-            for (itw = VD.begin(); itw != VD.end(); ++itw){
+            for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw){
                 std::vector<double> wellbtc(UI.simOptions.Nyears, 0.0);
                 double sumW = 0;
                 int cntS = 0;
@@ -728,9 +399,10 @@ int main(int argc, char* argv[]) {
 
         }
         iswat = iswat + 1;
-        if (iswat >= UI.simOptions.Nyears){
+        if (iswat >= UI.swatOptions.Nyears){
             iswat = 0;
         }
+        YYYY = YYYY + 1;
     }
 
 

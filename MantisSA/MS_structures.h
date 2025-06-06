@@ -45,7 +45,7 @@ namespace MS{
     struct NpsatOptions{
         bool bUseInitConcVI;
         bool bUseInitConcVD;
-        int version;
+        //int version;
         std::string VIdataFile;
         std::string VDdataFile;
         std::string InitSaltVIFile;
@@ -70,6 +70,9 @@ namespace MS{
         double MaxAge;
         double SurfConcValue;
         double OutofAreaConc;
+        int nYears_historic;
+        int nYears_blendEnd;
+
     };
 
     struct UnsatOptions{
@@ -97,7 +100,7 @@ namespace MS{
         int urfJ;
         int IJ;
         bool inRiv;
-        double rivRist;
+        double rivInfl;
         //int hru_idx;
         double W;
         double Len;
@@ -135,9 +138,13 @@ namespace MS{
         std::vector<double> a;
     };
 
+    struct WELLS{
+        std::map<int, WELL> wells;
+        int version;
+    };
     typedef std::map<int,NPSATTMP> tmpWELLS;
 
-    typedef std::map<int, WELL> WELLS;
+    //typedef std::map<int, WELL> WELLS;
 
     typedef std::map<int, std::vector<int>> WELL_CELLS;
 
@@ -314,13 +321,13 @@ namespace MS{
     double calcRiverInfluence(const double &dist, const RiverOptions &ropt){
         double u = 1.0;
         if (dist < ropt.StartDist){
-            u = 0.0;
-        }
-        else if (dist > ropt.EndDist){
             u = 1.0;
         }
+        else if (dist > ropt.EndDist){
+            u = 0.0;
+        }
         else{
-            u = (dist - ropt.StartDist)/(ropt.EndDist - ropt.EndDist);
+            u = 1.0 - (dist - ropt.StartDist)/(ropt.EndDist - ropt.StartDist);
         }
         return u;
     }
@@ -387,6 +394,55 @@ namespace MS{
             M.insert(M.end(), msa_size.begin(), msa_size.end());
 
             return true;
+        }
+    }
+
+    int calcYearIndex(const int &yr, const int &startYr, const int &nYrs){
+        int ii;
+        if (yr >= startYr){
+            ii = 0;
+            for (int i = 0; i < 1000; ++i){
+                if (startYr + i == yr){
+                    break;
+                }
+                ii = ii + 1;
+                if (ii > nYrs){
+                    ii = 0;
+                }
+            }
+        }
+        else{
+            ii = nYrs;
+            for (int i = -1; i > -1000; --i){
+                if (startYr + i == yr){
+                    break;
+                }
+                ii = ii - 1;
+                if (ii < 0){
+                    ii = nYrs;
+                }
+            }
+        }
+        return ii;
+    }
+
+    void yearMap(std::map<int, int> &yr_id, const int &startSimYr, const int &endSimYr, const int &startYr, const int &nYrs){
+         yr_id.clear();
+        int idx = 0;
+        for (int i = startYr; i <= endSimYr; ++i){
+            yr_id.insert(std::pair<int,int>(i, idx));
+            idx = idx + 1;
+            if (idx >= nYrs){
+                idx = 0;
+            }
+        }
+        idx = nYrs - 1;
+        for (int i = startYr-1; i >= startSimYr; --i){
+            yr_id.insert(std::pair<int,int>(i, idx));
+            idx = idx - 1;
+            if (idx < 0){
+                idx = nYrs - 1;
+            }
         }
     }
 

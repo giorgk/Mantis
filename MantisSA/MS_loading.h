@@ -9,56 +9,51 @@ namespace MS{
     class HistoricLoading{
     public:
         HistoricLoading(){}
-        int YearA;
-        int YearB;
-        int idx;
+        //int YearA;
+        //int YearB;
+        //int idx;
         std::string Prefix;
         std::string Ext;
-        std::vector<double> A;
-        std::vector<double> B;
+        std::vector<std::vector<double>> HistLoad;
         std::vector<int> Years;
         bool Setup(std::string pref, std::string ext, boost::mpi::communicator &world);
-        bool InitialLoading(boost::mpi::communicator &world);
-        bool LoadNext(boost::mpi::communicator &world);
-        double calculateConc(int IJ, int year,boost::mpi::communicator &world);
+        bool ReadLoading(boost::mpi::communicator &world);
+        double calculateConc(int IJ, int year) const;
 
         bool readInfo(std::string filename, boost::mpi::communicator &world);
         bool readRasterLoad(std::string filename, std::vector<double> &V,boost::mpi::communicator &world);
     };
 
-    bool HistoricLoading::InitialLoading(boost::mpi::communicator &world) {
-        std::string fileA = Prefix + std::to_string(YearA) + "." + Ext;
-        std::string fileB = Prefix + std::to_string(YearB) + "." + Ext;
-
-        bool tf = readRasterLoad(fileA, A, world);
-        if (!tf){
-            return tf;
+    bool HistoricLoading::ReadLoading(boost::mpi::communicator &world) {
+        for (unsigned int i = 0; i < Years.size(); ++i ){
+            std::string fn = Prefix + std::to_string(Years[i]) + "." + Ext;
+            std::vector<double> tmp;
+            bool tf = readRasterLoad(fn, tmp, world);
+            if (!tf){
+                return tf;
+            }
+            HistLoad.push_back(tmp);
         }
-        if (YearA != YearB){
-            tf = readRasterLoad(fileB, B, world);
-        }
-        return tf;
+        return true;
     }
 
-    double HistoricLoading::calculateConc(int IJ, int year, boost::mpi::communicator &world) {
+    double HistoricLoading::calculateConc(int IJ, int year) const {
         double conc = 0;
-        if (YearA == YearB){
-            conc = A[IJ];
+        if (year <= Years[0]){
+            conc = HistLoad[0][IJ];
         }
-        else if (year >= YearA && year <= YearB){
-            double u = (static_cast<double>(year) - static_cast<double>(YearA))/
-                       (static_cast<double>(YearB) - static_cast<double>(YearA));
-            conc = (1-u) * A[IJ] + u * B[IJ];
-        }
-        else if (year < YearA && YearA == Years.front()){
-            conc = A[IJ];
-        }
-        else if (year > YearB && YearB == Years.back()){
-            conc = B[IJ];
+        else if(year >= Years[Years.size()-1]){
+            conc = HistLoad[Years.size()-1][IJ];
         }
         else{
-            LoadNext(world);
-            conc = calculateConc(IJ, year, world);
+            for (unsigned int i = 0; i < Years.size()-1; ++i ){
+                if (year >= Years[i] && year <= Years[i+1]){
+                    double u = (static_cast<double>(year) - static_cast<double>(Years[i]))/
+                               (static_cast<double>(Years[i+1]) - static_cast<double>(Years[i]));
+                    conc = (1-u) * HistLoad[i][IJ] + u * HistLoad[i+1][IJ];
+                    break;
+                }
+            }
         }
         return conc;
     }
@@ -67,7 +62,7 @@ namespace MS{
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
 #if _USEHF>0
-            const std::string NameSet("HRUs");
+            const std::string NameSet("HIST");
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
             dataset.read(V);
@@ -92,47 +87,73 @@ namespace MS{
         return true;
     }
 
-    bool HistoricLoading::LoadNext(boost::mpi::communicator &world) {
-        A.clear();
-        A = std::move(B);
-        idx = idx + 1;
-        YearA = Years[idx];
-        YearB = Years[idx+1];
-        std::string fileB = Prefix + std::to_string(YearB) + "." + Ext;
-        bool tf = readRasterLoad(fileB, B, world);
-
-        return tf;
-
-    }
-
     bool HistoricLoading::Setup(std::string pref, std::string ext,
                                 boost::mpi::communicator &world) {
-        std::string finfo = Prefix +  + "info.dat";
-        bool tf = readInfo(finfo,world);
-        if (!tf){return false;}
         Prefix = pref;
         Ext = ext;
-        if (Years.size() == 0){
-            std::cout << "No historic years were provided" << std::endl;
-            return false;
-        }
-        else if (Years.size() == 1){
-            std::cout << "Only one historic year was provided" << std::endl;
-            YearA = Years[0];
-            YearB = Years[0];
-            idx = 0;
-        }
-        else{
-            YearA = Years[0];
-            YearB = Years[1];
-            idx = 0;
-        }
-        tf = InitialLoading(world);
+        std::string finfo = Prefix + "info.dat";
+        bool tf = readInfo(finfo,world);
+        tf = ReadLoading(world);
         return tf;
     }
 
-    void CreateLoadingForStreamline(double &c_strml, double &gw_strml, const int &iyr, const int &iswat,
+    void calculateFutureLoading(double &c_cell, double &gw_cell,
+                                const int &IJ, const int &iswat, const int &ver,
+                                const double &initConc, const double &concfromPump, const double &RivInfl,
+                                const double &rivConcVal, const double &SurfConcValue, const double &surf_perc,
+                                const MS::HRU_Raster &hru_raster,
+                                const MS::SWAT_data &swat){
+        c_cell = 0.0;
+        gw_cell = 0.0;
+        int hru = hru_raster.getHRU(IJ);
+        int hruidx = swat.hru_index(hru);
+        if (hruidx < 0){
+            c_cell = initConc;
+        }
+        else{
+            if (swat.perc_mm[hruidx][iswat] < 0.01){
+                c_cell = swat.Salt_perc_ppm[hruidx][iswat];
+                gw_cell = 0.0;
+                if (ver == 1){
+                    c_cell = (1 - RivInfl) * c_cell + RivInfl * rivConcVal;
+                }
+            }
+            else{
+                double m_total = 0;
+                gw_cell = concfromPump;
+                double m_npsat = concfromPump * swat.irrGW_mm[hruidx][iswat] / 100.0;
+                if (m_npsat < 0.01){
+                    gw_cell = 0.0;
+                    if (m_npsat < 0.0){
+                        m_npsat = 0;
+                    }
+                }
+                m_total = swat.irrsaltSW_kgha[hruidx][iswat] +
+                          m_npsat +
+                          swat.fertsalt_kgha[hruidx][iswat] +
+                          swat.dssl_kgha[hruidx][iswat] -
+                          swat.Qsalt_kgha[hruidx][iswat] -
+                          swat.uptk_kgha[hruidx][iswat];// -
+                //swat.dSoilSalt_kgha[hruidx][iswat];
+                m_total = m_total * swat.pGW[hruidx][iswat];
+                if (m_total < 0){
+                    m_total = 0.0;
+                }
+                c_cell = m_total * 100 / swat.perc_mm[hruidx][iswat];
+            }
+            if (ver == 1){
+                c_cell = (1 - RivInfl) * c_cell + RivInfl * rivConcVal;
+            }
+
+            if (SurfConcValue > 0 & surf_perc > 0) {
+                c_cell = c_cell * (1 - surf_perc) + surf_perc * SurfConcValue;
+            }
+        }
+    }
+
+    void CreateLoadingForStreamline(double &c_strml, double &gw_strml, const int &iyr, const int &iswat, const int &yyyy, const int &ver,
                                       const STRML &strm, const UserInput &UI, const double &initConc,
+                                      const HistoricLoading &histload,
                                       const MS::BackgroundRaster &backRaster,
                                       const MS::UNSAT &UZ, const MS::HRU_Raster &hru_raster,
                                       const MS::SWAT_data &swat,
@@ -150,7 +171,7 @@ namespace MS{
         }
         double n_cells = 0.0;
         for (int ii = strm.urfI - UI.simOptions.nBuffer; ii <= strm.urfI + UI.simOptions.nBuffer; ++ii){
-            for (int jj = strm.urfI - UI.simOptions.nBuffer; jj <= strm.urfI + UI.simOptions.nBuffer; ++jj){
+            for (int jj = strm.urfJ - UI.simOptions.nBuffer; jj <= strm.urfJ + UI.simOptions.nBuffer; ++jj){
                 double c_cell = 0.0;
                 double gw_cell = 0.0;
                 int IJ = backRaster.IJ(ii, jj);
@@ -163,51 +184,40 @@ namespace MS{
                         c_cell = initConc;
                     }
                     else{
-                        int hru = hru_raster.getHRU(IJ);
-                        int hruidx = swat.hru_index(hru);
-                        if (hruidx < 0){
-                            c_cell = initConc;
+                        // After unsaturated travel time has passed, we use historic loading from year zero
+                        int shifted_iyr = iyr - shift;
+                        if (shifted_iyr < UI.simOptions.nYears_historic){
+                            // We are in the historic loading period
+                            c_cell = histload.calculateConc(IJ, yyyy - shift);
+                            if (ver == 1){
+                                c_cell = (1 - strm.rivInfl) * c_cell + strm.rivInfl * UI.riverOptions.ConcValue;
+                            }
+                        }
+                        else if (shifted_iyr < UI.simOptions.nYears_blendEnd){
+                            // We are in the blending period
+                            double c_cell_hist = histload.calculateConc(IJ, yyyy - shift);
+                            if (ver == 1){
+                                c_cell_hist = (1 - strm.rivInfl) * c_cell_hist + strm.rivInfl * UI.riverOptions.ConcValue;
+                            }
+
+                            double c_cell_fut, gw_cell_fut;
+                            double cfP = ConcFromPump[IJ];
+                            double surf_perc = UZ.getSurfPerc(IJ);
+                            calculateFutureLoading(c_cell_fut, gw_cell_fut, IJ, iswat, ver, initConc, cfP,
+                                                   strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
+                                                   surf_perc, hru_raster, swat);
+                            double u = (static_cast<double>(shifted_iyr - UI.simOptions.nYears_historic)) /
+                                    (static_cast<double>(UI.simOptions.nYears_blendEnd - UI.simOptions.nYears_historic));
+                            c_cell = (1-u) * c_cell_hist + u * c_cell_fut;
+                            gw_cell = gw_cell_fut * u;
                         }
                         else{
-                            if (swat.perc_mm[iswat][hruidx] < 0.01){
-                                c_cell = swat.Salt_perc_ppm[iswat][hruidx];
-                                gw_cell = 0.0;
-                            }
-                            else{
-                                double m_total = 0;
-                                gw_cell = ConcFromPump[IJ];
-                                double m_npsat = ConcFromPump[IJ] * swat.irrGW_mm[iswat][hruidx] / 100.0;
-                                if (m_npsat < 0.01){
-                                    gw_cell = 0.0;
-                                    if (m_npsat < 0.0){
-                                        m_npsat = 0;
-                                    }
-                                }
-                                m_total = swat.irrsaltSW_kgha[iswat][hruidx] +
-                                          m_npsat +
-                                          swat.fertsalt_kgha[iswat][hruidx] +
-                                          swat.dssl_kgha[iswat][hruidx] -
-                                          swat.Qsalt_kgha[iswat][hruidx] -
-                                          swat.uptk_kgha[iswat][hruidx];// -
-                                          //swat.dSoilSalt_kgha[iswat][hruidx];
-                                m_total = m_total * swat.pGW[iswat][hruidx];
-                                if (m_total < 0){
-                                    m_total = 0.0;
-                                }
-                                c_cell = m_total * 100 / swat.perc_mm[iswat][hruidx];
-                            }
-
-                            if (UI.npsatOptions.version == 1){
-                                double u = calcRiverInfluence(strm.rivRist, UI.riverOptions);
-                                c_cell = u * c_cell + (1-u) * UI.riverOptions.ConcValue;
-                            }
-
-                            if (UI.simOptions.SurfConcValue > 0) {
-                                double surf_perc = UZ.getSurfPerc(IJ);
-                                if (surf_perc > 0) {
-                                    c_cell = c_cell * (1 - surf_perc) + surf_perc * UI.simOptions.SurfConcValue;
-                                }
-                            }
+                            // We are in the future loading period
+                            double cfP = ConcFromPump[IJ];
+                            double surf_perc = UZ.getSurfPerc(IJ);
+                            calculateFutureLoading(c_cell, gw_cell, IJ, iswat, ver, initConc, cfP,
+                                                   strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
+                                                   surf_perc, hru_raster, swat);
                         }
                     }
                 }

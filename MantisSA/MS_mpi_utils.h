@@ -65,9 +65,9 @@ namespace MS{
     void sendWellEids(WELLS & wells, std::vector<std::vector<int>> & wellids, boost::mpi::communicator & world){
         //std::cout << "Rank " << world.rank() << " nWells: " << wells.size() << std::endl;
         std::vector<int> proc_eids;
-        WELLS::iterator itw;
+        std::map<int, WELL>::iterator itw;
         int cnt = 0;
-        for (itw = wells.begin(); itw != wells.end(); ++itw){
+        for (itw = wells.wells.begin(); itw != wells.wells.end(); ++itw){
             proc_eids.push_back(itw->first);
             //if (cnt < 20){
             //    std::cout << world.rank() << ": " << itw->first <<std::endl;
