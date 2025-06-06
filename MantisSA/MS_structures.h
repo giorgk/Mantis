@@ -377,7 +377,7 @@ namespace MS{
                     while (inp >> value) {
                         msa_size.push_back(value);
                     }
-                    continue;
+                    break;
                 }
 
                 count++;
