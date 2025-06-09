@@ -89,6 +89,7 @@ namespace MS{
         bool printURFs;
         bool printBTCs;
         bool printSelectedWells;
+        bool compress;
         std::string OutFile;
         std::string SelectedWells;
         std::string SelectedWellGroups;
@@ -219,32 +220,37 @@ namespace MS{
     template<typename T>
     bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nCols, int freq = 500000){
         std::ifstream datafile(filename.c_str());
-        if (!datafile.good()) {
+        if (!datafile.is_open()) {
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
         else{
             std::cout << "Reading " << filename << std::endl;
             std::string line;
-            T v;
-            int countLines = freq;
-            int ir = 0;
+            T value;
+            int lineCount  = 0;
+            int nextPrint = freq;
+            data.clear();
             //for (int ir = 0; ir < nRows; ++ir){
-            while (getline(datafile, line)){
+            while (std::getline(datafile, line)){
+                if (line.empty()) continue;
+
                 if (line.size() > 0){
-                    if (ir > countLines){
-                        std::cout << ir << std::endl;
-                        countLines = countLines + freq;
-                    }
-                    //std::cout << line << std::endl;
-                    std::istringstream inp(line.c_str());
-                    std::vector<T> d;
+                    std::istringstream inp(line);
+                    std::vector<T> row(nCols);
+
                     for (int i = 0; i < nCols; ++i){
-                        inp >> v;
-                        d.push_back(v);
+                        if (!(inp >> row[i])) {
+                            std::cerr << "Error reading value at row " << lineCount << ", column " << i << std::endl;
+                            return false;
+                        }
                     }
-                    data.push_back(d);
-                    ir = ir + 1;
+                    data.push_back(std::move(row));
+
+                    if (++lineCount >= nextPrint) {
+                        std::cout << lineCount << " lines read..." << std::endl;
+                        nextPrint += freq;
+                    }
                 }
             }
             datafile.close();

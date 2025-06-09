@@ -14,12 +14,22 @@ bool PrintMatrices = false;
 #include "MS_HRU_raster.h"
 #include "MS_loading.h"
 #include "MSdebug.h"
+#include "MS_tests.h"
 
 
 
 int main(int argc, char* argv[]) {
     boost::mpi::environment env( argc, argv );
     boost::mpi::communicator world;
+
+
+    //MS::TESTS::sendVec2Root(world);
+    //MS::TESTS::sendScalarFromRoot2AllProc(world);
+    //MS::TESTS::sendVectorFromRoot2AllProc(world);
+    //MS::TESTS::sentMatrixFromRoot2AllProc(world, false);
+    //MS::TESTS::sentMatrixFromRoot2AllProc(world, true);
+
+
     //{
     //    bool tf = false;
     //    std::cout << static_cast<int>(tf) << std::endl;
@@ -72,6 +82,7 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
+
 
     MS::WELLS VI;
     MS::WELLS VD;
@@ -433,7 +444,14 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
         if (world.rank() == 0){
             std::cout << "Printing VI BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVI,UI.outputOptions.OutFile + "_VI.dat", UI.simOptions.Nyears);
+            std::string fn;
+            if (UI.outputOptions.compress){
+                fn = UI.outputOptions.OutFile + "_VI.dat.gz";
+            }
+            else{
+                fn = UI.outputOptions.OutFile + "_VI.dat";
+            }
+            MS::printWELLSfromAllProc(AllProcBTCVI, fn, UI.simOptions.Nyears, UI.outputOptions.compress);
         }
     }
 
@@ -445,7 +463,11 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(thisProcBTCVD, AllProcBTCVD, world);
         if (world.rank() == 0){
             std::cout << "Printing VD BTCs ..." << std::endl;
-            MS::printWELLSfromAllProc(AllProcBTCVD,UI.outputOptions.OutFile + "_VD.dat",UI.simOptions.Nyears);
+            std::string fn = UI.outputOptions.OutFile + "_VD.dat";
+            if (UI.outputOptions.compress){
+                fn = fn + ".gz";
+            }
+            MS::printWELLSfromAllProc(AllProcBTCVD, fn, UI.simOptions.Nyears, UI.outputOptions.compress);
         }
     }
 
@@ -465,8 +487,12 @@ int main(int argc, char* argv[]) {
                     std::cout << "Printing VI Salt load data for " << it->second.groupName << "..." << std::endl;
                     std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_lf.dat";
                     std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_mf.dat";
-                    MS::printDetailOutputFromAllProc(AllProcDATA, lf_file_name, UI.simOptions.Nyears);
-                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        lf_file_name += ".gz";
+                        mf_file_name += ".gz";
+                    }
+                    MS::printDetailOutputFromAllProc(AllProcDATA, lf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
             }
         }
@@ -482,7 +508,10 @@ int main(int argc, char* argv[]) {
                 if (world.rank() == 0){
                     std::cout << "Printing VI URFs " << it->second.groupName << "..." << std::endl;
                     std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_urf.dat";
-                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        urf_file_name += ".gz";
+                    }
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
             }
         }
@@ -498,7 +527,10 @@ int main(int argc, char* argv[]) {
                 if (world.rank() == 0){
                     std::cout << "Printing VI BTCs " << it->second.groupName << "..." << std::endl;
                     std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_btc.dat";
-                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        btc_file_name += ".gz";
+                    }
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
             }
         }
@@ -520,8 +552,12 @@ int main(int argc, char* argv[]) {
                     std::cout << "Printing VD Salt load data for " << it->second.groupName << "..." << std::endl;
                     std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_lf.dat";
                     std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_mf.dat";
-                    MS::printDetailOutputFromAllProc(AllProcDATA,lf_file_name, UI.simOptions.Nyears);
-                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        lf_file_name += ".gz";
+                        mf_file_name += ".gz";
+                    }
+                    MS::printDetailOutputFromAllProc(AllProcDATA,lf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
+                    MS::printMfeedFromAllProc(AllProcMfeed, mf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
             }
         }
@@ -537,7 +573,10 @@ int main(int argc, char* argv[]) {
                 if (world.rank() == 0){
                     std::cout << "Printing VD URFs " << it->second.groupName << "..." << std::endl;
                     std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_urf.dat";
-                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        urf_file_name += ".gz";
+                    }
+                    MS::printURFsFromAllProc(AllProcDATA, urf_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
             }
         }
@@ -553,7 +592,10 @@ int main(int argc, char* argv[]) {
                 if (world.rank() == 0){
                     std::cout << "Printing VD BTCs " << it->second.groupName << "..." << std::endl;
                     std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_btc.dat";
-                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears);
+                    if (UI.outputOptions.compress){
+                        btc_file_name += ".gz";
+                    }
+                    MS::printBTCssFromAllProc(AllProcDATA, btc_file_name, UI.simOptions.Nyears, UI.outputOptions.compress);
                 }
 
             }

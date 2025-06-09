@@ -9,7 +9,7 @@
 #include <map>
 #include <string>
 #include <iomanip>
-#include <iomanip>
+#include <zlib.h>
 
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
@@ -17,6 +17,11 @@
 #include "MSdebug.h"
 
 namespace MS{
+
+    bool has_gz_extension(const std::string& filename) {
+        return filename.size() >= 3 &&
+               filename.compare(filename.size() - 3, 3, ".gz") == 0;
+    }
 
 
     bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears,
@@ -409,193 +414,386 @@ namespace MS{
         m.insert(m.begin(), countWells);
     }
 
-    void printWELLSfromAllProc(std::vector<std::vector<double>> &AllProcBTC, std::string filename, int Nyears){
+    void printWELLSfromAllProc(std::vector<std::vector<double>> &AllProcBTC, std::string filename,
+                               int Nyears, bool compress = false){
+
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
         std::ofstream out_file;
-        out_file.open(filename.c_str());
-        for (unsigned int i = 0; i < AllProcBTC.size(); ++i){
-            int Nbtc = static_cast<int>(AllProcBTC[i][0]);
-            int idx = 1;
+
+        // Open output stream
+        if (use_compression){
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
+        }
+        else{
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
+
+        std::ostringstream line;
+
+        for (const auto& procData : AllProcBTC){
+            int idx = 0;
+            int Nbtc = static_cast<int>(procData[idx++]);
             for (int j = 0; j < Nbtc; ++j){
-                int eid = AllProcBTC[i][idx];
-                out_file << std::fixed << eid;
-                idx = idx + 1;
-                for (int k = 0; k < Nyears; ++k){
-                    out_file <<  " " << std::setw(10) << std::scientific << AllProcBTC[i][idx];
-                    idx = idx + 1;
+                int eid = static_cast<int>(procData[idx++]);
+                std::ostringstream row;
+                row << std::scientific << std::setprecision(6);
+                row << eid;
+                for (int iyr = 0; iyr < Nyears; ++iyr){
+                    row << ", " << procData[idx++];
                 }
-                out_file << std::endl;
+                row << "\n";
+                write_line(row.str());
             }
         }
-        out_file.close();
+
+        // Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
     }
 
-    void printMfeedFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
+    void printMfeedFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename,
+                               int Nyears, bool compress = false){
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
         std::ofstream out_file;
-        out_file.open(filename.c_str());
 
-        out_file << "Eid, Sid, Aid";
-        for (int i = 0; i < Nyears; ++i){
-            out_file << ", MF" << i+1;
+        // Open output stream
+        if (use_compression){
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
         }
-        out_file << std::endl;
+        else{
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
 
-        for (unsigned int i = 0; i < AllProcData.size(); ++i){
-            int Nw = static_cast<int>(AllProcData[i][0]);
-            int idx = 1;
+        // Set common formatting
+        std::ostringstream line;
+        line << std::scientific << std::setprecision(6);
+        line << "Eid, Sid, Aid";
+        for (int i = 1; i <= Nyears; ++i)
+            line << ", MF" << i;
+        line << "\n";
+        write_line(line.str());
+
+        for (const auto& procData : AllProcData){
+            int idx = 0;
+            int Nw = static_cast<int>(procData[idx++]);
             for (int j = 0; j < Nw; ++j){
-                int eid = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
-                int Ns = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
+                int eid = static_cast<int>(procData[idx++]);
+                int Ns  = static_cast<int>(procData[idx++]);
                 for (int k = 0; k < Ns; ++k){
-                    int sid = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    int aid = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    out_file << std::fixed << eid << ", " << sid << ", " << aid;
-                    for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
-                        idx = idx + 1;
+                    int sid     = static_cast<int>(procData[idx++]);
+                    int aid    = static_cast<int>(procData[idx++]);
+
+                    std::ostringstream row;
+                    row << std::scientific << std::setprecision(6);
+                    row << eid << ", " << sid << ", " << aid;
+
+                    for (int iyr = 0; iyr < Nyears; ++iyr) {
+                        row << ", " << procData[idx++];
                     }
-                    out_file << std::endl;
+                    row << "\n";
+                    write_line(row.str());
                 }
             }
         }
-        out_file.close();
+
+        // Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
     }
 
-    void printBTCssFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
-        std::ofstream out_file;
-        out_file.open(filename.c_str());
-        out_file << "Eid, Sid, W";
-        for (int i = 0; i < Nyears; ++i){
-            out_file << ", btc" << i+1;
-        }
-        out_file << std::endl;
+    void printBTCssFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename,
+                               int Nyears, bool compress = false){
 
-        for (unsigned int i = 0; i < AllProcData.size(); ++i){
-            int Nw = static_cast<int>(AllProcData[i][0]);
-            int idx = 1;
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
+        std::ofstream out_file;
+
+        // Open output stream
+        if (use_compression){
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
+        }
+        else{
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
+
+        // Set common formatting
+        std::ostringstream line;
+        line << std::scientific << std::setprecision(6);
+        line << "Eid, Sid, W";
+        for (int i = 1; i <= Nyears; ++i)
+            line << ", btc" << i;
+        line << "\n";
+        write_line(line.str());
+
+        for (const auto& procData : AllProcData){
+            int idx = 0;
+            int Nw = static_cast<int>(procData[idx++]);
             for (int j = 0; j < Nw; ++j){
-                int eid = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
-                int Ns = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
+                int eid = static_cast<int>(procData[idx++]);
+                int Ns  = static_cast<int>(procData[idx++]);
                 for (int k = 0; k < Ns; ++k){
-                    int sid = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    double w = AllProcData[i][idx];
-                    idx = idx + 1;
-                    out_file << std::fixed << eid << ", " << sid;
-                    out_file << ", " << std::setw(10) << std::scientific << w;
-                    for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
-                        idx = idx + 1;
+                    int sid     = static_cast<int>(procData[idx++]);
+                    double w        = procData[idx++];
+
+                    std::ostringstream row;
+                    row << std::scientific << std::setprecision(6);
+                    row << eid << ", " << sid << ", " << w;
+
+                    for (int iyr = 0; iyr < Nyears; ++iyr) {
+                        row << ", " << procData[idx++];
                     }
-                    out_file << std::endl;
+                    row << "\n";
+                    write_line(row.str());
                 }
             }
         }
-        out_file.close();
+// Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
     }
 
-    void printURFsFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
-        std::ofstream out_file;
-        out_file.open(filename.c_str());
-        out_file << "Eid, Sid, m, s, age, len, W";
-        for (int i = 0; i < Nyears; ++i){
-            out_file << ", urf" << i+1;
-        }
-        out_file << std::endl;
+    void printURFsFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename,
+                              int Nyears, bool compress = false){
 
-        for (unsigned int i = 0; i < AllProcData.size(); ++i){
-            int Nw = static_cast<int>(AllProcData[i][0]);
-            int idx = 1;
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
+        std::ofstream out_file;
+
+        // Open output stream
+        if (use_compression){
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
+        }
+        else{
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
+
+        // Set common formatting
+        std::ostringstream line;
+        line << std::scientific << std::setprecision(6);
+        line << "Eid, Sid, m, s, age, len, W";
+        for (int i = 1; i <= Nyears; ++i)
+            line << ", urf" << i;
+        line << "\n";
+        write_line(line.str());
+
+        for (const auto& procData : AllProcData){
+            int idx = 0;
+            int Nw = static_cast<int>(procData[idx++]);
             for (int j = 0; j < Nw; ++j){
-                int eid = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
-                int Ns = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
+                int eid = static_cast<int>(procData[idx++]);
+                int Ns  = static_cast<int>(procData[idx++]);
                 for (int k = 0; k < Ns; ++k){
-                    int sid = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    double m = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double s = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double a = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double len = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double w = AllProcData[i][idx];
-                    idx = idx + 1;
-                    out_file << std::fixed << eid << ", " << sid;
-                    out_file << ", " << std::setw(10) << std::scientific << m
-                             << ", " << std::setw(10) << std::scientific << s
-                             << ", " << std::setw(10) << std::scientific << a
-                             << ", " << std::setw(10) << std::scientific << len
-                             << ", " << std::setw(10) << std::scientific << w;
-                    for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << std::setw(10) << std::scientific << AllProcData[i][idx];
-                        idx = idx + 1;
+                    int sid     = static_cast<int>(procData[idx++]);
+                    double m        = procData[idx++];
+                    double s        = procData[idx++];
+                    double age      = procData[idx++];
+                    double len      = procData[idx++];
+                    double w        = procData[idx++];
+
+                    std::ostringstream row;
+                    row << std::scientific << std::setprecision(6);
+                    row << eid << ", " << sid << ", " << m << ", " << s << ", "
+                        << age << ", " << len << ", " << w;
+
+                    for (int iyr = 0; iyr < Nyears; ++iyr) {
+                        row << ", " << procData[idx++];
                     }
-                    out_file << std::endl;
+                    row << "\n";
+                    write_line(row.str());
                 }
             }
         }
-        out_file.close();
+        // Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
     }
 
-    void printDetailOutputFromAllProc(std::vector<std::vector<double>> &AllProcData, std::string filename, int Nyears){
-        std::ofstream out_file;
-        out_file.open(filename.c_str());
-        out_file << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc, RivInfl";
-        for (int i = 0; i < Nyears; ++i){
-            out_file << ", lf_conc" << i+1;
-        }
-        out_file << std::endl;
+    void printDetailOutputFromAllProc(const std::vector<std::vector<double>>& AllProcData, const std::string& filename,
+                                      int Nyears, bool compress = false){
 
-        for (unsigned int i = 0; i < AllProcData.size(); ++i){
-            int Nw = static_cast<int>(AllProcData[i][0]);
-            int idx = 1;
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
+        std::ofstream out_file;
+
+        // Open output stream
+        if (use_compression){
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
+        }
+        else{
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
+
+        // Set common formatting
+        std::ostringstream line;
+        line << std::scientific << std::setprecision(6);
+        line << "Eid, Sid, UrfI, UrfJ, hru, hru_idx, UnsatD, UnsatR, SrfPrc, RivInfl";
+        for (int i = 1; i <= Nyears; ++i)
+            line << ", LF" << i;
+        line << "\n";
+        write_line(line.str());
+
+        for (const auto& procData : AllProcData){
+            int idx = 0;
+            int Nw = static_cast<int>(procData[idx++]);
             for (int j = 0; j < Nw; ++j){
-                int eid = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
-                int Ns = static_cast<int>(AllProcData[i][idx]);
-                idx = idx + 1;
+                int eid = static_cast<int>(procData[idx++]);
+                int Ns  = static_cast<int>(procData[idx++]);
                 for (int k = 0; k < Ns; ++k){
-                    int sid = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    int urfI = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    int urfJ = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    int hru = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    int hru_idx = static_cast<int>(AllProcData[i][idx]);
-                    idx = idx + 1;
-                    double d = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double r = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double sp = AllProcData[i][idx];
-                    idx = idx + 1;
-                    double rivinfl = AllProcData[i][idx];
-                    idx = idx + 1;
-                    out_file << std::fixed << eid << ", " << sid  << ", " << urfI  << ", " << urfJ  << ", " << hru  << ", " << hru_idx;
-                    out_file << ", " << std::setw(10) << std::scientific <<  d
-                             << ", " << std::setw(10) << std::scientific << r
-                             << ", " << std::setw(3) << std::scientific << sp
-                             << ", " << std::setw(3) << std::scientific << rivinfl;
-                    for (int iyr = 0; iyr < Nyears; ++iyr){
-                        out_file << ", " << std::setw(10) << std::scientific <<  AllProcData[i][idx];
-                        idx = idx + 1;
+                    int sid     = static_cast<int>(procData[idx++]);
+                    int urfI    = static_cast<int>(procData[idx++]);
+                    int urfJ    = static_cast<int>(procData[idx++]);
+                    int hru     = static_cast<int>(procData[idx++]);
+                    int hru_idx = static_cast<int>(procData[idx++]);
+
+                    double d        = procData[idx++];
+                    double r        = procData[idx++];
+                    double sp       = procData[idx++];
+                    double rivinfl  = procData[idx++];
+
+                    std::ostringstream row;
+                    row << std::scientific << std::setprecision(6);
+                    row << eid << ", " << sid << ", " << urfI << ", " << urfJ << ", "
+                        << hru << ", " << hru_idx << ", "
+                        << d << ", " << r << ", " << sp << ", " << rivinfl;
+
+                    for (int iyr = 0; iyr < Nyears; ++iyr) {
+                        row << ", " << procData[idx++];
                     }
-                    out_file << std::endl;
+                    row << "\n";
+                    write_line(row.str());
                 }
             }
         }
-        out_file.close();
+        // Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
     }
 
     bool readSelectedWells(std::string filename, std::string groupFilename,

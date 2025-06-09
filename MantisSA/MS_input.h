@@ -45,7 +45,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.30";
+        Version = "0.0.31";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -143,6 +143,8 @@ namespace MS {
             ("Output.printLoad", po::value<int>(), "prints details of loading functions")
             ("Output.printURFs", po::value<int>(), "prints the urfs of the selected wells")
             ("Output.printBTCs", po::value<int>(), "prints the BTCs for each streamline of the selected wells")
+            ("Output.compress", po::value<int>(), "Print compressed files")
+
 
             // [Other]
             ("Other.dbg_File", po::value<std::string>(), "Debugging output filename")
@@ -254,6 +256,7 @@ namespace MS {
                     outputOptions.printBTCs = vm_cfg["Output.printBTCs"].as<int>() != 0;
                     outputOptions.printLoad = vm_cfg["Output.printLoad"].as<int>() != 0;
                     outputOptions.printURFs = vm_cfg["Output.printURFs"].as<int>() != 0;
+                    outputOptions.compress = vm_cfg["Output.compress"].as<int>() != 0;
                 }
 
                 {// [Other
