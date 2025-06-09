@@ -103,8 +103,25 @@ namespace MS{
             }
             std::cout << std::endl;
         }*/
+
+        const double EPS = 1e-12;
+        const std::size_t N = lf.size();
+
         double cumurf = 0.0;
-        unsigned int shift = 0;
+
+        for (std::size_t i = 0; i < N; ++i){
+            cumurf += urf[i];
+            prebtc[i] = initconc * (1.0 - cumurf);
+            if (std::abs(lf[i]) > EPS){
+                const double lf_i = lf[i];
+                for (std::size_t k = i; k < N; ++k){
+                    btc[k] += urf[k - i] * lf_i;
+                }
+            }
+        }
+
+
+        /*unsigned int shift = 0;
         for (unsigned int i = 0; i < lf.size(); ++i){
             cumurf = cumurf + urf[i];
             prebtc[i] = initconc*(1.0 - cumurf);
@@ -114,7 +131,7 @@ namespace MS{
                 }
             }
             shift = shift + 1;
-        }
+        }*/
     }
 }
 

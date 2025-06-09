@@ -270,56 +270,65 @@ namespace MS{
     }
 
 
-    bool readLinearData(std::string filename, std::vector<std::string> &names,
-                        std::vector<std::vector<double>> &data, int freq = 500000){
-        std::ifstream ifile;
-        ifile.open(filename);
+    bool readLinearData(std::string filename,
+                        std::vector<std::string> &names,
+                        std::vector<std::vector<double>> &data,
+                        int freq = 500000){
+
+        std::ifstream ifile(filename);
+
         if (!ifile.is_open()){
             std::cout << "Cant open file: " << filename << std::endl;
             return false;
         }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            int nData;
-            std::string line;
-            { //Get the number of Unsaturated scenarios
-                getline(ifile, line);
-                std::istringstream inp(line.c_str());
-                inp >> nData;
-                data.clear();
-                data.resize(nData,std::vector<double>());
-            }
 
-            {// Get the scenario names
-                std::string name;
-                for (int i = 0; i < nData; ++i){
-                    getline(ifile, line);
-                    std::istringstream inp(line.c_str());
-                    inp >> name;
-                    names.push_back(name);
+        std::cout << "Reading " << filename << " ..." << std::endl;
+        std::string line;
+        int nData = 0;
+
+        // --- Read number of data series
+        if (!std::getline(ifile, line)) {
+            std::cerr << "File format error: missing nData" << std::endl;
+            return false;
+        }
+        nData = std::stoi(line);
+        data.clear();
+        data.resize(nData);
+        names.clear();
+        names.reserve(nData);
+
+        // --- Read names
+        for (int i = 0; i < nData; ++i){
+            if (!std::getline(ifile, line)){
+                std::cerr << "File format error: missing name at line " << i + 2 << std::endl;
+                return false;
+            }
+            names.push_back(line);  // assume each name is a line
+        }
+
+        // --- Read values
+        int ir = 0;
+        int nextLog = freq;
+        std::vector<double> rowValues(nData);
+        while (std::getline(ifile, line)){
+            if (line.empty()) continue;
+
+            std::istringstream iss(line);
+            for (int j = 0; j < nData; ++j){
+                if (!(iss >> rowValues[j])) {
+                    std::cerr << "Parsing error at row " << ir << ", column " << j << std::endl;
+                    return false;
                 }
             }
-            {// Read the values
-                int ir = 0;
-                int countLines = freq;
-                while (getline(ifile, line)) {
-                    if (line.size() > 0){
-                        if (ir > countLines){
-                            std::cout << ir << std::endl;
-                            countLines = countLines + freq;
-                        }
-
-                        std::istringstream inp(line.c_str());
-                        double v;
-                        for (int j = 0; j < nData; ++j){
-                            inp >> v;
-                            data[j].push_back(v);
-                        }
-                        ir = ir + 1;
-                    }
-                }
+            for (int j = 0; j < nData; ++j) {
+                data[j].push_back(rowValues[j]);
             }
-            ifile.close();
+
+            ++ir;
+            if (ir >= nextLog) {
+                std::cout << ir << " rows read..." << std::endl;
+                nextLog += freq;
+            }
         }
         return true;
     }
