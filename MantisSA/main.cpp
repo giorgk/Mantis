@@ -485,8 +485,8 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI Salt load data for " << it->second.groupName << "..." << std::endl;
-                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_lf.dat";
-                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_mf.dat";
+                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_RSL.dat";
+                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_RSF.dat";
                     if (UI.outputOptions.compress){
                         lf_file_name += ".gz";
                         mf_file_name += ".gz";
@@ -507,7 +507,7 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI URFs " << it->second.groupName << "..." << std::endl;
-                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_urf.dat";
+                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_RSU.dat";
                     if (UI.outputOptions.compress){
                         urf_file_name += ".gz";
                     }
@@ -526,7 +526,7 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VI BTCs " << it->second.groupName << "..." << std::endl;
-                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_btc.dat";
+                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VI_RSC.dat";
                     if (UI.outputOptions.compress){
                         btc_file_name += ".gz";
                     }
@@ -550,8 +550,8 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcMfeed, AllProcMfeed, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD Salt load data for " << it->second.groupName << "..." << std::endl;
-                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_lf.dat";
-                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_mf.dat";
+                    std::string lf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_RSL.dat";
+                    std::string mf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_RSF.dat";
                     if (UI.outputOptions.compress){
                         lf_file_name += ".gz";
                         mf_file_name += ".gz";
@@ -572,7 +572,7 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD URFs " << it->second.groupName << "..." << std::endl;
-                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_urf.dat";
+                    std::string urf_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_RSU.dat";
                     if (UI.outputOptions.compress){
                         urf_file_name += ".gz";
                     }
@@ -591,7 +591,7 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(thisProcDATA, AllProcDATA, world);
                 if (world.rank() == 0){
                     std::cout << "Printing VD BTCs " << it->second.groupName << "..." << std::endl;
-                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_btc.dat";
+                    std::string btc_file_name = UI.outputOptions.OutFile + "_" + it->second.groupName + "_VD_RSC.dat";
                     if (UI.outputOptions.compress){
                         btc_file_name += ".gz";
                     }

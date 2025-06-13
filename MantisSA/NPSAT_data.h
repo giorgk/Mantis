@@ -453,6 +453,11 @@ namespace MS{
         }
 
         std::ostringstream line;
+        line << "Eid";
+        for (int i = 1; i <= Nyears; ++i)
+            line << ", btc" << i;
+        line << "\n";
+        write_line(line.str());
 
         for (const auto& procData : AllProcBTC){
             int idx = 0;
