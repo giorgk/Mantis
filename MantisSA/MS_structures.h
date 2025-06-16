@@ -182,7 +182,8 @@ namespace MS{
         return true;
     }
 
-    bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map){
+    bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map,
+                                    boost::mpi::communicator &world){
         std::ifstream datafile(filename.c_str());
         if (!datafile.good()) {
             std::cout << "Can't open the file " << filename << std::endl;
@@ -190,7 +191,9 @@ namespace MS{
         }
         else{
             swg_map.clear();
-            std::cout << "Reading " << filename << std::endl;
+            if (world.rank() == 0){
+                std::cout << "Reading " << filename << std::endl;
+            }
             std::string line;
             while (getline(datafile, line)){
                 if (line.size() > 0){

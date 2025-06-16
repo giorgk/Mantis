@@ -806,7 +806,7 @@ namespace MS{
                            std::map<int,MS::SelectedWellsGroup> &SWGmap,
                            boost::mpi::communicator &world){
 
-        bool tf = readSelectedWellsGroupInfo(groupFilename, SWGmap);
+        bool tf = readSelectedWellsGroupInfo(groupFilename, SWGmap, world);
         if (!tf){
             return false;
         }
