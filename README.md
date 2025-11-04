@@ -37,7 +37,7 @@ The code is written in C++ and relies on libraries that are available for all ma
 * **Windows**: Pre-compiled executables are provided  
 * **Other OS**: Users will need to compile the code from source.
 
-Detailed instructions for obtaining and building the code can be found on the [page](https://github.com/giorgk/Mantis/wiki/Building-Mantis) 
+Detailed instructions for obtaining and building the code can be found on the [Building Mantis page](https://github.com/giorgk/Mantis/wiki/Building-Mantis) 
 
 # Getting Started
 Our [wiki](https://github.com/giorgk/Mantis/wiki) provides comprehensive documentation, including detailed guides on using Mantis.
@@ -49,5 +49,5 @@ The appropriate contact depends on your inquiry:
 * **Code issues**: Report problems in the [Issues](https://github.com/giorgk/Mantis/issues) tracker.
 
 For other inquiries email us at:
-* gkourakos@ucdavis.edu
+* gkourakos@ucdavis.edu or giorgk@gmail.com
 * thharter@ucdavis.edu
