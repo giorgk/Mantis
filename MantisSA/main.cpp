@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
     //    std::cout << static_cast<int>(tf) << std::endl;
     //    tf = true;
     //    std::cout << static_cast<int>(tf) << std::endl;
-    //    MS::testConvolution();
+//        MS::testConvolution();
     //    MS::testBroadcast(world);
     //    MS::testMatrixBroadcast<double>(world);
     //    MS::testScalarBroadcast(world);
