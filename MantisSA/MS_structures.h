@@ -464,6 +464,28 @@ namespace MS{
         }
     }
 
+    bool copy_file(std::string src, std::string dst){
+        std::ifstream src_file(src.c_str(), std::ios::binary);
+        std::ofstream dst_file(dst.c_str(), std::ios::binary);
+        if (!src_file.is_open()) {
+            std::cout << "Cant open file: " << src << std::endl;
+            return false;
+        }
+        if (!dst_file.is_open()) {
+            std::cout << "Cant open file: " << dst << std::endl;
+            return false;
+        }
+
+        try {
+            dst_file << src_file.rdbuf();
+        }
+        catch (std::exception &e) {
+            std::cout << "Error: " << e.what() << std::endl;
+            return false;
+        }
+        return true;
+    }
+
 }
 
 #endif //MANTISSA_MS_STRUCTURES_H

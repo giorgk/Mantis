@@ -45,7 +45,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.33";
+        Version = "0.0.34";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -269,6 +269,9 @@ namespace MS {
                 simOptions.nYears_historic = historicOptions.BlendStart - simOptions.StartYear;
                 simOptions.nYears_blendEnd = historicOptions.BlendEnd - simOptions.StartYear;
 
+                if (world.rank() == 0) {
+                    copy_file(configFile, outputOptions.OutFile + ".cfg");
+                }
             }
             catch (std::exception& E)
             {
