@@ -95,6 +95,10 @@ namespace MS{
         std::string SelectedWellGroups;
     };
 
+    struct MiscOptions {
+        double dp_mult;
+    };
+
     struct STRML{
         int Sid;
         int urfI;

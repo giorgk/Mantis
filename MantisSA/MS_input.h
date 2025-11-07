@@ -34,6 +34,7 @@ namespace MS {
         SimOptions simOptions;
         UnsatOptions unsatOptions;
         OutputOptions outputOptions;
+        MiscOptions miscOptions;
 
         std::string Version;
 
@@ -45,7 +46,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.34";
+        Version = "0.0.35";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -144,6 +145,9 @@ namespace MS {
             ("Output.printURFs", po::value<int>(), "prints the urfs of the selected wells")
             ("Output.printBTCs", po::value<int>(), "prints the BTCs for each streamline of the selected wells")
             ("Output.compress", po::value<int>(), "Print compressed files")
+
+            //[Misc]
+            ("Misc.dp_mult", po::value<double>()->default_value(1.0), "Deep percolation multiplier")
 
 
             // [Other]
@@ -257,6 +261,10 @@ namespace MS {
                     outputOptions.printLoad = vm_cfg["Output.printLoad"].as<int>() != 0;
                     outputOptions.printURFs = vm_cfg["Output.printURFs"].as<int>() != 0;
                     outputOptions.compress = vm_cfg["Output.compress"].as<int>() != 0;
+                }
+
+                {
+                    miscOptions.dp_mult = vm_cfg["Misc.dp_mult"].as<double>();
                 }
 
                 {// [Other

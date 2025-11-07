@@ -102,7 +102,10 @@ namespace MS{
                                 const double &initConc, const double &concfromPump, const double &RivInfl,
                                 const double &rivConcVal, const double &SurfConcValue, const double &surf_perc,
                                 const MS::HRU_Raster &hru_raster,
-                                const MS::SWAT_data &swat){
+                                const MS::SWAT_data &swat,
+                                const double &dp_mult
+                                //const MS::MiscOptions &miscopt
+                                ){
         c_cell = 0.0;
         gw_cell = 0.0;
         int hru = hru_raster.getHRU(IJ);
@@ -139,7 +142,7 @@ namespace MS{
                 if (m_total < 0){
                     m_total = 0.0;
                 }
-                c_cell = m_total * 100 / swat.perc_mm[hruidx][iswat];
+                c_cell = m_total * 100 / (swat.perc_mm[hruidx][iswat] * dp_mult);
             }
             if (ver == 1){
                 c_cell = (1 - RivInfl) * c_cell + RivInfl * rivConcVal;
@@ -205,7 +208,7 @@ namespace MS{
                             double surf_perc = UZ.getSurfPerc(IJ);
                             calculateFutureLoading(c_cell_fut, gw_cell_fut, IJ, iswat, ver, initConc, cfP,
                                                    strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
-                                                   surf_perc, hru_raster, swat);
+                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult);
                             double u = (static_cast<double>(shifted_iyr - UI.simOptions.nYears_historic)) /
                                     (static_cast<double>(UI.simOptions.nYears_blendEnd - UI.simOptions.nYears_historic));
                             c_cell = (1-u) * c_cell_hist + u * c_cell_fut;
@@ -217,7 +220,7 @@ namespace MS{
                             double surf_perc = UZ.getSurfPerc(IJ);
                             calculateFutureLoading(c_cell, gw_cell, IJ, iswat, ver, initConc, cfP,
                                                    strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
-                                                   surf_perc, hru_raster, swat);
+                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult);
                         }
                     }
                 }
