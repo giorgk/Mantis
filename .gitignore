@@ -22,6 +22,7 @@
 !/docs/*.jpg
 !/docs/*.html
 !/docs/*.yml
+!/docs/*.ipynb
 
 # "un-ignore the Local folder =========Local========
 !/Local

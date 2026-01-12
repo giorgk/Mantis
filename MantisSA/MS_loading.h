@@ -142,6 +142,7 @@ namespace MS{
                 if (m_total < 0){
                     m_total = 0.0;
                 }
+                double c_cell_tmp = m_total * 100 / (swat.perc_mm[hruidx][iswat]);
                 c_cell = m_total * 100 / (swat.perc_mm[hruidx][iswat] * dp_mult);
             }
             if (ver == 1){

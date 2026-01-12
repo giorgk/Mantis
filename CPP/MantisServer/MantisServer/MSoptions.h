@@ -115,7 +115,7 @@ namespace mantisServer {
         int nTimesPrinted = 0;
 
 		int RFmem;
-        std::string version = "2.2.08";
+        std::string version = "2.2.09";
 
 	};
 
@@ -150,6 +150,7 @@ namespace mantisServer {
 			("help,h", "Get a list of options in the configuration file")
 			("config,c", po::value<std::string >(), "Set configuration file")
 			("test,t", "Run Server in test mode [a config file is required]")
+			("nthreads,n", po::value<int>()->default_value(4),"Number of threads [overwrites the value in config file]")
 			;
 
 		po::variables_map vm_cmd;
@@ -170,6 +171,12 @@ namespace mantisServer {
 			std::cout << "|    by  giorgk    |" << std::endl;
 			std::cout << "|------------------|" << std::endl;
 			return false;
+		}
+
+		bool use_cl_nthreads = false;
+		if (vm_cmd.count("nthreads")) {
+			opt.nThreads = vm_cmd["nthreads"].as<int>();
+			use_cl_nthreads = true;
 		}
 
 		// Configuration file options
@@ -225,7 +232,9 @@ namespace mantisServer {
                 opt.ip = "127.0.0.1";
             }
 
-			opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
+			if (!use_cl_nthreads) {
+				opt.nThreads = vm_cfg["ServerOptions.NTHREADS"].as<int>();
+			}
             opt.RFmem = vm_cfg["ServerOptions.RFmem"].as<int>();
 
 			if (vm_cfg.count("ServerOptions.DebugPrefix")) {
