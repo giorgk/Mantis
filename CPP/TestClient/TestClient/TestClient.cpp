@@ -146,10 +146,11 @@ int main(int argc, char* argv[])
 		}
 	}
 
-    boost::asio::io_service io_service;
+    //boost::asio::io_service io_service;
+	boost::asio::io_context io_context;
 
-    boost::asio::ip::tcp::socket socket(io_service);
-    socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::address::from_string("127.0.0.1"), 1234));
+    boost::asio::ip::tcp::socket socket(io_context);
+    socket.connect(boost::asio::ip::tcp::endpoint(boost::asio::ip::make_address("127.0.0.1"), 1234));
 		
 	boost::system::error_code error;
 	boost::asio::write(socket, boost::asio::buffer(msg), error);
@@ -168,13 +169,18 @@ int main(int argc, char* argv[])
 		std::cout << "receive failed: " << error.message() << std::endl;
 	}
 	else {
-		const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
-		//std::cout << data << std::endl;
-		std::string str(data);
-		//std::cout << str << std::endl;
-		//std::stringstream ss(str.c_str());
+		auto bufs = receive_buffer.data();
+		// Convert exactly the received bytes to a string (no need for null terminator)
+		std::string data(boost::asio::buffers_begin(bufs),
+						boost::asio::buffers_end(bufs));
 
-		std::vector<std::string> str1 = split(str, " ");
+		// const char* data = boost::asio::buffer_cast<const char*>(receive_buffer.data());
+		// //std::cout << data << std::endl;
+		// std::string str(data);
+		// //std::cout << str << std::endl;
+		// //std::stringstream ss(str.c_str());
+
+		std::vector<std::string> str1 = split(data, " ");
 		int ii = 0;
 		//ss << data;
 		int tf = std::atoi(str1[ii].c_str()); ii++;

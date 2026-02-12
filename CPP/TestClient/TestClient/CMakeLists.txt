@@ -1,20 +1,22 @@
 cmake_minimum_required(VERSION 3.15)
 
-if (UNIX)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -pthread -lpthread")
-endif(UNIX)
-##set(CMAKE_CXX_STANDARD 11)
-##set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_BUILD_TYPE Release)
+project(MantisClient LANGUAGES CXX)
 
-project(MantisClient)
+# Portable C++ standard selection (do NOT hardcode -std=... in flags)
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package (Threads REQUIRED)
 
-find_package(Boost 1.69 REQUIRED serialization thread system)
-INCLUDE_DIRECTORIES(${Boost_INCLUDE_DIRS})
+# Boost with components
+find_package(Boost REQUIRED COMPONENTS serialization thread system)
 
+add_executable(${PROJECT_NAME} TestClient.cpp)
 
-add_executable(${PROJECT_NAME} "TestClient.cpp")
-
-TARGET_LINK_LIBRARIES(${PROJECT_NAME} ${CMAKE_THREAD_LIBS_INIT} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        Threads::Threads
+        Boost::serialization
+        Boost::thread
+        Boost::system
+)

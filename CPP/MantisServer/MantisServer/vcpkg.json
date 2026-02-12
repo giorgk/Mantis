@@ -1,0 +1,15 @@
+{
+  "name": "mantisserver",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "boost-asio",
+    "boost-program-options",
+    "boost-serialization",
+    "boost-system",
+    "boost-random",
+    "boost-filesystem",
+    "boost-bimap",
+    "highfive",
+    "hdf5"
+  ]
+}

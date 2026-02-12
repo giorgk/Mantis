@@ -64,14 +64,16 @@ int main(int argc, char *argv[])
     std::cout << "   Version: " << msOptions.version << std::endl;
 
 	if (tf) {
-		ba::io_service io_service;
+		//ba::io_service io_service;
+		ba::io_context io_context;
 		//ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::tcp::v4(), msOptions.port));
-        ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::address::from_string(msOptions.ip), msOptions.port));
+        //ba::ip::tcp::acceptor acceptor(io_service, ba::ip::tcp::endpoint(ba::ip::address::from_string(msOptions.ip), msOptions.port));
+		ba::ip::tcp::acceptor acceptor(io_context, ba::ip::tcp::endpoint(ba::ip::make_address(msOptions.ip), msOptions.port));
         std::cout << "   IP: " << acceptor.local_endpoint().address().to_string() << std::endl;
         std::cout << "   PORT: " << acceptor.local_endpoint().port() << std::endl;
 		char buff[8192];
 		while (true) {
-			ba::ip::tcp::socket socket(io_service);
+			ba::ip::tcp::socket socket(io_context);
 			acceptor.accept(socket);
             //std::cout << " After SOCKET" << std::endl;
 			int bytes = static_cast<int>(ba::read(socket, ba::buffer(buff), boost::bind(read_complete, buff, boost::placeholders::_1, boost::placeholders::_2)));

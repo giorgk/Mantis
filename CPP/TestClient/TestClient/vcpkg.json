@@ -1,0 +1,10 @@
+{
+  "name": "mantisclient",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "boost-asio",
+    "boost-serialization",
+    "boost-thread",
+    "boost-system"
+  ]
+}
