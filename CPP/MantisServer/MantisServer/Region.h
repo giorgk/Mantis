@@ -345,7 +345,7 @@ namespace mantisServer{
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++strmlit){
 
                 // If the streamline originates from stream it has zero loading
-                if (strmlit->second.inRiver){
+                if (strmlit->second.rivDist < 50.0){
                     count_rivers = count_rivers + 1;
                     continue;
                 }

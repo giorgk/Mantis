@@ -749,6 +749,44 @@ namespace mantisServer {
         }
     }
 
+    struct URFInfo
+    {
+        std::string name;
+        int         nrows = 0;
+        int         npor  = 0;
+        std::vector<int> por;  // porosity scenario indices
+    };
+
+    static URFInfo read_urf_info_ascii(const std::string &info_filename)
+    {
+        URFInfo info;
+
+        std::ifstream in(info_filename);
+        if (!in.is_open())
+            throw std::runtime_error("Cant open file: " + info_filename);
+
+        std::string key;
+
+        // Line 1: "Name <name>"
+        in >> key >> info.name;
+
+        // Line 2: "Nrows <int>"
+        in >> key >> info.nrows;
+
+        // Line 3: "Npor <int>"
+        in >> key >> info.npor;
+
+        // Line 4: "<por1> <por2> ... <porNpor>"
+        info.por.resize(info.npor);
+        for (int i = 0; i < info.npor; ++i)
+        {
+            double tmp;
+            in >> tmp;
+            info.por[i] = static_cast<int>(std::llround(tmp));
+        }
+        return info;
+    }
+
 }
 
 #endif //MANTISSERVER_MSHELPER_H

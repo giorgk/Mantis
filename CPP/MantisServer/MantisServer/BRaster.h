@@ -67,13 +67,13 @@ namespace mantisServer{
                 raster = tmp_raster;
                 bHFread = true;
             }
-            else if (tmp_raster.size() == 2 & tmp_raster[0].size() == Ncells){
+            else if (tmp_raster.size() == Ncells & tmp_raster[0].size() == 2){
                 raster.clear();
                 raster.resize(Nrows,std::vector<int>(Ncols,-1));
                 int r, c;
                 for (int i = 0; i < Ncells; ++i){
-                    r = tmp_raster[0][i];
-                    c = tmp_raster[1][i];c;
+                    r = tmp_raster[i][0];
+                    c = tmp_raster[i][1];
                     if (r < Nrows && c < Ncols)
                         raster[r][c] = i;
                     else{
