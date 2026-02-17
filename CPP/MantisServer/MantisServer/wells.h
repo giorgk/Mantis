@@ -1108,35 +1108,31 @@ namespace mantisServer{
             }
 
             // Read numeric datasets into contiguous buffers
-            std::vector<int>    bufESIJ(dESIJ[0] * dESIJ[1]);
-            std::vector<double> bufLR  (dWLR[0]   * dWLR[1]);
-            std::vector<double> bufMSA (dMSA[0]  * dMSA[1]);
+            std::vector<std::vector<int>> ESIJ2;
+            std::vector<std::vector<double>> WLR2;
+            std::vector<std::vector<double>> MSA2;
 
-            dsESIJ.read(bufESIJ);
-            dsWLR.read(bufLR);
-            dsMSA.read(bufMSA);
+            dsESIJ.read(ESIJ2);
+            dsWLR.read(WLR2);
+            dsMSA.read(MSA2);
 
             auto esij_at = [&](std::size_t i, int k) -> int {
-                // i: row index [0..Nrows-1], k: field [0..3]
-                if (esij_rows) return bufESIJ[i * 4 + k];
-                else           return bufESIJ[k * Nrows + i];
+                // i: [0..Nrows-1], k: [0..3]
+                return esij_rows ? ESIJ2[i][k] : ESIJ2[k][i];
             };
 
             auto wlr_at = [&](std::size_t i, int k) -> double {
-                // k: 0 Len, 1 RivDist
-                if (wlr_rows) return bufLR[i * 2 + k];
-                else         return bufLR[k * Nrows + i];
+                // k: [0..2] => 0:W, 1:Len, 2:RivDist
+                return wlr_rows ? WLR2[i][k] : WLR2[k][i];
             };
 
             auto msa_at = [&](std::size_t i, std::size_t j) -> double {
                 // j: [0..3*Npor-1]
-                if (msa_rows) return bufMSA[i * MSAcols_expected + j];
-                else          return bufMSA[j * Nrows + i];
+                return msa_rows ? MSA2[i][j] : MSA2[j][i];
             };
 
+
             // 4) Build streamlines
-
-
             int eid, sid, r, c;
             double w, len, rivdist;
             bool tf;
