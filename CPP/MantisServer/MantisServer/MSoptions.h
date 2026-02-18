@@ -150,7 +150,7 @@ namespace mantisServer {
 			("help,h", "Get a list of options in the configuration file")
 			("config,c", po::value<std::string >(), "Set configuration file")
 			("test,t", "Run Server in test mode [a config file is required]")
-			("nthreads,n", po::value<int>()->default_value(4),"Number of threads [overwrites the value in config file]")
+			("nthreads,n", po::value<int>(),"Number of threads [overwrites the value in config file]")
 			;
 
 		po::variables_map vm_cmd;
@@ -188,7 +188,7 @@ namespace mantisServer {
 			// ServerOptions
             ("ServerOptions.PORT", po::value<int>()->default_value(1234), "Port number")
             ("ServerOptions.IP", "IP address as string. Leave empty for default 127.0.0.1")
-            ("ServerOptions.NTHREADS", po::value<int>()->default_value(6), "Number of threads to use by server")
+            ("ServerOptions.NTHREADS", po::value<int>()->default_value(4), "Number of threads to use by server")
             ("ServerOptions.RFmem", po::value<int>()->default_value(5), "RF Memory wt2t")
             ("ServerOptions.logFile", "If it is empty the output will be printed in the terminal. You can include a full path")
             ("ServerOptions.logClearFreq", po::value<int>()->default_value(50), "Frequency to clear log file")

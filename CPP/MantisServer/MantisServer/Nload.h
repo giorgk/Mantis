@@ -135,11 +135,13 @@ namespace mantisServer{
         //std::vector<int> LUYears;
         std::vector<int> Nidx;
         LinearData RasterLoading;
-        int nRows;
-        int nLU;
+        int n_years_lu;
+        int n_lu_ids;
         int nN;
         TSgrid LUtsgrid;
         TSgrid Nloadtsgrid;
+        bool lu_rows_is_index = false;
+        bool nload_rows_is_index = false;
     };
 
     bool NLoad::isValidIndex(int index) {
@@ -157,9 +159,15 @@ namespace mantisServer{
     }
 
     int NLoad::getLU(int index, int iyr) {
-        if (iyr >=0 && iyr < nLU && index >=0 && index < nRows)
+        // Single unsigned range-check per argument (also catches negatives).
+        if ((unsigned)iyr >= (unsigned)n_years_lu || (unsigned)index >= (unsigned)n_lu_ids)
+            return 0;
+
+        // One predictable branch; keep it as the last decision before the load.
+        if (lu_rows_is_index)
+            return LU[index][iyr];
+        else
             return LU[iyr][index];
-        return 0;
     }
     void NLoad::getLU(int index, int iyr, int& LUcS, int& LUcE, double& perc) {
 
@@ -174,8 +182,14 @@ namespace mantisServer{
 
         int sy, ey;
         Nloadtsgrid.getIndices(iyr,sy,ey,u);
-        N1 = Ndata[sy][index];
-        N2 = Ndata[ey][index];
+        if (nload_rows_is_index) {
+            N1 = Ndata[index][sy];
+            N2 = Ndata[index][ey];
+        }
+        else {
+            N1 = Ndata[sy][index];
+            N2 = Ndata[ey][index];
+        }
 
     }
 
@@ -243,11 +257,31 @@ namespace mantisServer{
             }
             LUtsgrid.init(lung[0],lung[2],lung[1],xm);
             Nloadtsgrid.init(lung[3],lung[5],lung[4],xm);
+            if (LUtsgrid.getNyears() == LU.size()) {
+                lu_rows_is_index = false;
+            }
+            else if (LUtsgrid.getNyears() == LU[0].size()) {
+                lu_rows_is_index = true;
+            }
+            else {
+                std::cout << "The Land Use years grid property must have the same number of years as LU" << std::endl;
+                return false;
+            }
+            if (Nloadtsgrid.getNyears() == Ndata.size()) {
+                nload_rows_is_index = false;
+            }
+            else if (Nloadtsgrid.getNyears() == Ndata[0].size()) {
+                nload_rows_is_index = true;
+            }
+            else {
+                std::cout << "The Nload years grid property must have the same number of years as Nload" << std::endl;
+                return false;
+            }
 
+            n_years_lu = LUtsgrid.getNyears();
 
-            nRows = LU[0].size();
             nN = Ndata.size();
-            nLU = LU.size();
+            n_lu_ids = LU.size();
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
             std::cout << "Read Nload from " << filename << " in " << elapsed.count() << std::endl;
@@ -343,9 +377,9 @@ namespace mantisServer{
                 }
                 ifile.close();
             }
-            nRows = LU[0].size();
+            n_years_lu = LU[0].size();
             nN = Ndata.size();
-            nLU = LU.size();
+            n_lu_ids = LU.size();
         }
 
         auto finish = std::chrono::high_resolution_clock::now();

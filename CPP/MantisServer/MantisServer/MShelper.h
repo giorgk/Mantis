@@ -654,6 +654,7 @@ namespace mantisServer {
         TSgrid(){};
         void init(int sy, int N, int d, extrapMethod xm);
         void getIndices(int iyr, int &SY, int &EY, double &t);
+        int getNyears() {return Nyears;}
 
     private:
         int StartYear;
