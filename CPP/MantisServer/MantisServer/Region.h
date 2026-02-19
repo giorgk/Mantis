@@ -345,10 +345,10 @@ namespace mantisServer{
             for (strmlit = wellit->second.streamlines.begin(); strmlit != wellit->second.streamlines.end(); ++strmlit){
 
                 // If the streamline originates from stream it has zero loading
-                if (strmlit->second.rivDist < 50.0){
-                    count_rivers = count_rivers + 1;
-                    continue;
-                }
+                //if (strmlit->second.rivDist < scenario.surfRivDist){
+                //    count_rivers = count_rivers + 1;
+                //    continue;
+                //}
                 // If the travel time of the streamline is higher than 400 years the assume zero loading
                 if (strmlit->second.age[scenario.porosityIndex] > scenario.maxAge){
                     count_max_age = count_max_age + 1;
@@ -384,27 +384,50 @@ namespace mantisServer{
                 }
 
                 //Build the main load
-                std::vector<double> mainload(NsimulationYears, 0);
-                mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario, wellInitConc);
-                if (scenario.buseLoadTransition){
-                    std::vector<double> preload(NsimulationYears, 0);
-                    preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario, wellInitConc);
-                    // blend the two
-                    double dYear = 0;
-                    for (int i = 0; i < NsimulationYears; ++i){
-                        if (i + scenario.startSimulationYear < scenario.LoadTransitionStart ){
-                            mainload[i] = preload[i];
+                std::vector<double> mainload(NsimulationYears);
+                if (strmlit->second.rivDist < scenario.surfRivDist)
+                {
+                    count_rivers = count_rivers + 1;
+                    mainload.assign(NsimulationYears, scenario.surfConc);
+                }
+                else
+                {
+                    mainload.assign(NsimulationYears, 0.0);
+                    mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario, wellInitConc);
+                    if (scenario.buseLoadTransition){
+                        std::vector<double> preload(NsimulationYears, 0);
+                        preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario, wellInitConc);
+                        // blend the two
+                        double dYear = 0;
+                        for (int i = 0; i < NsimulationYears; ++i){
+                            if (i + scenario.startSimulationYear < scenario.LoadTransitionStart ){
+                                mainload[i] = preload[i];
+                            }
+                            else if (i + scenario.startSimulationYear > scenario.LoadTransitionEnd){
+                                break;
+                            }
+                            else{
+                                double u = (dYear + dSY - dLTs)/(dLTe - dLTs);
+                                mainload[i] = (1-u)*preload[i] + u*mainload[i];
+                            }
+                            dYear = dYear + 1.0;
                         }
-                        else if (i + scenario.startSimulationYear > scenario.LoadTransitionEnd){
-                            break;
-                        }
-                        else{
-                            double u = (dYear + dSY - dLTs)/(dLTe - dLTs);
-                            mainload[i] = (1-u)*preload[i] + u*mainload[i];
-                        }
-                        dYear = dYear + 1.0;
+                    }
+                    if (strmlit->second.rivDist < scenario.surfRivInfl)
+                    {
+                        double d  = strmlit->second.rivDist;
+                        double d0 = scenario.surfRivDist;
+                        double d1 = scenario.surfRivInfl;
+                        double a = (d - d0) / (d1 - d0);
+                        if (a < 0.0) a = 0.0;
+                        if (a > 1.0) a = 1.0;
+                        const double one_minus_a = 1.0 - a;
+                        const double C0 = scenario.surfConc;
+                        for (std::size_t i = 0; i < mainload.size(); ++i)
+                            mainload[i] = one_minus_a * C0 + a * mainload[i];
                     }
                 }
+
 
                 if (scenario.printLF){
                     lf_file << wellit->first << " " << strmlit->first << " ";

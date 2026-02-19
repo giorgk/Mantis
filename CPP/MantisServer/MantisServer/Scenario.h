@@ -39,6 +39,7 @@ namespace mantisServer {
         void clear();
 
         bool parse_incoming_msg(std::string &msg, std::string &outmsg);
+        bool parse_incoming_msg2(std::string &msg, std::string &outmsg);
 
 
         std::string modelArea;
@@ -152,6 +153,10 @@ namespace mantisServer {
          */
         double minRecharge;
         double maxConc;
+        double surfConc = 0.0;
+        double surfRivDist = 50.0;
+        double surfRivInfl = 200.0;
+
 
         bool bUseFlowRch;
         std::string rchName;
@@ -208,6 +213,9 @@ namespace mantisServer {
         unsatZoneMobileWaterContent = 0.0;
         minRecharge = 10;// mm/year
         maxConc = 250;
+        surfConc = 0.0;
+        surfRivDist = 50.0;
+        surfRivInfl = 200.0;
         maxAge = 400;
         PixelRadius = 0;
         RadSelect.clear();
@@ -354,6 +362,21 @@ namespace mantisServer {
 
             if (test == "maxConc") {
                 ss >> maxConc;
+                continue;
+            }
+
+            if (test == "surfConc") {
+                ss >> surfConc;
+                continue;
+            }
+
+            if (test == "surfRivDist") {
+                ss >> surfRivDist;
+                continue;
+            }
+
+            if (test == "surfRivInfl") {
+                ss >> surfRivInfl;
                 continue;
             }
 
@@ -569,20 +592,474 @@ namespace mantisServer {
         return out;
     }
 
-    inline void skip_ws(const char *&p, const char *end) {
-        while (p < end && static_cast<unsigned char>(*p) <= ' ') ++p; // fast ASCII ws
-    }
+    inline bool Scenario::parse_incoming_msg2(std::string &msg, std::string &outmsg)
+    {
+        clear();
+        outmsg.clear();
 
-    inline std::string_view next_token(std::string_view sv, std::size_t &pos) {
-        const char *p   = sv.data() + pos;
-        const char *end = sv.data() + sv.size();
+        const char *p   = msg.c_str();
+        const char *end = p + msg.size();
 
-        skip_ws(p, end);
-        const char *b = p;
-        while (p < end && static_cast<unsigned char>(*p) > ' ') ++p;
+        struct Tok { const char *b; std::size_t n; };
 
-        pos = static_cast<std::size_t>(p - sv.data());
-        return std::string_view(b, static_cast<std::size_t>(p - b));
+        auto skip_ws = [&]() {
+            while (p < end && std::isspace(static_cast<unsigned char>(*p))) ++p;
+        };
+
+        auto next_tok = [&]() -> Tok {
+            skip_ws();
+            const char *b = p;
+            while (p < end && !std::isspace(static_cast<unsigned char>(*p))) ++p;
+            return Tok{b, static_cast<std::size_t>(p - b)};
+        };
+
+        auto tok_empty = [&](const Tok &t) -> bool { return t.n == 0; };
+
+        auto tok_eq = [&](const Tok &t, const char *lit) -> bool {
+            const std::size_t ln = std::strlen(lit);
+            return (t.n == ln) && (std::memcmp(t.b, lit, ln) == 0);
+        };
+
+        auto tok_to_string = [&](const Tok &t) -> std::string {
+            return std::string(t.b, t.n);
+        };
+
+        // Null-terminate token for strtod/strtol without mutating msg.
+        auto with_cstr = [&](const Tok &t, const char *&s, char buf[128], std::string &tmp) {
+            if (t.n < 128) {
+                std::memcpy(buf, t.b, t.n);
+                buf[t.n] = '\0';
+                s = buf;
+            } else {
+                tmp.assign(t.b, t.n);
+                s = tmp.c_str();
+            }
+        };
+
+        auto parse_int = [&](const Tok &t, int &v) -> bool {
+            if (t.n == 0) return false;
+            char buf[128]; std::string tmp; const char *s = nullptr;
+            with_cstr(t, s, buf, tmp);
+            char *ep = nullptr;
+            long r = std::strtol(s, &ep, 10);
+            if (ep == s || *ep != '\0') return false;
+            v = static_cast<int>(r);
+            return true;
+        };
+
+        auto parse_double = [&](const Tok &t, double &v) -> bool {
+            if (t.n == 0) return false;
+            char buf[128]; std::string tmp; const char *s = nullptr;
+            with_cstr(t, s, buf, tmp);
+            char *ep = nullptr;
+            double r = std::strtod(s, &ep);
+            if (ep == s || *ep != '\0') return false;
+            v = r;
+            return true;
+        };
+
+        auto parse_bool01 = [&](const Tok &t, bool &v) -> bool {
+            int tmp = 0;
+            if (!parse_int(t, tmp)) return false;
+            v = (tmp != 0);
+            return true;
+        };
+
+        auto require_tok = [&](Tok &t, const char *ctx_key) -> bool {
+            t = next_tok();
+            if (tok_empty(t)) {
+                outmsg += "0 ERROR: Malformed value(s) after key [";
+                outmsg += ctx_key;
+                outmsg += "]\n";
+                return false;
+            }
+            return true;
+        };
+
+        bool out = false;
+        int counter = 0;
+
+        while (true)
+        {
+            if (++counter > 500) {
+                outmsg += "0 ERROR: After 200 iterations I cant find ENDofMSG flag\n";
+                return false;
+            }
+
+            Tok key = next_tok();
+
+            if (tok_empty(key)) {
+                outmsg += "0 ERROR: Empty message was found\n";
+                return false;
+            }
+
+            if (tok_eq(key, "ENDofMSG")) {
+                out = true;
+                break;
+            }
+
+            Tok v1, v2, v3, v4;
+
+            // ---- string fields ----
+            if (tok_eq(key, "modelArea")) {
+                if (!require_tok(v1, "modelArea")) return false;
+                modelArea = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "bMap")) {
+                if (!require_tok(v1, "bMap")) return false;
+                mapID = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "flowScen")) {
+                if (!require_tok(v1, "flowScen")) return false;
+                flowScen = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "wellType")) {
+                if (!require_tok(v1, "wellType")) return false;
+                wellType = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "unsatScen")) {
+                if (!require_tok(v1, "unsatScen")) return false;
+                unsatScenario = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "loadScen")) {
+                if (!require_tok(v1, "loadScen")) return false;
+                loadScen = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "loadSubScen")) {
+                if (!require_tok(v1, "loadSubScen")) return false;
+                loadSubScen = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "modifierName")) {
+                if (!require_tok(v1, "modifierName")) return false;
+                modifierName = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "DebugID")) {
+                if (!require_tok(v1, "DebugID")) return false;
+                debugID = tok_to_string(v1);
+                // If your old behavior was to enable extra prints when debugID exists:
+                // printAdditionalInfo = !debugID.empty();
+                continue;
+            }
+
+            // ---- vector<string> ----
+            if (tok_eq(key, "Nregions")) {
+                if (!require_tok(v1, "Nregions")) return false;
+                int n = 0;
+                if (!parse_int(v1, n) || n < 0) return false;
+
+                regionIDs.clear();
+                regionIDs.reserve(static_cast<std::size_t>(n));
+
+                for (int i = 0; i < n; ++i) {
+                    Tok rid = next_tok();
+                    if (tok_empty(rid)) return false;
+                    regionIDs.push_back(tok_to_string(rid));
+                }
+                continue;
+            }
+
+            // ---- numeric fields ----
+            if (tok_eq(key, "unsatWC")) {
+                if (!require_tok(v1, "unsatWC") || !parse_double(v1, unsatZoneMobileWaterContent)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "rchMap")) {
+                bUseFlowRch = false;
+                if (!require_tok(v1, "rchMap")) return false;
+                rchName = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "minRch")) {
+                if (!require_tok(v1, "minRch") || !parse_double(v1, minRecharge)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "startSimYear")) {
+                if (!require_tok(v1, "startSimYear") || !parse_int(v1, startSimulationYear)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "endSimYear")) {
+                if (!require_tok(v1, "endSimYear") || !parse_int(v1, endSimulationYear)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "startRed")) {
+                if (!require_tok(v1, "startRed") || !parse_int(v1, startReductionYear)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "endRed")) {
+                if (!require_tok(v1, "endRed") || !parse_int(v1, endReductionYear)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "maxConc")) {
+                if (!require_tok(v1, "maxConc") || !parse_double(v1, maxConc)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "surfConc")) {
+                if (!require_tok(v1, "surfConc") || !parse_double(v1, surfConc)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "surfRivDist")) {
+                if (!require_tok(v1, "surfRivDist") || !parse_double(v1, surfRivDist)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "surfRivInfl")) {
+                if (!require_tok(v1, "surfRivInfl") || !parse_double(v1, surfRivInfl)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "maxAge")) {
+                if (!require_tok(v1, "maxAge") || !parse_double(v1, maxAge)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "constRed")) {
+                userSuppliedConstRed = true;
+                if (!require_tok(v1, "constRed")) return false;
+                double tmp = 0.0;
+                if (!parse_double(v1, tmp)) return false;
+                constReduction = static_cast<float>(tmp);
+                continue;
+            }
+
+            if (tok_eq(key, "loadTrans")) {
+                if (!require_tok(v1, "loadTrans")) return false;
+                LoadTransitionName = tok_to_string(v1);
+
+                if (!require_tok(v2, "loadTrans") || !parse_int(v2, LoadTransitionStart)) return false;
+                if (!require_tok(v3, "loadTrans") || !parse_int(v3, LoadTransitionEnd)) return false;
+
+                buseLoadTransition = (LoadTransitionName.compare("NONE") != 0);
+                continue;
+            }
+
+            if (tok_eq(key, "por")) {
+                if (!require_tok(v1, "por") || !parse_int(v1, porosity)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "ADELR")) {
+                if (!require_tok(v1, "ADELR") || !parse_double(v1, adeLambda)) return false;
+                if (!require_tok(v2, "ADELR") || !parse_double(v2, adeR)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "maxSourceCells")) {
+                if (!require_tok(v1, "maxSourceCells") || !parse_int(v1, maxSourceCells)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "PixelRadius")) {
+                if (!require_tok(v1, "PixelRadius") || !parse_int(v1, PixelRadius)) return false;
+                continue;
+            }
+
+            // ---- enums / converters ----
+            if (tok_eq(key, "modifierType")) {
+                if (!require_tok(v1, "modifierType")) return false;
+                modifierType = string2RasterOperation(tok_to_string(v1));
+                continue;
+            }
+
+            if (tok_eq(key, "modifierUnit")) {
+                if (!require_tok(v1, "modifierUnit")) return false;
+                modifierUnit = string2LoadUnits(tok_to_string(v1));
+                continue;
+            }
+
+            if (tok_eq(key, "urfType")) {
+                if (!require_tok(v1, "urfType")) return false;
+                urfType = string2URFTYPE(tok_to_string(v1));
+                continue;
+            }
+
+            // ---- Ncrops map<int,double> + globalReduction ----
+            if (tok_eq(key, "Ncrops")) {
+                if (!require_tok(v1, "Ncrops")) return false;
+                int Ncrops = 0;
+                if (!parse_int(v1, Ncrops) || Ncrops < 0) return false;
+
+                for (int i = 0; i < Ncrops; ++i) {
+                    Tok t_crop = next_tok();
+                    Tok t_perc = next_tok();
+                    if (tok_empty(t_crop) || tok_empty(t_perc)) return false;
+
+                    int cropid = 0;
+                    double perc = 0.0;
+                    if (!parse_int(t_crop, cropid) || !parse_double(t_perc, perc)) return false;
+
+                    if (cropid == -9) globalReduction = perc;
+                    else              LoadReductionMap.insert(std::make_pair(cropid, perc));
+                }
+                continue;
+            }
+
+            // ---- selections / ranges ----
+            if (tok_eq(key, "RadSelect")) {
+            bNarrowSelection = true;
+            useRadSelect = true;
+
+            double cx=0.0, cy=0.0, r=0.0;
+            if (!require_tok(v1, "RadSelect") || !parse_double(v1, cx)) return false;
+            if (!require_tok(v2, "RadSelect") || !parse_double(v2, cy)) return false;
+            if (!require_tok(v3, "RadSelect") || !parse_double(v3, r )) return false;
+
+            RadSelect.setData(cx, cy, r);
+            continue;
+        }
+
+        if (tok_eq(key, "RectSelect")) {
+            bNarrowSelection = true;
+            useRectSelect = true;
+
+            double xmin=0.0, ymin=0.0, xmax=0.0, ymax=0.0;
+            if (!require_tok(v1, "RectSelect") || !parse_double(v1, xmin)) return false;
+            if (!require_tok(v2, "RectSelect") || !parse_double(v2, ymin)) return false;
+            if (!require_tok(v3, "RectSelect") || !parse_double(v3, xmax)) return false;
+            if (!require_tok(v4, "RectSelect") || !parse_double(v4, ymax)) return false;
+
+            RectSelect.setData(xmin, ymin, xmax, ymax);
+            continue;
+        }
+
+        if (tok_eq(key, "DepthRange")) {
+            bNarrowSelection = true;
+            double dmin=0.0, dmax=0.0;
+            if (!require_tok(v1, "DepthRange") || !parse_double(v1, dmin)) return false;
+            if (!require_tok(v2, "DepthRange") || !parse_double(v2, dmax)) return false;
+            DepthRange.setData(dmin, dmax);
+            continue;
+        }
+
+        if (tok_eq(key, "UnsatRange")) {
+            bNarrowSelection = true;
+            double umin=0.0, umax=0.0;
+            if (!require_tok(v1, "UnsatRange") || !parse_double(v1, umin)) return false;
+            if (!require_tok(v2, "UnsatRange") || !parse_double(v2, umax)) return false;
+            unsatRange.setData(umin, umax);
+            continue;
+        }
+
+        if (tok_eq(key, "Wt2tRange")) {
+            bNarrowSelection = true;
+            double wtmin=0.0, wtmax=0.0;
+            if (!require_tok(v1, "Wt2tRange") || !parse_double(v1, wtmin)) return false;
+            if (!require_tok(v2, "Wt2tRange") || !parse_double(v2, wtmax)) return false;
+            wt2tRange.setData(wtmin, wtmax);
+            continue;
+        }
+
+        if (tok_eq(key, "ScreenLenRange")) {
+            bNarrowSelection = true;
+            double slmin=0.0, slmax=0.0;
+            if (!require_tok(v1, "ScreenLenRange") || !parse_double(v1, slmin)) return false;
+            if (!require_tok(v2, "ScreenLenRange") || !parse_double(v2, slmax)) return false;
+            ScreenLengthRange.setData(slmin, slmax);
+            continue;
+        }
+
+            if (tok_eq(key, "SourceArea")) {
+                int nPix=0, minPix=0, maxPix=0;
+                double percPix=0.0;
+
+                if (!require_tok(v1, "SourceArea") || !parse_int(v1, nPix)) return false;
+                if (!require_tok(v2, "SourceArea") || !parse_int(v2, minPix)) return false;
+                if (!require_tok(v3, "SourceArea") || !parse_int(v3, maxPix)) return false;
+                if (!require_tok(v4, "SourceArea") || !parse_double(v4, percPix)) return false;
+
+                SourceArea.setParameters(nPix, minPix, maxPix, percPix);
+                continue;
+            }
+
+            // ---- flags ----
+            if (tok_eq(key, "getids")) {
+                if (!require_tok(v1, "getids")) return false;
+                if (!parse_bool01(v1, printWellIds)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "getotherinfo")) {
+                if (!require_tok(v1, "getotherinfo")) return false;
+                if (!parse_bool01(v1, printWellinfo)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "printLF")) {
+                if (!require_tok(v1, "printLF")) return false;
+                if (!parse_bool01(v1, printLF)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "printURF")) {
+                if (!require_tok(v1, "printURF")) return false;
+                if (!parse_bool01(v1, printURF)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "printBTC")) {
+                if (!require_tok(v1, "printBTC")) return false;
+                if (!parse_bool01(v1, printBTC)) return false;
+                continue;
+            }
+
+            if (tok_eq(key, "printWellBTC")) {
+                if (!require_tok(v1, "printWellBTC")) return false;
+                if (!parse_bool01(v1, printWellBTC)) return false;
+                continue;
+            }
+
+            // ---- initConcParam ----
+            if (tok_eq(key, "initConcParam")) {
+                Tok t1 = next_tok(), t2 = next_tok(), t3 = next_tok(), t4 = next_tok();
+                if (tok_empty(t1) || tok_empty(t2) || tok_empty(t3) || tok_empty(t4)) return false;
+
+                if (!parse_double(t1, initcondparam.mean)) return false;
+                if (!parse_double(t2, initcondparam.std )) return false;
+                if (!parse_double(t3, initcondparam.minv)) return false;
+                if (!parse_double(t4, initcondparam.maxv)) return false;
+
+                if (initcondparam.mean < -90 || initcondparam.std < 0 ||
+                    initcondparam.minv < 0  || initcondparam.maxv < 0) {
+                    initcondparam.reset();
+                    } else {
+                        initcondparam.bUse = true;
+                    }
+                continue;
+            }
+
+            // ---- unknown key ----
+            outmsg += "0 ERROR: UNKNOWN option [";
+            outmsg.append(key.b, key.n);
+            outmsg += "]\n";
+            return false;
+        }
+        return out;
+
+
     }
 
 }
