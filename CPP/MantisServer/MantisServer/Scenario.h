@@ -5,6 +5,9 @@
 #ifndef MANTISSERVER_SCENARIO_H
 #define MANTISSERVER_SCENARIO_H
 
+#include <string>
+#include <string_view>
+
 #include "MShelper.h"
 
 namespace mantisServer {
@@ -564,6 +567,22 @@ namespace mantisServer {
             break;
         }
         return out;
+    }
+
+    inline void skip_ws(const char *&p, const char *end) {
+        while (p < end && static_cast<unsigned char>(*p) <= ' ') ++p; // fast ASCII ws
+    }
+
+    inline std::string_view next_token(std::string_view sv, std::size_t &pos) {
+        const char *p   = sv.data() + pos;
+        const char *end = sv.data() + sv.size();
+
+        skip_ws(p, end);
+        const char *b = p;
+        while (p < end && static_cast<unsigned char>(*p) > ' ') ++p;
+
+        pos = static_cast<std::size_t>(p - sv.data());
+        return std::string_view(b, static_cast<std::size_t>(p - b));
     }
 
 }
