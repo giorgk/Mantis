@@ -226,7 +226,7 @@ namespace mantisServer {
         useRadSelect = false;
         bNarrowSelection = false;
         buseLoadTransition = true;
-        LoadTransitionName = "GNLM";
+        LoadTransitionName = "NONE";
         LoadTransitionStart = 2005;
         LoadTransitionEnd = 2015;
         bUseMonitoringWells = false;
