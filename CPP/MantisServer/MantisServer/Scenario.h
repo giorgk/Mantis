@@ -225,7 +225,7 @@ namespace mantisServer {
         useRectSelect = false;
         useRadSelect = false;
         bNarrowSelection = false;
-        buseLoadTransition = true;
+        buseLoadTransition = false;
         LoadTransitionName = "NONE";
         LoadTransitionStart = 2005;
         LoadTransitionEnd = 2015;
