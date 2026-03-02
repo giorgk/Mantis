@@ -295,7 +295,9 @@ namespace mantisServer{
         std::vector<int> wellids;
         int NsimulationYears = scenario.endSimulationYear - scenario.startSimulationYear;
         Bmaps.getWells(scenario.mapID, scenario.regionIDs, scenario.flowWellScen, wellids);
-        std::cout << "Simulating " <<  wellids.size() << " wells ..." << std::endl;
+        if (threadid == 0)
+            std::cout << "Simulating " <<  wellids.size() << " wells ..." << std::endl;
+
         int startWell = 0;
         int endWell = 0;
         double rch,clprc;
@@ -320,6 +322,9 @@ namespace mantisServer{
 
         fwcit = FWC.FlowScenarios.find(scenario.flowWellScen);
         nWellBTC = 0;
+
+        std::cout << "Thread " << threadid << " [" << startWell << "-" << endWell << "]" << std::endl;
+
         for (int iw = startWell; iw < endWell; ++iw){
             wellit = fwcit->second.Wells.find(wellids[iw]);
 
