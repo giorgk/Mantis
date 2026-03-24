@@ -158,102 +158,221 @@ namespace MS{
         int nCols = 0;
 
         if (world.rank() == 0) {
+            if (matrix.empty()) {
+                throw std::runtime_error("sendFlatMatrixFromRoot2AllProc: matrix is empty");
+            }
+
+            if (matrix.size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+                throw std::runtime_error("sendFlatMatrixFromRoot2AllProc: too many rows");
+            }
+
             nRows = static_cast<int>(matrix.size());
-            nCols = nRows > 0 ? static_cast<int>(matrix[0].size()) : 0;
+
+            if (matrix[0].size() > static_cast<std::size_t>(std::numeric_limits<int>::max())) {
+                throw std::runtime_error("sendFlatMatrixFromRoot2AllProc: too many columns");
+            }
+
+            nCols = static_cast<int>(matrix[0].size());
+
+            if (nCols <= 0) {
+                throw std::runtime_error("sendFlatMatrixFromRoot2AllProc: matrix has zero columns");
+            }
+
+            for (int i = 1; i < nRows; ++i) {
+                if (static_cast<int>(matrix[i].size()) != nCols) {
+                    throw std::runtime_error("sendFlatMatrixFromRoot2AllProc: matrix is not rectangular");
+                }
+            }
         }
 
         sendScalarFromRoot2AllProc(nRows, world);
         sendScalarFromRoot2AllProc(nCols, world);
 
         std::vector<T> flatMatrix;
+
         if (world.rank() == 0){
-            flatMatrix.reserve(nRows * nCols);
-            for (const auto& row : matrix){
-                flatMatrix.insert(flatMatrix.end(), row.begin(), row.end());
+            const std::size_t totalSize = static_cast<std::size_t>(nRows) * static_cast<std::size_t>(nCols);
+
+            flatMatrix.resize(totalSize);
+
+            std::size_t k = 0;
+            for (int i = 0; i < nRows; ++i) {
+                for (int j = 0; j < nCols; ++j) {
+                    flatMatrix[k++] = matrix[i][j];
+                }
             }
         }
+
         sendVectorFromRoot2AllProc(flatMatrix, world);
+
         if (world.rank() != 0){
             matrix.assign(nRows, std::vector<T>(nCols));
-            for (int i = 0; i < nRows; ++i){
-                std::copy(flatMatrix.begin() + i * nCols, flatMatrix.begin() + (i + 1) * nCols, matrix[i].begin());
+
+            for (int i = 0; i < nRows; ++i) {
+                std::copy(flatMatrix.begin() + static_cast<std::size_t>(i) * nCols,
+                          flatMatrix.begin() + static_cast<std::size_t>(i + 1) * nCols,
+                          matrix[i].begin());
             }
         }
     }
 
     template<typename T>
-    bool RootReadsMatrixFileDistrib(std::string filename, std::vector<std::vector<T>> &M,
-                                    int nCols, boost::mpi::communicator &world, int freq = 500000){
+    bool RootReadsMatrixFileDistribFlat(const std::string& filename,
+                                    std::vector<std::vector<T>>& M,
+                                    int nCols,
+                                    boost::mpi::communicator& world,
+                                    int freq = 500000)
+    {
         int readSuccess = 0;
-        if (world.rank() == 0){
-            bool tf = readMatrix<T>(filename, M,  nCols, freq);
-            readSuccess = static_cast<int>(tf);
-        }
-        world.barrier(); //Wait for the root processor to read_v0
 
-        // Check if reading was successful
-        sendScalarFromRoot2AllProc<int>(readSuccess, world);
-        if (readSuccess == 0){
+        if (world.rank() == 0) {
+            try {
+                const bool tf = readMatrix<T>(filename, M, nCols, freq);
+                readSuccess = static_cast<int>(tf);
+
+                if (readSuccess) {
+                    if (M.empty()) {
+                        std::cout << "Error: matrix file " << filename
+                                  << " contains no valid data rows" << std::endl;
+                        readSuccess = 0;
+                    }
+                    else if (M[0].empty()) {
+                        std::cout << "Error: matrix file " << filename
+                                  << " has zero columns" << std::endl;
+                        readSuccess = 0;
+                    }
+                    else {
+                        const std::size_t nCols0 = M[0].size();
+                        for (std::size_t i = 1; i < M.size(); ++i) {
+                            if (M[i].size() != nCols0) {
+                                std::cout << "Error: matrix file " << filename
+                                          << " is not rectangular" << std::endl;
+                                readSuccess = 0;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error in RootReadsMatrixFileDistrib while reading "
+                          << filename << ": " << e.what() << std::endl;
+                readSuccess = 0;
+            }
+            catch (...) {
+                std::cout << "Unknown error in RootReadsMatrixFileDistrib while reading "
+                          << filename << std::endl;
+                readSuccess = 0;
+            }
+        }
+
+        sendScalarFromRoot2AllProc(readSuccess, world);
+
+        if (readSuccess == 0) {
+            M.clear();
             return false;
         }
-        else{
+
+        try {
             sendFlatMatrixFromRoot2AllProc(M, world);
-            return true;
+        }
+        catch (const std::exception& e) {
+            std::cout << "Error in RootReadsMatrixFileDistrib while distributing "
+                      << filename << ": " << e.what() << std::endl;
+            M.clear();
+            return false;
+        }
+        catch (...) {
+            std::cout << "Unknown error in RootReadsMatrixFileDistrib while distributing "
+                      << filename << std::endl;
+            M.clear();
+            return false;
         }
 
+        return true;
     }
 
-
     template<typename T>
-    bool RootReadsMatrixFileDistrib(std::string filename, std::vector<std::vector<T>> &M,
-                                    int nCols, bool doTranspose, boost::mpi::communicator &world, int freq = 500000){
+    bool RootReadsMatrixFileDistrib(const std::string& filename, std::vector<std::vector<T>>& M,
+                                    int nCols, bool doTranspose, boost::mpi::communicator& world, int freq = 500000){
         int readSuccess = 0;
+        int preTranspose = 0;
+
         std::vector<std::vector<T>> Mtmp;
         std::vector<std::vector<T>> Mtmp1;
+
         if (world.rank() == 0){
-            bool tf = readMatrix<T>(filename, Mtmp,  nCols, freq);
-            readSuccess = static_cast<int>(tf);
+            try
+            {
+                const bool tf = readMatrix<T>(filename, Mtmp, nCols, freq);
+                readSuccess = static_cast<int>(tf);
+                if (readSuccess) {
+                    if (Mtmp.empty()) {
+                        std::cout << "Error: matrix is empty after reading " << filename << std::endl;
+                        readSuccess = 0;
+                    }
+                    else {
+                        if (Mtmp.size() > Mtmp[0].size()) {
+                            transposeMatrix<T>(Mtmp, Mtmp1);
+                            preTranspose = 1;
+                        }
+                        else {
+                            Mtmp1 = Mtmp;
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error in RootReadsMatrixFileDistrib while reading "
+                          << filename << ": " << e.what() << std::endl;
+                readSuccess = 0;
+            }
+            catch (...) {
+                std::cout << "Unknown error in RootReadsMatrixFileDistrib while reading "
+                          << filename << std::endl;
+                readSuccess = 0;
+            }
         }
+
         world.barrier(); //Wait for the root processor to read_v0
 
 
         // Check if reading was successful
         sendScalarFromRoot2AllProc<int>(readSuccess, world);
         if (readSuccess == 0){
+            M.clear();
             return false;
         }
-        else{
-            int preTranspose = 0;
-            if (world.rank() == 0){
-                // We check which dimension is larger
-                if (Mtmp.size() > Mtmp[0].size()){
-                    transposeMatrix<T>(Mtmp, Mtmp1);
-                    preTranspose = 1;
-                }
-                else {
-                    Mtmp1 = Mtmp;
-                }
-            }
-            // Send if the matrix has been transposed before sending
-            sendScalarFromRoot2AllProc<int>(preTranspose, world);
-            sentMatrixFromRoot2AllProc<T>(Mtmp1, world);
-            if (preTranspose == 1){
-                if (!doTranspose){
-                    // We have to transpose back to its original size
+
+        sendScalarFromRoot2AllProc<int>(preTranspose, world);
+        sentMatrixFromRoot2AllProc<T>(Mtmp1, world);
+
+
+        try {
+            if (preTranspose == 1) {
+                if (!doTranspose) {
                     transposeMatrix<T>(Mtmp1, M);
-                }
-                else {
+                } else {
                     M = Mtmp1;
                 }
             }
-            else{
-                if (doTranspose){
+            else {
+                if (doTranspose) {
                     transposeMatrix<T>(Mtmp1, M);
-                }
-                else{
+                } else {
                     M = Mtmp1;
                 }
             }
+        }
+        catch (const std::exception& e) {
+            std::cout << "Error in RootReadsMatrixFileDistrib after distribution: "
+                      << e.what() << std::endl;
+            return false;
+        }
+        catch (...) {
+            std::cout << "Unknown error in RootReadsMatrixFileDistrib after distribution"
+                      << std::endl;
+            return false;
         }
         return true;
     }
@@ -299,25 +418,38 @@ namespace MS{
         }
     }
 
-    bool RootReadsNPSATinfo(std::string filename, std::vector<int> &V, boost::mpi::communicator &world){
+    inline bool RootReadsNPSATinfo(const std::string& filename, std::vector<int>& V, boost::mpi::communicator& world){
         int readSuccess = 0;
         V.clear();
+
         world.barrier();
         if (world.rank() == 0){
-            bool tf = readNPSATinfo(filename, V);
-            readSuccess = static_cast<int>(tf);
+            try {
+                const bool tf = readNPSATinfo(filename, V);
+                readSuccess = static_cast<int>(tf);
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error reading " << filename << ": "
+                          << e.what() << std::endl;
+                readSuccess = 0;
+            }
+            catch (...) {
+                std::cout << "Unknown error reading " << filename << std::endl;
+                readSuccess = 0;
+            }
         }
         world.barrier(); //Wait for the root processor to read_v0
 
         // Check if reading was successful
         sendScalarFromRoot2AllProc<int>(readSuccess, world);
+
         if (readSuccess == 0){
+            V.clear();
             return false;
         }
-        else{
-            sendVectorFromRoot2AllProc<int>(V,world);
-            return true;
-        }
+
+        sendVectorFromRoot2AllProc<int>(V,world);
+        return true;
     }
 
 

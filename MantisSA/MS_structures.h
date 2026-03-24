@@ -92,7 +92,7 @@ namespace MS{
         bool compress;
         std::string OutFile;
         std::string SelectedWells;
-        std::string SelectedWellGroups;
+        std::string SelectedWellsGroups;
     };
 
     struct MiscOptions {
@@ -186,92 +186,188 @@ namespace MS{
         return true;
     }
 
-    bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map,
-                                    boost::mpi::communicator &world){
+    inline bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map,
+                                           boost::mpi::communicator &world){
         std::ifstream datafile(filename.c_str());
         if (!datafile.good()) {
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
-        else{
-            swg_map.clear();
-            if (world.rank() == 0){
-                std::cout << "Reading " << filename << std::endl;
+
+        swg_map.clear();
+
+        if (world.rank() == 0){
+            std::cout << "Reading " << filename << std::endl;
+        }
+
+        std::string line;
+        while (std::getline(datafile, line)) {
+            const std::size_t first = line.find_first_not_of(" \t\r\n");
+            // skip blank / whitespace-only lines
+            if (first == std::string::npos) {
+                continue;
             }
-            std::string line;
-            while (getline(datafile, line)){
-                if (line.size() > 0){
-                    std::istringstream inp(line.c_str());
-                    std::string groupName;
-                    int groupId;
-                    inp >> groupId;
-                    inp >> groupName;
-                    std::map<int,SelectedWellsGroup>::iterator it;
-                    it = swg_map.find(groupId);
-                    if (it != swg_map.end()){
-                        std::cout << "Selected Wells Group with id " << groupId << " was found more than once" <<std::endl;
-                        return false;
-                    }
-                    else{
-                        SelectedWellsGroup swg;
-                        swg.groupName = groupName;
-                        swg_map.insert(std::pair<int, SelectedWellsGroup>(groupId, swg));
-                    }
+
+            // skip comment lines (including lines with leading spaces before #)
+            if (line[first] == '#') {
+                continue;
+            }
+
+            std::istringstream inp(line);
+            int groupId;
+            std::string groupName;
+
+            if (!(inp >> groupId >> groupName)) {
+                if (world.rank() == 0) {
+                    std::cout << "Invalid format in file " << filename
+                              << ". Expected: ID name" << std::endl;
                 }
+                return false;
             }
-            datafile.close();
+
+            if (swg_map.find(groupId) != swg_map.end()) {
+                if (world.rank() == 0) {
+                    std::cout << "Selected Wells Group with id "
+                              << groupId << " was found more than once" << std::endl;
+                }
+                return false;
+            }
+
+            SelectedWellsGroup swg;
+            swg.groupName = groupName;
+            swg_map[groupId] = swg;
         }
         return true;
     }
 
+    template <typename T>
+    bool parse_value_space(const char*& p, const char* end, T& value);
+
+    template <>
+    inline bool parse_value_space<int>(const char*& p, const char* end, int& value)
+    {
+        while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
+        if (p >= end) return false;
+
+#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
+        auto res = std::from_chars(p, end, value);
+        if (res.ec != std::errc()) return false;
+        p = res.ptr;
+        return true;
+#else
+        char* q = nullptr;
+        long v = std::strtol(p, &q, 10);
+        if (q == p) return false;
+        if (v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max()) return false;
+        value = static_cast<int>(v);
+        p = q;
+        return true;
+#endif
+    }
+
+    template <>
+    inline bool parse_value_space<double>(const char*& p, const char* end, double& value)
+    {
+        while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
+        if (p >= end) return false;
+
+        char* q = nullptr;
+        value = std::strtod(p, &q);
+        if (q == p) return false;
+        p = q;
+        return true;
+    }
+
     template<typename T>
-    bool readMatrix(std::string filename, std::vector<std::vector<T>> & data, int nCols, int freq = 500000){
-        std::ifstream datafile(filename.c_str());
+    bool readMatrix(const std::string& filename, std::vector<std::vector<T>>& data, int nCols, int freq = 500000)
+    {
+        if (nCols <= 0) {
+            std::cout << "readMatrix: nCols must be > 0" << std::endl;
+            return false;
+        }
+        if (freq <= 0) {
+            freq = 500000;
+        }
+
+        std::ifstream datafile(filename);
         if (!datafile.is_open()) {
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            std::string line;
-            T value;
-            int lineCount  = 0;
-            int nextPrint = freq;
-            data.clear();
-            //for (int ir = 0; ir < nRows; ++ir){
-            while (std::getline(datafile, line)){
-                if (line.empty()) continue;
 
-                if (line.size() > 0){
-                    std::istringstream inp(line);
-                    std::vector<T> row(nCols);
+        std::cout << "Reading " << filename << std::endl;
 
-                    for (int i = 0; i < nCols; ++i){
-                        if (!(inp >> row[i])) {
-                            std::cerr << "Error reading value at row " << lineCount << ", column " << i << std::endl;
-                            return false;
-                        }
-                    }
-                    data.push_back(std::move(row));
+        data.clear();
 
-                    if (++lineCount >= nextPrint) {
-                        std::cout << lineCount << " lines read..." << std::endl;
-                        nextPrint += freq;
-                    }
+        std::string line;
+        int lineCount = 0;
+        int nextPrint = (freq > 0) ? freq : std::numeric_limits<int>::max();
+
+        while (std::getline(datafile, line))
+        {
+            const char* p = line.data();
+            const char* end = p + line.size();
+
+            std::vector<T> row(static_cast<std::size_t>(nCols));
+
+            for (int j = 0; j < nCols; ++j) {
+                if (!parse_value_space<T>(p, end, row[static_cast<std::size_t>(j)])) {
+                    std::cout << "Error reading file " << filename
+                              << " at data row " << lineCount
+                              << ", column " << j << std::endl;
+                    return false;
                 }
             }
-            datafile.close();
+
+            // Allow trailing spaces/tabs only
+            while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
+            if (p != end) {
+                std::cout << "Error reading file " << filename
+                          << " at data row " << lineCount
+                          << ": expected " << nCols
+                          << " columns, got more" << std::endl;
+                return false;
+            }
+
+            data.push_back(std::move(row));
+            ++lineCount;
+
+            if (lineCount >= nextPrint) {
+                std::cout << lineCount << " lines read..." << std::endl;
+                nextPrint += freq;
+            }
+        }
+        if (data.empty()) {
+            std::cout << "Error: matrix file " << filename
+                      << " contains no valid data rows" << std::endl;
+            return false;
         }
         return true;
     }
 
     template<typename T>
-    void transposeMatrix(std::vector<std::vector<T>> & data_in, std::vector<std::vector<T>> & data_out){
+    void transposeMatrix(const std::vector<std::vector<T>> & data_in, std::vector<std::vector<T>> & data_out){
         data_out.clear();
-        data_out.resize(data_in[0].size(),std::vector<T>(data_in.size(),0));
-        for (unsigned int i = 0; i < data_in.size(); ++i){
-            for (unsigned int j = 0; j < data_in[i].size(); ++j){
-                data_out[j][i] = data_in[i][j];
+        if (data_in.empty()) {
+            return;
+        }
+
+        const std::size_t nRows = data_in.size();
+        const std::size_t nCols = data_in[0].size();
+
+        // Check rectangular matrix
+        for (std::size_t i = 1; i < nRows; ++i) {
+            if (data_in[i].size() != nCols) {
+                throw std::runtime_error("transposeMatrix: input is not rectangular");
+            }
+        }
+
+        data_out.assign(nCols, std::vector<T>(nRows));
+
+        for (std::size_t i = 0; i < nRows; ++i) {
+            const auto& row_in = data_in[i];
+            for (std::size_t j = 0; j < nCols; ++j) {
+                data_out[j][i] = row_in[j];
             }
         }
     }
@@ -340,83 +436,174 @@ namespace MS{
         return true;
     }
 
-    double calcRiverInfluence(const double &dist, const RiverOptions &ropt){
-        double u = 1.0;
-        if (dist < ropt.StartDist){
-            u = 1.0;
+    inline double calcRiverInfluence(double dist, const RiverOptions &ropt){
+        const double d0 = ropt.StartDist;
+        const double d1 = ropt.EndDist;
+
+        // Handle degenerate or invalid cases
+        if (!(d1 > d0)) {
+            // If equal or invalid ordering, treat as step function
+            return (dist <= d0) ? 1.0 : 0.0;
         }
-        else if (dist > ropt.EndDist){
-            u = 0.0;
-        }
-        else{
-            u = 1.0 - (dist - ropt.StartDist)/(ropt.EndDist - ropt.StartDist);
-        }
-        return u;
+
+        if (dist <= d0) return 1.0;
+        if (dist >= d1) return 0.0;
+
+        const double u = 1.0 - (dist - d0) / (d1 - d0);
+
+        // Optional clamp (very cheap, avoids numerical drift)
+        return std::max(0.0, std::min(1.0, u));
     }
 
-    bool readNPSATinfo(std::string filename, std::vector<int> &M){
-        std::ifstream datafile(filename.c_str());
+    inline bool readNPSATinfo(const std::string& filename, std::vector<int>& M){
+        std::ifstream datafile(filename);
         if (!datafile.good()){
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            std::string line, propname;
-            int count = 0;
-            int version;
-            std::vector<int> por_values, int_size, dbl_size, msa_size;
-            while (getline(datafile, line)){
-                std::istringstream inp(line);
-                inp >> propname;
-                if (propname.compare("Version") == 0){
-                    inp >> version;
-                    continue;
-                }
-                if (propname.compare("Por") == 0){
-                    int value;
-                    while (inp >> value) {
-                        por_values.push_back(value);
-                    }
-                    continue;
-                }
-                if (propname.compare("INT") == 0){
-                    int value;
-                    while (inp >> value) {
-                        int_size.push_back(value);
-                    }
-                    continue;
-                }
-                if (propname.compare("DBL") == 0){
-                    int value;
-                    while (inp >> value) {
-                        dbl_size.push_back(value);
-                    }
-                    continue;
-                }
-                if (propname.compare("MSA") == 0){
-                    int value;
-                    while (inp >> value) {
-                        msa_size.push_back(value);
-                    }
-                    break;
-                }
 
-                count++;
-                if (count > 40){
+        std::cout << "Reading " << filename << std::endl;
+
+        M.clear();
+
+        std::string line;
+        std::string propname;
+
+        int version = -1;
+        bool foundVersion = false;
+        bool foundPor = false;
+        bool foundINT = false;
+        bool foundDBL = false;
+        bool foundMSA = false;
+
+        std::vector<int> por_values;
+        std::vector<int> int_size;
+        std::vector<int> dbl_size;
+        std::vector<int> msa_size;
+
+        int lineCount = 0;
+
+        while (getline(datafile, line)) {
+            ++lineCount;
+
+            const std::size_t first = line.find_first_not_of(" \t\r\n");
+            if (first == std::string::npos) {
+                continue; // blank line
+            }
+            if (line[first] == '#') {
+                continue; // comment line
+            }
+
+            std::istringstream inp(line);
+            if (!(inp >> propname)) {
+                continue;
+            }
+
+            if (propname == "Version") {
+                if (!(inp >> version)) {
+                    std::cout << "Invalid Version line in " << filename
+                              << " at line " << lineCount << std::endl;
                     return false;
                 }
+                foundVersion = true;
+                continue;
             }
-            datafile.close();
-            M.push_back(version);
-            M.push_back(por_values.size());
-            M.insert(M.end(), por_values.begin(), por_values.end());
-            M.insert(M.end(), int_size.begin(), int_size.end());
-            M.insert(M.end(), dbl_size.begin(), dbl_size.end());
-            M.insert(M.end(), msa_size.begin(), msa_size.end());
 
-            return true;
+            if (propname == "Por") {
+                int value;
+                por_values.clear();
+                while (inp >> value) {
+                    por_values.push_back(value);
+                }
+                if (por_values.empty()) {
+                    std::cout << "Invalid Por line in " << filename
+                              << " at line " << lineCount << std::endl;
+                    return false;
+                }
+                foundPor = true;
+                continue;
+            }
+
+            if (propname == "INT") {
+                int value;
+                int_size.clear();
+                while (inp >> value) {
+                    int_size.push_back(value);
+                }
+                if (int_size.size() != 2) {
+                    std::cout << "INT line in " << filename
+                              << " must contain exactly 2 integers" << std::endl;
+                    return false;
+                }
+                foundINT = true;
+                continue;
+            }
+
+            if (propname == "DBL") {
+                int value;
+                dbl_size.clear();
+                while (inp >> value) {
+                    dbl_size.push_back(value);
+                }
+                if (dbl_size.size() != 2) {
+                    std::cout << "DBL line in " << filename
+                              << " must contain exactly 2 integers" << std::endl;
+                    return false;
+                }
+                foundDBL = true;
+                continue;
+            }
+
+            if (propname == "MSA") {
+                int value;
+                msa_size.clear();
+                while (inp >> value) {
+                    msa_size.push_back(value);
+                }
+                if (msa_size.size() != 2) {
+                    std::cout << "MSA line in " << filename
+                              << " must contain exactly 2 integers" << std::endl;
+                    return false;
+                }
+                foundMSA = true;
+                continue;
+            }
+
+            std::cout << "Unknown property name \"" << propname
+                  << "\" in " << filename
+                  << " at line " << lineCount << std::endl;
+            return false;
         }
+
+        if (!foundVersion) {
+            std::cout << "Missing Version line in " << filename << std::endl;
+            return false;
+        }
+        if (!foundPor) {
+            std::cout << "Missing Por line in " << filename << std::endl;
+            return false;
+        }
+        if (!foundINT) {
+            std::cout << "Missing INT line in " << filename << std::endl;
+            return false;
+        }
+        if (!foundDBL) {
+            std::cout << "Missing DBL line in " << filename << std::endl;
+            return false;
+        }
+        if (!foundMSA) {
+            std::cout << "Missing MSA line in " << filename << std::endl;
+            return false;
+        }
+
+        M.push_back(version);
+        M.push_back(static_cast<int>(por_values.size()));
+        M.insert(M.end(), por_values.begin(), por_values.end());
+        M.insert(M.end(), int_size.begin(), int_size.end());
+        M.insert(M.end(), dbl_size.begin(), dbl_size.end());
+        M.insert(M.end(), msa_size.begin(), msa_size.end());
+
+        return true;
     }
 
     int calcYearIndex(const int &yr, const int &startYr, const int &nYrs){
@@ -448,23 +635,22 @@ namespace MS{
         return ii;
     }
 
-    void yearMap(std::map<int, int> &yr_id, const int &startSimYr, const int &endSimYr, const int &startYr, const int &nYrs){
-         yr_id.clear();
-        int idx = 0;
-        for (int i = startYr; i <= endSimYr; ++i){
-            yr_id.insert(std::pair<int,int>(i, idx));
-            idx = idx + 1;
-            if (idx >= nYrs){
-                idx = 0;
-            }
+    inline void yearMap(std::map<int, int> &yr_id, const int &startSimYr, const int &endSimYr, const int &startYr, const int &nYrs){
+        yr_id.clear();
+
+        if (nYrs <= 0) {
+            throw std::invalid_argument("yearMap: nYrs must be > 0");
         }
-        idx = nYrs - 1;
-        for (int i = startYr-1; i >= startSimYr; --i){
-            yr_id.insert(std::pair<int,int>(i, idx));
-            idx = idx - 1;
-            if (idx < 0){
-                idx = nYrs - 1;
+        if (endSimYr < startSimYr) {
+            throw std::invalid_argument("yearMap: endSimYr < startSimYr");
+        }
+
+        for (int y = startSimYr; y <= endSimYr; ++y) {
+            int idx = (y - startYr) % nYrs;
+            if (idx < 0) {
+                idx += nYrs;
             }
+            yr_id[y] = idx;
         }
     }
 

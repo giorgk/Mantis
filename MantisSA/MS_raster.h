@@ -11,52 +11,69 @@
 #include <highfive/H5File.hpp>
 #endif
 
+#include <unordered_map>
+#include <cstdint>
+#include <utility>
+
 #include "MS_mpi_utils.h"
 
 namespace MS{
     class BackgroundRaster{
     public:
-        BackgroundRaster(){}
-        bool readData(std::string filename, int Nr, int Nc, int Ncells, boost::mpi::communicator &world);
+        BackgroundRaster();
+        bool readData(const std::string& filename, int Nr, int Nc, int Ncells,
+            boost::mpi::communicator &world);
         int IJ(int row, int col) const;
-        int linear_index(int row, int col);
-        int Nr(){return Nrows;}
-        int Nc(){return Ncols;}
-        int Ncell(){return Ncells;}
+        bool cellFromIndex(int idx, int& row, int& col) const;
+        int Nr() const{return Nrows;}
+        int Nc() const{return Ncols;}
+        int Ncell() const{return Ncells;}
         void setGridLocation(double x, double y, double cs);
-        void getGridLocation(double &x, double &y, double &cs);
-        void cellCoords(int r, int c, double &x, double &y);
+        void getGridLocation(double &x, double &y, double &cs) const;
+        void cellCoords(int r, int c, double &x, double &y) const;
 
     private:
+        static std::uint64_t packRC(int row, int col) {
+            return (static_cast<std::uint64_t>(static_cast<std::uint32_t>(row)) << 32) |
+                   static_cast<std::uint32_t>(col);
+        }
         int Nrows;
         int Ncols;
         int Ncells;
-        std::vector<std::vector<int>> raster;
         bool bHFread;
         double Xorig;
         double Yorig;
         double cellSize;
+        //std::vector<std::vector<int>> raster;
+        std::unordered_map<std::uint64_t, int> rc_to_idx;
+        std::vector<std::pair<int,int>> idx_to_rc;
     };
 
-    void BackgroundRaster::setGridLocation(double x, double y, double cs) {
+    inline BackgroundRaster::BackgroundRaster()
+        : Nrows(0), Ncols(0), Ncells(0),
+          bHFread(false), Xorig(0.0), Yorig(0.0), cellSize(0.0)
+    {}
+
+    inline void BackgroundRaster::setGridLocation(double x, double y, double cs) {
         Xorig = x;
         Yorig = y;
         cellSize = cs;
     }
 
-    void BackgroundRaster::getGridLocation(double &x, double &y, double &cs) {
+    inline void BackgroundRaster::getGridLocation(double &x, double &y, double &cs) const {
         x = Xorig;
         y = Yorig;
         cs = cellSize;
     }
 
-    void BackgroundRaster::cellCoords(int r, int c, double &x, double &y) {
+    inline void BackgroundRaster::cellCoords(int r, int c, double &x, double &y) const {
         x = Xorig + cellSize/2 + cellSize*(c);
         // For the Y the row numbers start from the top
         y =  Yorig + cellSize*Nrows - cellSize/2 - cellSize*(r);
     }
 
-    bool BackgroundRaster::readData(std::string filename, int Nr, int Nc, int Ncell, boost::mpi::communicator &world){
+    inline bool BackgroundRaster::readData(const std::string& filename, int Nr, int Nc, int Ncell,
+                                           boost::mpi::communicator &world){
         Nrows = Nr;
         Ncols = Nc;
         Ncells = Ncell;
@@ -69,39 +86,91 @@ namespace MS{
             HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
             HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
             dataset.read(rasterCol);
+#else
+            std::cout << "Error: HDF5 support is disabled but file " << filename
+                      << " has .h5 extension" << std::endl;
+            return false;
 #endif
         }
         else{
-            bool tf = RootReadsMatrixFileDistrib(filename, rasterCol,2, world, 5000000);
+            bool tf = RootReadsMatrixFileDistribFlat(filename, rasterCol,2, world, 5000000);
+            world.barrier();
             if (!tf){return false;}
             if (PrintMatrices){
                 printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
             }
         }
-        raster.clear();
-        raster.resize(Ncols,std::vector<int>(Nrows,-1));
-        for (int i = 0; i < rasterCol.size(); ++i ) {
-            if (rasterCol[i][0] < Nrows && rasterCol[i][1] < Ncols)
-                raster[rasterCol[i][1]][rasterCol[i][0]] = i;
-            else {
-                std::cout << "I can't assign pixel (" << rasterCol[i][0] << "," << rasterCol[i][1]
-                          << ") in raster map" << std::endl;
+
+        if (rasterCol.empty()) {
+            std::cout << "Error: raster file " << filename
+                      << " contains no valid rows" << std::endl;
+            return false;
+        }
+
+        world.barrier();
+        std::cout << "Build raster indexing ..." << std::endl;
+
+        rc_to_idx.clear();
+        rc_to_idx.reserve(rasterCol.size());
+        idx_to_rc.clear();
+        idx_to_rc.reserve(rasterCol.size());
+
+        for (std::size_t i = 0; i < rasterCol.size(); ++i) {
+            if (rasterCol[i].size() != 2) {
+                std::cout << "Error: raster row " << i << " does not have 2 columns" << std::endl;
+                return false;
             }
+
+            const int r = rasterCol[i][0];
+            const int c = rasterCol[i][1];
+
+            if (r < 0 || r >= Nrows || c < 0 || c >= Ncols) {
+                std::cout << "I can't assign pixel (" << r << "," << c
+                          << ") in raster map" << std::endl;
+                return false;
+            }
+
+            const int idx = static_cast<int>(i);
+            const std::uint64_t key = packRC(r, c);
+            auto ret = rc_to_idx.emplace(key, idx);
+            if (!ret.second) {
+                std::cout << "Error: duplicate raster cell (" << r << "," << c << ")"
+                          << std::endl;
+                return false;
+            }
+
+            idx_to_rc.emplace_back(r, c);
+        }
+
+        if (Ncells > 0 && static_cast<int>(idx_to_rc.size()) != Ncells) {
+            std::cout << "Warning: Ncells = " << Ncells
+                      << " but raster file contains " << idx_to_rc.size()
+                      << " active cells" << std::endl;
         }
 
         return true;
     }
 
-    int BackgroundRaster::IJ(int row, int col) const {
-        if (row >=0 && col >=0 && row < Nrows && col < Ncols) {
-                return raster[col][row];
-        }
-        else
+    inline int BackgroundRaster::IJ(int row, int col) const {
+        if (row < 0 || row >= Nrows || col < 0 || col >= Ncols) {
             return -1;
+        }
+        const auto it = rc_to_idx.find(packRC(row, col));
+        if (it == rc_to_idx.end()) {
+            return -1;
+        }
+        return it->second;
     }
 
-    int BackgroundRaster::linear_index(int row, int col) {
-        return Nrows * col + row;
+    inline bool BackgroundRaster::cellFromIndex(int idx, int& row, int& col) const
+    {
+        if (idx < 0 || idx >= static_cast<int>(idx_to_rc.size())) {
+            return false;
+        }
+
+        row = idx_to_rc[idx].first;
+        col = idx_to_rc[idx].second;
+        return true;
     }
 }
 

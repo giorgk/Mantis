@@ -73,8 +73,10 @@ int main(int argc, char* argv[]) {
     //std::vector<int> VIids, VDids;
     std::map<int,MS::SelectedWellsGroup> SWGmap;
     if (UI.outputOptions.printSelectedWells){
-        tf = MS::readSelectedWells(UI.outputOptions.SelectedWells, UI.outputOptions.SelectedWellGroups, SWGmap, world);
+        tf = MS::readSelectedWells(UI.outputOptions.SelectedWells, UI.outputOptions.SelectedWellsGroups, SWGmap, world);
     }
+
+
 
 
     MS::BackgroundRaster backRaster;
@@ -94,6 +96,8 @@ int main(int argc, char* argv[]) {
                                backRaster, UI.riverOptions, world);
         if (!tf){return 0;}
     }
+
+    return 0;
 
     world.barrier();
     if (world.rank() == 0){

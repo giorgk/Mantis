@@ -14,6 +14,7 @@
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
 #include "MS_HRU_raster.h"
+#include "MS_mpi_utils.h"
 #include "MSdebug.h"
 
 namespace MS{
@@ -24,10 +25,11 @@ namespace MS{
     }
 
 
-    bool readNPSATdata(std::string filename, WELLS &wells, int por, int Nyears,
-                       BackgroundRaster& braster, RiverOptions &rivopt,
-                       boost::mpi::communicator &world){
+    inline bool readNPSATdata(const std::string& filename, WELLS &wells, int por, int Nyears,
+                              BackgroundRaster& braster, RiverOptions &rivopt,
+                              boost::mpi::communicator &world){
         std::string ext = getExtension(filename);
+
         std::vector<std::vector<int>> ints;
         std::vector<std::vector<double>> dbls;
         std::vector<std::vector<double>> msas;
@@ -39,143 +41,225 @@ namespace MS{
             if (world.rank() == 0) {
                 std::cout << "Reading " << filename << std::endl;
             }
-            const std::string INT_NameSet("INT");
-            const std::string DBL_NameSet("DBL");
-            const std::string MSA_NameSet("MSA");
-            const std::string VER_NameSet("Version");
-            const std::string POR_NameSet("Por");
+            try {
+                const std::string INT_NameSet("INT");
+                const std::string DBL_NameSet("DBL");
+                const std::string MSA_NameSet("MSA");
+                const std::string VER_NameSet("Version");
+                const std::string POR_NameSet("Por");
 
-            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+                HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
 
-            HighFive::DataSet dataset_INT = HDFNfile.getDataSet(INT_NameSet);
-            HighFive::DataSet dataset_DBL = HDFNfile.getDataSet(DBL_NameSet);
-            HighFive::DataSet dataset_MSA = HDFNfile.getDataSet(MSA_NameSet);
-            HighFive::DataSet dataset_VER = HDFNfile.getDataSet(VER_NameSet);
-            HighFive::DataSet dataset_POR = HDFNfile.getDataSet(POR_NameSet);
-
-            dataset_INT.read(ints);
-            dataset_DBL.read(dbls);
-            dataset_MSA.read(msas);
-            dataset_VER.read(version);
-            dataset_POR.read(porosities);
+                HDFNfile.getDataSet(INT_NameSet).read(ints);
+                HDFNfile.getDataSet(DBL_NameSet).read(dbls);
+                HDFNfile.getDataSet(MSA_NameSet).read(msas);
+                HDFNfile.getDataSet(VER_NameSet).read(version);
+                HDFNfile.getDataSet(POR_NameSet).read(porosities);
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error reading HDF5 NPSAT file " << filename
+                          << ": " << e.what() << std::endl;
+                return false;
+            }
+#else
+            std::cout << "Error: HDF5 support is disabled but file "
+                  << filename << " has .h5 extension" << std::endl;
+            return false;
 #endif
         }
         else {
             std::vector<int> info;
             bool tf = RootReadsNPSATinfo(filename + "info.dat", info, world);
             if (!tf){return false;}
+
+            // Expected flattened format:
+            // [version, nPor, por1, por2, ..., porN, intRows, intCols, dblRows, dblCols, msaRows, msaCols]
             if (info.size() < 2){
                 std::cout << filename + "info.dat should contain version, porosity and the int, dbl, msa matrices size" << std::endl;
                 return false;
             }
-            int idx = info[1] + 2;
-            if (info.size() < idx+5){
-                std::cout << filename + "info.dat should contain version, porosity and the int, dbl, msa matrices size" << std::endl;
+
+            const int nPor = info[1];
+            if (nPor <= 0) {
+                std::cout << filename + "info.dat has invalid number of porosities" << std::endl;
                 return false;
             }
-            version.push_back(info[0]);
-            for (int i = 0; i < info[1]; ++i){
-                porosities.push_back(info[i + 2]);
-            }
-            std::vector<int> int_size;
-            std::vector<int> dbl_size;
-            std::vector<int> msa_size;
-            int_size.push_back(info[idx]);
-            int_size.push_back(info[idx+1]);
-            dbl_size.push_back(info[idx+2]);
-            dbl_size.push_back(info[idx+3]);
-            msa_size.push_back(info[idx+4]);
-            msa_size.push_back(info[idx+5]);
 
-            tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, int_size[1], false, world, 500000);
+            const int idx = nPor + 2;
+            if (static_cast<int>(info.size()) < idx + 6) {
+                std::cout << filename + "info.dat should contain version, porosity values, "
+                          << "and INT/DBL/MSA matrix sizes" << std::endl;
+                return false;
+            }
+
+            version.push_back(info[0]);
+
+            for (int i = 0; i < nPor; ++i) {
+                porosities.push_back(static_cast<double>(info[i + 2]));
+            }
+
+            const int intRows = info[idx + 0];
+            const int intCols = info[idx + 1];
+            const int dblRows = info[idx + 2];
+            const int dblCols = info[idx + 3];
+            const int msaRows = info[idx + 4];
+            const int msaCols = info[idx + 5];
+
+            tf = RootReadsMatrixFileDistribFlat<int>(filename + "INT.dat", ints, intCols, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dbl_size[1], false, world, 500000);
+            tf = RootReadsMatrixFileDistribFlat<double>(filename + "DBL.dat", dbls, dblCols, world, 500000);
             if (!tf){return false;}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msa_size[1], false, world, 500000);
+            tf = RootReadsMatrixFileDistribFlat<double>(filename + "MSA.dat", msas, msaCols, world, 500000);
             if (!tf){return false;}
+
+            if (static_cast<int>(ints.size()) != intRows) {
+                std::cout << "Error: INT.dat row count does not match info.dat" << std::endl;
+                return false;
+            }
+            if (static_cast<int>(dbls.size()) != dblRows) {
+                std::cout << "Error: DBL.dat row count does not match info.dat" << std::endl;
+                return false;
+            }
+            if (static_cast<int>(msas.size()) != msaRows) {
+                std::cout << "Error: MSA.dat row count does not match info.dat" << std::endl;
+                return false;
+            }
 
             if (PrintMatrices){
-                printMatrixForAllProc<int>(ints, world, 0, int_size[1], 0, 10);
-                printMatrixForAllProc<double>(dbls, world, 0, dbl_size[1], 0, 10);
-                printMatrixForAllProc<double>(msas, world, 0, msa_size[1], 0, 10);
+                printMatrixForAllProc<int>(ints, world, 0, 10, 0, intCols);
+                printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dblCols);
+                printMatrixForAllProc<double>(msas, world, 0, 10, 0, msaCols);
             }
-            //return false;
+        }
 
+        // ----------------------------
+        // Global consistency checks
+        // ----------------------------
+        if (version.empty()) {
+            std::cout << "Error: missing version information in " << filename << std::endl;
+            return false;
+        }
+
+        if (porosities.empty()) {
+            std::cout << "Error: missing porosity list in " << filename << std::endl;
+            return false;
+        }
+
+        if (ints.empty() || dbls.empty() || msas.empty()) {
+            std::cout << "Error: one or more NPSAT matrices are empty in " << filename << std::endl;
+            return false;
+        }
+
+        if (ints.size() != dbls.size() || ints.size() != msas.size()) {
+            std::cout << "Error: INT, DBL, and MSA row counts do not match in "
+                      << filename << std::endl;
+            return false;
+        }
+
+        const int ver = version[0];
+        if (ver != 0 && ver != 1) {
+            std::cout << "Error: unsupported NPSAT version " << ver << std::endl;
+            return false;
+        }
+
+        const int requiredIntCols = (ver == 0) ? 5 : 4;
+        const int requiredDblCols = (ver == 0) ? 2 : 3;
+
+        for (std::size_t i = 0; i < ints.size(); ++i) {
+            if (static_cast<int>(ints[i].size()) < requiredIntCols) {
+                std::cout << "Error: INT row " << i << " has too few columns" << std::endl;
+                return false;
+            }
+            if (static_cast<int>(dbls[i].size()) < requiredDblCols) {
+                std::cout << "Error: DBL row " << i << " has too few columns" << std::endl;
+                return false;
+            }
+        }
+
+        int por_pos = -1;
+        for (int i = 0; i < static_cast<int>(porosities.size()); ++i) {
+            if (static_cast<int>(porosities[i]) == por) {
+                por_pos = i;
+                break;
+            }
+        }
+
+        if (por_pos < 0) {
+            std::cout << "Error: requested porosity " << por
+                      << " was not found in file " << filename << std::endl;
+            return false;
+        }
+
+        const int por_idx = 3 * por_pos;
+
+        for (std::size_t i = 0; i < msas.size(); ++i) {
+            if (static_cast<int>(msas[i].size()) < por_idx + 3) {
+                std::cout << "Error: MSA row " << i
+                          << " does not contain enough columns for porosity " << por
+                          << std::endl;
+                return false;
+            }
         }
 
         if (world.rank() == 0){
             std::cout << "Assembling NPSAT urf data ..." << std::endl;
         }
-        wells.version = version[0];
-        int por_idx = 0;
-        {// find porosity index
-            for (int i = 0; i < porosities.size(); ++i){
-                if (porosities[i] == por){
-                    por_idx = i;
-                    break;
-                }
-            }
-        }
 
-        por_idx = 3*(por_idx-1);
-        std::map<int, WELL>::iterator itw = wells.wells.end();
-        std::pair<std::map<int, WELL>::iterator,bool> ret;
+        wells.version = version[0];
 
         tmpWELLS tw;
-        tmpWELLS ::iterator itwtmp = tw.end();
+        tmpWELLS::iterator itwtmp = tw.end();
         std::pair<tmpWELLS::iterator,bool> tmpret;
-        //int count_wells = 0;
-        //int wells_per_proc = Nwells/world.size();
-        //int count_proc = 0;
-        for (int i = 0; i < ints.size(); ++i){
-            if (itwtmp == tw.end()){
-                itwtmp = tw.find(ints[i][0]);
-                if (itwtmp == tw.end()){
-                    tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[i][0], NPSATTMP()));
-                    if (tmpret.second){
-                        itwtmp = tmpret.first;
-                    }
-                }
-            }
-            else{
-                if (itwtmp->first != ints[i][0]){
-                    itwtmp = tw.find(ints[i][0]);
-                    if (itwtmp == tw.end()){
 
-                        tmpret = tw.insert(std::pair<int,NPSATTMP>(ints[i][0], NPSATTMP()));
-                        if (tmpret.second){
-                            itwtmp = tmpret.first;
-                        }
+        //std::map<int, WELL>::iterator itw = wells.wells.end();
+        //std::pair<std::map<int, WELL>::iterator,bool> ret;
+
+        for (std::size_t i = 0; i < ints.size(); ++i){
+            const int wellId = ints[i][0];
+
+            if (itwtmp == tw.end() || itwtmp->first != wellId) {
+                itwtmp = tw.find(wellId);
+                if (itwtmp == tw.end()) {
+                    tmpret = tw.insert(std::pair<int, NPSATTMP>(wellId, NPSATTMP()));
+                    if (!tmpret.second) {
+                        std::cout << "Error: failed to insert temporary well " << wellId << std::endl;
+                        return false;
                     }
+                    itwtmp = tmpret.first;
                 }
             }
+
             itwtmp->second.Sid.push_back(ints[i][1]);
             itwtmp->second.urfI.push_back(ints[i][2]);
             itwtmp->second.urfJ.push_back(ints[i][3]);
             if (version[0] == 0){
                 itwtmp->second.inRiv.push_back(ints[i][4] == 1);
             }
-            //itwtmp->second.hru_idx.push_back(ints[i][4]);
+
             itwtmp->second.W.push_back(dbls[i][0]);
             itwtmp->second.Len.push_back(dbls[i][1]);
+
             if (version[0] == 1){
                 itwtmp->second.rivDist.push_back(dbls[i][2]);
             }
-            itwtmp->second.m.push_back(msas[i][por_idx]);
-            itwtmp->second.s.push_back(msas[i][por_idx+1]);
-            itwtmp->second.a.push_back(msas[i][por_idx+2]);
-            itwtmp->second.sumW = itwtmp->second.sumW + dbls[i][0];
+
+            itwtmp->second.m.push_back(msas[i][por_idx + 0]);
+            itwtmp->second.s.push_back(msas[i][por_idx + 1]);
+            itwtmp->second.a.push_back(msas[i][por_idx + 2]);
+            itwtmp->second.sumW += dbls[i][0];
         }
 
         //Normalize streamlines and split them according to the processors
         int count = 0;
         for (itwtmp = tw.begin(); itwtmp != tw.end(); ++itwtmp){
             if (count % world.size() != world.rank()){
-                count = count + 1;
+                ++count;
                 continue;
             }
+
             WELL w;
-            for (unsigned int i = 0; i < itwtmp->second.urfJ.size(); ++i){
+
+            for (std::size_t i = 0; i < itwtmp->second.urfJ.size(); ++i){
                 //if (itwtmp->first == 21539){
                 //    bool stop = true;
                 //}
@@ -184,14 +268,22 @@ namespace MS{
                 s.Sid = itwtmp->second.Sid[i];
                 s.urfI = itwtmp->second.urfI[i]-1;
                 s.urfJ = itwtmp->second.urfJ[i]-1;
+                // Its ok if the source area is negative. that means loading is zero
                 s.IJ = braster.IJ(s.urfI, s.urfJ);
-                if (version[0] == 0){
+
+                if (ver == 0){
                     s.inRiv = itwtmp->second.inRiv[i];
                 }
-                if (version[0] == 1){
+                if (ver == 1){
                     s.rivInfl = calcRiverInfluence(itwtmp->second.rivDist[i], rivopt);
                     s.inRiv = false;
                 }
+
+                if (itwtmp->second.sumW == 0.0) {
+                    std::cout << "Error: zero total weight for well " << itwtmp->first << std::endl;
+                    return false;
+                }
+
                 //s.hru_idx = itwtmp->second.hru_idx[i];
                 s.W = itwtmp->second.W[i]/itwtmp->second.sumW;
                 s.Len = itwtmp->second.Len[i];
@@ -801,17 +893,17 @@ namespace MS{
         if (out_file.is_open()) out_file.close();
     }
 
-    bool readSelectedWells(std::string filename, std::string groupFilename,
-                           /*std::vector<int> &idsVI, std::vector<int> &idsVD,*/
-                           std::map<int,MS::SelectedWellsGroup> &SWGmap,
-                           boost::mpi::communicator &world){
+    inline bool readSelectedWells(std::string filename, std::string groupFilename,
+                                  /*std::vector<int> &idsVI, std::vector<int> &idsVD,*/
+                                  std::map<int,MS::SelectedWellsGroup> &SWGmap,
+                                  boost::mpi::communicator &world){
 
         bool tf = readSelectedWellsGroupInfo(groupFilename, SWGmap, world);
         if (!tf){
             return false;
         }
         std::vector<std::vector<int>> T;
-        tf = RootReadsMatrixFileDistrib<int>(filename,T,3, false,world);
+        tf = RootReadsMatrixFileDistribFlat<int>(filename,T,3, world);
         if (!tf){
             return false;
         }
@@ -821,20 +913,40 @@ namespace MS{
         //bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
 
         std::map<int,MS::SelectedWellsGroup>::iterator it;
-        for (unsigned int i = 0; i < T.size(); ++i){
-            it = SWGmap.find(T[i][2]);
-            if (it != SWGmap.end()){
-                if (T[i][0] == 1){
-                    //idsVI.push_back(T[i][1]);
-                    it->second.idVI.push_back(T[i][1]);
+        for (std::size_t i = 0; i < T.size(); ++i){
+            if (T[i].size() != 3) {
+                if (world.rank() == 0) {
+                    std::cout << "Error: selected wells matrix row " << i
+                              << " does not have 3 columns" << std::endl;
                 }
-                else if (T[i][0] == 2){
-                    //idsVD.push_back(T[i][1]);
-                    it->second.idVD.push_back(T[i][1]);
-                }
+                return false;
             }
-            else{
-                std::cout << "The group id " << T[i][2] << "of the well id " << T[i][1] << " of type "  << T[i][0] << " is not listed in the Groups file" << std::endl;
+
+            it = SWGmap.find(T[i][2]);
+            if (it == SWGmap.end()) {
+                if (world.rank() == 0) {
+                    std::cout << "The group id " << T[i][2]
+                              << " of the well id " << T[i][1]
+                              << " of type " << T[i][0]
+                              << " is not listed in the Groups file" << std::endl;
+                }
+                return false;
+            }
+
+            if (T[i][0] == 1){
+                //idsVI.push_back(T[i][1]);
+                it->second.idVI.push_back(T[i][1]);
+            }
+            else if (T[i][0] == 2){
+                //idsVD.push_back(T[i][1]);
+                it->second.idVD.push_back(T[i][1]);
+            }
+            else {
+                if (world.rank() == 0) {
+                    std::cout << "Invalid well type " << T[i][0]
+                              << " for well id " << T[i][1]
+                              << " in file " << filename << std::endl;
+                }
                 return false;
             }
         }

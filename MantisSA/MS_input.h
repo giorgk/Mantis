@@ -46,7 +46,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.0.35";
+        Version = "0.1.01";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -255,8 +255,8 @@ namespace MS {
                 {// [Output]
                     outputOptions.OutFile = vm_cfg["Output.FilePrefix"].as<std::string>();
                     outputOptions.SelectedWells = vm_cfg["Output.SelectedWells"].as<std::string>();
-                    outputOptions.SelectedWellGroups = vm_cfg["Output.SelectedWellsGroups"].as<std::string>();
-                    outputOptions.printSelectedWells = !outputOptions.SelectedWells.empty() && !outputOptions.SelectedWellGroups.empty();
+                    outputOptions.SelectedWellsGroups = vm_cfg["Output.SelectedWellsGroups"].as<std::string>();
+                    outputOptions.printSelectedWells = !outputOptions.SelectedWells.empty() && !outputOptions.SelectedWellsGroups.empty();
                     outputOptions.printBTCs = vm_cfg["Output.printBTCs"].as<int>() != 0;
                     outputOptions.printLoad = vm_cfg["Output.printLoad"].as<int>() != 0;
                     outputOptions.printURFs = vm_cfg["Output.printURFs"].as<int>() != 0;
