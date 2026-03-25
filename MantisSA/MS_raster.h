@@ -47,6 +47,9 @@ namespace MS{
         //std::vector<std::vector<int>> raster;
         std::unordered_map<std::uint64_t, int> rc_to_idx;
         std::vector<std::pair<int,int>> idx_to_rc;
+
+        bool readData_h5(const std::string& filename, std::vector<std::vector<int>>& rasterCol,
+                 boost::mpi::communicator& world);
     };
 
     inline BackgroundRaster::BackgroundRaster()
@@ -78,27 +81,25 @@ namespace MS{
         Ncols = Nc;
         Ncells = Ncell;
         std::vector<std::vector<int>> rasterCol;
+        if (world.rank() == 0) {
+            std::cout << "Reading raster file " << filename << std::endl;
+        }
         std::string ext = getExtension(filename);
         if (ext.compare("h5") == 0){
-#if _USEHF>0
-
-            const std::string NameSet("Raster");
-            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
-            HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
-            dataset.read(rasterCol);
-#else
-            std::cout << "Error: HDF5 support is disabled but file " << filename
-                      << " has .h5 extension" << std::endl;
-            return false;
-#endif
+            const bool tf = readData_h5(filename, rasterCol, world);
+            if (!tf)
+            {
+                return false;
+            }
         }
         else{
-            bool tf = RootReadsMatrixFileDistribFlat(filename, rasterCol,2, world, 5000000);
+            const bool tf = RootReadsMatrixFileDistribFlat(filename, rasterCol,2, world, 5000000);
             world.barrier();
             if (!tf){return false;}
-            if (PrintMatrices){
-                printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
-            }
+        }
+
+        if (PrintMatrices){
+            printMatrixForAllProc<int>(rasterCol, world, 0, 10, 0, 2);
         }
 
         if (rasterCol.empty()) {
@@ -172,6 +173,77 @@ namespace MS{
         col = idx_to_rc[idx].second;
         return true;
     }
+
+    inline bool BackgroundRaster::readData_h5(const std::string& filename,
+                                          std::vector<std::vector<int>>& rasterCol,
+                                          boost::mpi::communicator& world) {
+        int readSuccess = 0;
+        rasterCol.clear();
+
+        if (world.rank() == 0) {
+#if _USEHF > 0
+            try {
+                const std::string NameSet("Raster");
+                HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
+                HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
+
+                std::vector<std::vector<int>> tmp;
+                dataset.read(tmp);
+
+                if (tmp.empty())
+                {
+                    std::cout << "Error: dataset 'Raster' is empty in " << filename << std::endl;
+                }
+                else if (tmp.size() == 2)
+                {
+                    // 2 x N  -> transpose to N x 2
+                    const std::size_t N = tmp[0].size();
+                    rasterCol.assign(N, std::vector<int>(2, 0));
+
+                    for (std::size_t i = 0; i < N; ++i)
+                    {
+                        rasterCol[i][0] = tmp[0][i];
+                        rasterCol[i][1] = tmp[1][i];
+                    }
+
+                    readSuccess = 1;
+                }
+                else if (tmp[0].size() == 2)
+                {
+                    // already N x 2
+                    rasterCol = tmp;
+                    readSuccess = 1;
+                }
+                else
+                {
+                    std::cout << "Error: cannot interpret Raster dimensions in " << filename
+                              << ". Expected Nx2 or 2xN, got ("
+                              << tmp.size() << " x "
+                              << (tmp.empty() ? 0 : tmp[0].size()) << ")" << std::endl;
+                }
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error reading HDF5 raster file " << filename
+                      << ": " << e.what() << std::endl;
+            }
+#else
+            std::cout << "Error: HDF5 support is disabled but file " << filename
+                  << " has .h5 extension" << std::endl;
+#endif
+        }
+        world.barrier();
+        sendScalarFromRoot2AllProc<int>(readSuccess, world);
+
+        if (readSuccess == 0)
+        {
+            return false;
+        }
+
+        sendFlatMatrixFromRoot2AllProc<int>(rasterCol, world);
+
+        return true;
+    }
+
 }
 
 #endif //MANTISSA_MS_RASTER_H

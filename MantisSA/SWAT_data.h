@@ -37,7 +37,7 @@ namespace MS {
         SWAT_data(){}
         bool read(const std::string filename, int NSwatYears, int swat_version, boost::mpi::communicator &world);
         bool read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
-        bool read_v1(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
+        bool read_v1(const std::string& filename, int NSwatYears, boost::mpi::communicator &world);
         bool read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world);
         int hru_index(int HRU) const;
 
@@ -60,9 +60,42 @@ namespace MS {
         std::vector<std::vector<double>> Salt_perc_ppm;
         std::map<int,int> hru_idx_map;
     private:
+        struct SWATField {
+            const char* name;
+            std::vector<std::vector<double>>* data;
+        };
+        std::vector<SWATField> v1_fields();
         bool readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears);
         bool readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data);
+        bool readHDF5PropertyDistrib(HighFive::File* file,
+                                 const std::string& dataset_name,
+                                 std::vector<std::vector<double>>& data,
+                                 int expected_rows,
+                                 int expected_cols,
+                                 boost::mpi::communicator& world);
+        bool checkRowsMatchHRU(const std::vector<std::vector<double>>& data,
+                           const std::string& name,
+                           int nHRU,
+                           boost::mpi::communicator& world) const;
     };
+
+    inline std::vector<SWAT_data::SWATField> SWAT_data::v1_fields()
+    {
+        return {
+            {"irrSW_mm",       &irrSW_mm},
+            {"irrGW_mm",       &irrGW_mm},
+            {"irrsaltSW_kgha", &irrsaltSW_kgha},
+            {"irrsaltGW_kgha", &irrsaltGW_kgha},
+            {"fertsalt_kgha",  &fertsalt_kgha},
+            {"dssl_kgha",      &dssl_kgha},
+            {"Qsalt_kgha",     &Qsalt_kgha},
+            {"uptk_kgha",      &uptk_kgha},
+            {"pGW",            &pGW},
+            {"dSoilSalt_kgha", &dSoilSalt_kgha},
+            {"perc_mm",        &perc_mm},
+            {"Salt_perc_ppm",  &Salt_perc_ppm}
+        };
+    }
 
 
     bool SWAT_data::read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
@@ -140,126 +173,87 @@ namespace MS {
         }
     }
 
-    bool SWAT_data::read_v1(const std::string filename, int NSwatYears, boost::mpi::communicator &world) {
-        std::string ext = getExtension(filename);
+    bool SWAT_data::read_v1(const std::string& filename, int NSwatYears, boost::mpi::communicator &world) {
+        const std::string ext = getExtension(filename);
+        const int nHRU = static_cast<int>(hru_idx_map.size());
 
-        if (ext.compare("h5") == 0){
+        if (nHRU <= 0) {
+            if (world.rank() == 0) {
+                std::cout << "SWAT_data::read_v1 error: hru_idx_map is empty." << std::endl;
+            }
+            return false;
+        }
+
+        if (NSwatYears <= 0) {
+            if (world.rank() == 0) {
+                std::cout << "SWAT_data::read_v1 error: NSwatYears must be > 0." << std::endl;
+            }
+            return false;
+        }
+
+        const std::vector<SWATField> fields = v1_fields();
+
+        if (ext == "h5" || ext == "H5"){
 #if _USEHF > 0
-            //const std::string HRUSNameSet("HRUS");
-            //const std::string irrtotal_mm_NameSet("irrtotal_mm");
-            const std::string irrSW_mm_NameSet("irrSW_mm");
-            const std::string irrGW_mm_NameSet("irrGW_mm");
-            const std::string irrsaltSW_kgha_NameSet("irrsaltSW_kgha");
-            const std::string irrsaltGW_kgha_NameSet("irrsaltGW_kgha");
-            const std::string fertsalt_kgha_NameSet("fertsalt_kgha");
-            const std::string dssl_kgha_NameSet("dssl_kgha");
-            const std::string Qsalt_kgha_NameSet("Qsalt_kgha");
-            const std::string uptk_kgha_NameSet("uptk_kgha");
-            const std::string pGW_NameSet("pGW");
-            const std::string dSoilSalt_kgha_NameSet("dSoilSalt_kgha");
-            //const std::string totpercsalt_kgha_NameSet("totpercsalt_kgha");
-            const std::string perc_mm_NameSet("perc_mm");
-            const std::string Salt_perc_ppm_NameSet("Salt_perc_ppm");
+            int fileOpenSuccess = 1;
+            std::unique_ptr<HighFive::File> h5file;
+            if (world.rank() == 0) {
+                try {
+                    h5file = std::make_unique<HighFive::File>(filename, HighFive::File::ReadOnly);
+                }
+                catch (const std::exception& e) {
+                    std::cout << "Failed to open HDF5 file " << filename
+                              << ": " << e.what() << std::endl;
+                    fileOpenSuccess = 0;
+                }
+            }
 
-            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+            sendScalarFromRoot2AllProc(fileOpenSuccess, world);
+            if (!fileOpenSuccess) {
+                return false;
+            }
 
-            //HighFive::DataSet dataset_HRUS = HDFNfile.getDataSet(HRUSNameSet);
-            //HighFive::DataSet dataset_irrtotal_mm = HDFNfile.getDataSet(irrtotal_mm_NameSet);
-            HighFive::DataSet dataset_irrSW_mm = HDFNfile.getDataSet(irrSW_mm_NameSet);
-            HighFive::DataSet dataset_irrGW_mm = HDFNfile.getDataSet(irrGW_mm_NameSet);
-            HighFive::DataSet dataset_irrsaltSW_kgha = HDFNfile.getDataSet(irrsaltSW_kgha_NameSet);
-            HighFive::DataSet dataset_irrsaltGW_kgha = HDFNfile.getDataSet(irrsaltGW_kgha_NameSet);
-            HighFive::DataSet dataset_fertsalt_kgha = HDFNfile.getDataSet(fertsalt_kgha_NameSet);
-            HighFive::DataSet dataset_dssl_kgha = HDFNfile.getDataSet(dssl_kgha_NameSet);
-            HighFive::DataSet dataset_Qsalt_kgha = HDFNfile.getDataSet(Qsalt_kgha_NameSet);
-            HighFive::DataSet dataset_uptk_kgha = HDFNfile.getDataSet(uptk_kgha_NameSet);
-            HighFive::DataSet dataset_pGW = HDFNfile.getDataSet(pGW_NameSet);
-            HighFive::DataSet dataset_dSoilSalt_kgha = HDFNfile.getDataSet(dSoilSalt_kgha_NameSet);
-            //HighFive::DataSet dataset_totpercsalt_kgha = HDFNfile.getDataSet(totpercsalt_kgha_NameSet);
-            HighFive::DataSet dataset_perc_mm = HDFNfile.getDataSet(perc_mm_NameSet);
-            HighFive::DataSet dataset_Salt_perc_ppm = HDFNfile.getDataSet(Salt_perc_ppm_NameSet);
+            HighFive::File* file_ptr = (world.rank() == 0) ? h5file.get() : nullptr;
 
-            //dataset_HRUS.read(HRUS);
-            //dataset_irrtotal_mm.read(irrtotal_mm);
-            dataset_irrSW_mm.read(irrSW_mm);
-            dataset_irrGW_mm.read(irrGW_mm);
-            dataset_irrsaltSW_kgha.read(irrsaltSW_kgha);
-            dataset_irrsaltGW_kgha.read(irrsaltGW_kgha);
-            dataset_fertsalt_kgha.read(fertsalt_kgha);
-            dataset_dssl_kgha.read(dssl_kgha);
-            dataset_Qsalt_kgha.read(Qsalt_kgha);
-            dataset_uptk_kgha.read(uptk_kgha);
-            dataset_pGW.read(pGW);
-            dataset_dSoilSalt_kgha.read(dSoilSalt_kgha);
-            //dataset_totpercsalt_kgha.read(totpercsalt_kgha);
-            dataset_perc_mm.read(perc_mm);
-            dataset_Salt_perc_ppm.read(Salt_perc_ppm);
-
+            for (const auto& field : fields) {
+                const bool tf = readHDF5PropertyDistrib(file_ptr,
+                                                        field.name,
+                                                        *(field.data),
+                                                        nHRU,
+                                                        NSwatYears,
+                                                        world);
+                if (!tf) {
+                    return false;
+                }
+                if (PrintMatrices) {
+                    printMatrixForAllProc(*(field.data), world, 0, 10, 34, 40);
+                }
+            }
             return true;
-
+#else
+            if (world.rank() == 0) {
+                std::cout << "Cannot read HDF5 SWAT file because _USEHF == 0." << std::endl;
+            }
+            return false;
 #endif
         }
         else{
-            bool tf = false;
-            //bool tf = RootReadsMatrixFileDistrib<int>(filename + "hrus.dat", HRUS,1,false,world);
-            //if (!tf){ return false;}
-            //int nHRUs = HRUS[0].size();
-
-            //bool tf = RootReadsMatrixFileDistrib<double>(filename + "irrtotal_mm.dat", irrtotal_mm, NSwatYears, false, world);
-            //if (!tf){ return false;}
-            //if (PrintMatrices){printMatrixForAllProc(irrtotal_mm,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrSW_mm.dat", irrSW_mm, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(irrSW_mm,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrGW_mm.dat", irrGW_mm, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(irrGW_mm,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltSW_kgha.dat", irrsaltSW_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(irrsaltSW_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "irrsaltGW_kgha.dat", irrsaltGW_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(irrsaltGW_kgha, world, 0, 10, 34, 40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "fertsalt_kgha.dat", fertsalt_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(fertsalt_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "dssl_kgha.dat", dssl_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(dssl_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "Qsalt_kgha.dat", Qsalt_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(Qsalt_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "uptk_kgha.dat", uptk_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(uptk_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "pGW.dat", pGW, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(pGW,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "dSoilSalt_kgha.dat", dSoilSalt_kgha, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(dSoilSalt_kgha,world,0,10,34,40);}
-
-            //tf = RootReadsMatrixFileDistrib<double>(filename + "totpercsalt_kgha.dat", totpercsalt_kgha, NSwatYears, false, world);
-            //if (!tf){ return false;}
-            //if (PrintMatrices){printMatrixForAllProc(totpercsalt_kgha,world,0,10,34,40);}
-
-            tf = RootReadsMatrixFileDistrib<double>(filename + "perc_mm.dat", perc_mm, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(perc_mm,world,0,10,34,40);}
-            tf = RootReadsMatrixFileDistrib<double>(filename + "Salt_perc_ppm.dat", Salt_perc_ppm, NSwatYears, false, world);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(Salt_perc_ppm,world,0,10,34,40);}
-
+            for (const auto& field : fields) {
+                const std::string ascii_file = filename + field.name + ".dat";
+                const bool tf = RootReadsMatrixFileDistribFlat<double>(ascii_file,
+                                                                   *(field.data),
+                                                                   NSwatYears,
+                                                                   world);
+                if (!tf) {
+                    return false;
+                }
+                if (!checkRowsMatchHRU(*(field.data), ascii_file, nHRU, world)) {
+                    return false;
+                }
+                if (PrintMatrices) {
+                    printMatrixForAllProc(*(field.data), world, 34, 40, 0, 10);
+                }
+            }
             return true;
         }
     }
@@ -278,12 +272,12 @@ namespace MS {
 
     bool SWAT_data::read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world){
         std::vector<std::vector<int>> tmp;
-        bool tf = RootReadsMatrixFileDistrib<int>(filename, tmp, 1, true, world);
+        bool tf = RootReadsMatrixFileDistribFlat<int>(filename, tmp, 1,  world);
         if (!tf){ return false;}
-        if (PrintMatrices){printMatrixForAllProc(tmp,world,0,1,0,10);}
+        if (PrintMatrices){printMatrixForAllProc(tmp,world,0,10,0,1);}
 
-        for (int i = 0; i < tmp[0].size(); ++i){
-            hru_idx_map.insert(std::pair<int,int>(tmp[0][i], i));
+        for (int i = 0; i < tmp.size(); ++i){
+            hru_idx_map.insert(std::pair<int,int>(tmp[i][0], i));
         }
         return true;
     }
@@ -346,6 +340,106 @@ namespace MS {
             }
             data.push_back(tmp);
             datafile.close();
+        }
+        return true;
+    }
+
+    inline bool SWAT_data::readHDF5PropertyDistrib(HighFive::File* file,
+                                                   const std::string& dataset_name,
+                                                   std::vector<std::vector<double>>& data,
+                                                   int expected_rows,
+                                                   int expected_cols,
+                                                   boost::mpi::communicator& world) {
+#if _USEHF > 0
+        int readSuccess = 1;
+        if (world.rank() == 0) {
+            data.clear();
+            try {
+                if (file == nullptr) {
+                    std::cout << "Internal error: null HDF5 file pointer on rank 0." << std::endl;
+                    readSuccess = 0;
+                }
+                else if (!file->exist(dataset_name)) {
+                    std::cout << "Missing HDF5 dataset: " << dataset_name << std::endl;
+                    readSuccess = 0;
+                }
+                else {
+                    HighFive::DataSet ds = file->getDataSet(dataset_name);
+                    const std::vector<std::size_t> dims = ds.getSpace().getDimensions();
+
+                    if (dims.size() != 2) {
+                        std::cout << "Dataset " << dataset_name << " is not 2D" << std::endl;
+                        readSuccess = 0;
+                    }
+                    else if ((static_cast<int>(dims[0]) != expected_rows)) {
+                        std::cout << "Dataset " << dataset_name
+                             << " has wrong number of rows. Expected "
+                             << expected_rows << " got " << dims[0] << std::endl;
+                        readSuccess = 0;
+                    }
+                    else if (static_cast<int>(dims[1]) != expected_cols) {
+                        std::cout << "Dataset " << dataset_name
+                             << " has wrong number of columns. Expected "
+                             << expected_cols << " got " << dims[1] << std::endl;
+                        readSuccess = 0;
+                    }
+                    else {
+                        ds.read(data);
+                        if (static_cast<int>(data.size()) != expected_rows) {
+                            std::cout << "Dataset " << dataset_name
+                                  << " read wrong outer size after HDF5 read." << std::endl;
+                            readSuccess = 0;
+                        }
+                        for (int i = 0; i < expected_rows; ++i) {
+                            if (static_cast<int>(data[i].size()) != expected_cols) {
+                                std::cout << "Dataset " << dataset_name
+                                          << " row " << i
+                                          << " has wrong size after HDF5 read." << std::endl;
+                                readSuccess = 0;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            catch (const std::exception& e) {
+                std::cout << "Exception while reading HDF5 dataset "
+                      << dataset_name << ": " << e.what() << std::endl;
+                readSuccess = 0;
+            }
+        }
+
+        sendScalarFromRoot2AllProc(readSuccess, world);
+        if (!readSuccess) {
+            data.clear();
+            return false;
+        }
+
+        sendFlatMatrixFromRoot2AllProc(data, world);
+        return true;
+#else
+        (void)h5file;
+        (void)dataset_name;
+        (void)data;
+        (void)expected_rows;
+        (void)expected_cols;
+        (void)world;
+        std::cout << "HDF5 support is not enabled (_USEHF == 0)." << std::endl;
+        return false;
+#endif
+    }
+
+    inline bool SWAT_data::checkRowsMatchHRU(const std::vector<std::vector<double>>& data,
+                                             const std::string& name,
+                                             int nHRU,
+                                             boost::mpi::communicator& world) const
+    {
+        if (static_cast<int>(data.size()) != nHRU) {
+            if (world.rank() == 0) {
+                std::cout << name << " row count does not match hru_idx_map. "
+                          << "Expected " << nHRU << ", got " << data.size() << std::endl;
+            }
+            return false;
         }
         return true;
     }

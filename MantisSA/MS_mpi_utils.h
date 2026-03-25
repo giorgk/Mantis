@@ -381,16 +381,25 @@ namespace MS{
     void printMatrixForAllProc(std::vector<std::vector<T>> & M, boost::mpi::communicator& world,
                                int startRow = -9, int endRow = -9,
                                int startCol = -9, int endCol = -9){
-        if (startRow < 0){startRow = 0;}
-        if (endRow < 0){endRow = M.size();}
-        if (startCol < 0){startCol = 0;}
-        if (endCol < 0){endCol = M[0].size();}
+        const std::size_t nRows = M.size();
+        const std::size_t nCols = M[0].size();
+
+        std::size_t i0 = (startRow < 0) ? 0 : static_cast<std::size_t>(startRow);
+        std::size_t i1 = (endRow   < 0) ? nRows : static_cast<std::size_t>(endRow);
+        std::size_t j0 = (startCol < 0) ? 0 : static_cast<std::size_t>(startCol);
+        std::size_t j1 = (endCol   < 0) ? nCols : static_cast<std::size_t>(endCol);
+
+        if (i0 > nRows) i0 = nRows;
+        if (i1 > nRows) i1 = nRows;
+        if (j0 > nCols) j0 = nCols;
+        if (j1 > nCols) j1 = nCols;
+
 
         for (int irank = 0; irank < world.size(); ++irank){
             if (irank == world.rank()){
                 std::cout << "Rank " << world.rank() << "  ----------" << std::endl;
-                for (unsigned int i = startRow; i < endRow; ++i){
-                    for (unsigned int j = startCol; j < endCol; ++j){
+                 for (std::size_t i = i0; i < i1; ++i){
+                    for (std::size_t j = j0; j < j1; ++j){
                         std::cout << M[i][j] << " ";
                     }
                     std::cout << std::endl;
@@ -403,13 +412,18 @@ namespace MS{
     template<typename T>
     void printVectorForAllProc(std::vector<T> &V, boost::mpi::communicator& world,
                                int startRow = -9, int endRow = -9){
-        if (startRow < 0){startRow = 0;}
-        if (endRow < 0){endRow = V.size();}
+        const std::size_t nRows = V.size();
+
+        std::size_t i0 = (startRow < 0) ? 0 : static_cast<std::size_t>(startRow);
+        std::size_t i1 = (endRow   < 0) ? nRows : static_cast<std::size_t>(endRow);
+
+        if (i0 > nRows) i0 = nRows;
+        if (i1 > nRows) i1 = nRows;
 
         for (int irank = 0; irank < world.size(); ++irank){
             if (irank == world.rank()){
                 std::cout << "Rank " << world.rank() << " [";
-                for (unsigned int i = startRow; i < endRow; ++i){
+                for (std::size_t i = i0; i < i1; ++i){
                     std::cout << V[i] << " ";
                 }
                 std::cout << "]" << std::endl;

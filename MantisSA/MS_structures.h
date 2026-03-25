@@ -6,6 +6,7 @@
 #define MANTISSA_MS_STRUCTURES_H
 #include <string>
 #include <fstream>
+
 namespace MS{
 
     struct SelectedWellsGroup{
@@ -249,20 +250,14 @@ namespace MS{
         while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
         if (p >= end) return false;
 
-#if defined(__cpp_lib_to_chars) && __cpp_lib_to_chars >= 201611L
-        auto res = std::from_chars(p, end, value);
-        if (res.ec != std::errc()) return false;
-        p = res.ptr;
-        return true;
-#else
         char* q = nullptr;
         long v = std::strtol(p, &q, 10);
         if (q == p) return false;
         if (v < std::numeric_limits<int>::min() || v > std::numeric_limits<int>::max()) return false;
+
         value = static_cast<int>(v);
         p = q;
         return true;
-#endif
     }
 
     template <>
@@ -274,6 +269,7 @@ namespace MS{
         char* q = nullptr;
         value = std::strtod(p, &q);
         if (q == p) return false;
+
         p = q;
         return true;
     }
@@ -281,55 +277,36 @@ namespace MS{
     template<typename T>
     bool readMatrix(const std::string& filename, std::vector<std::vector<T>>& data, int nCols, int freq = 500000)
     {
-        if (nCols <= 0) {
-            std::cout << "readMatrix: nCols must be > 0" << std::endl;
-            return false;
-        }
-        if (freq <= 0) {
-            freq = 500000;
-        }
-
-        std::ifstream datafile(filename);
+        std::ifstream datafile(filename.c_str());
         if (!datafile.is_open()) {
             std::cout << "Can't open the file " << filename << std::endl;
             return false;
         }
 
-        std::cout << "Reading " << filename << std::endl;
-
         data.clear();
 
         std::string line;
         int lineCount = 0;
-        int nextPrint = (freq > 0) ? freq : std::numeric_limits<int>::max();
+        int nextPrint = freq;
 
-        while (std::getline(datafile, line))
-        {
-            const char* p = line.data();
-            const char* end = p + line.size();
+        while (std::getline(datafile, line)) {
 
-            std::vector<T> row(static_cast<std::size_t>(nCols));
+            std::istringstream iss(line);
+            std::vector<T> row;
+            row.reserve(static_cast<std::size_t>(nCols));
 
             for (int j = 0; j < nCols; ++j) {
-                if (!parse_value_space<T>(p, end, row[static_cast<std::size_t>(j)])) {
+                T value;
+                if (!(iss >> value)) {
                     std::cout << "Error reading file " << filename
                               << " at data row " << lineCount
                               << ", column " << j << std::endl;
                     return false;
                 }
+                row.push_back(value);
             }
 
-            // Allow trailing spaces/tabs only
-            while (p < end && (*p == ' ' || *p == '\t' || *p == '\r')) ++p;
-            if (p != end) {
-                std::cout << "Error reading file " << filename
-                          << " at data row " << lineCount
-                          << ": expected " << nCols
-                          << " columns, got more" << std::endl;
-                return false;
-            }
-
-            data.push_back(std::move(row));
+            data.push_back(row);
             ++lineCount;
 
             if (lineCount >= nextPrint) {
@@ -337,12 +314,8 @@ namespace MS{
                 nextPrint += freq;
             }
         }
-        if (data.empty()) {
-            std::cout << "Error: matrix file " << filename
-                      << " contains no valid data rows" << std::endl;
-            return false;
-        }
-        return true;
+
+        return !data.empty();
     }
 
     template<typename T>

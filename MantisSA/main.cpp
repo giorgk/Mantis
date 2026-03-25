@@ -97,7 +97,6 @@ int main(int argc, char* argv[]) {
         if (!tf){return 0;}
     }
 
-    return 0;
 
     world.barrier();
     if (world.rank() == 0){
@@ -114,6 +113,9 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
+
+
+
     MS::SWAT_data swat;
     tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
     if (!tf){
@@ -124,6 +126,8 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
+
+
     MS::HistoricLoading HISTLOAD;
     if (!UI.historicOptions.filename.empty()){
         tf = HISTLOAD.Setup(UI.historicOptions.filename,
@@ -133,6 +137,8 @@ int main(int argc, char* argv[]) {
             return 0;
         }
     }
+
+    return 0;
 
 
     //This is a map between Eid and cell that receiving water from this well

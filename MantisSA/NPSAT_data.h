@@ -24,24 +24,25 @@ namespace MS{
                filename.compare(filename.size() - 3, 3, ".gz") == 0;
     }
 
+    inline bool readNPSATdata_h5_from_root(const std::string& filename,
+                                       std::vector<std::vector<int>>& ints,
+                                       std::vector<std::vector<double>>& dbls,
+                                       std::vector<std::vector<double>>& msas,
+                                       std::vector<int>& version,
+                                       std::vector<double>& porosities,
+                                       boost::mpi::communicator& world) {
+        int readSuccess = 0;
 
-    inline bool readNPSATdata(const std::string& filename, WELLS &wells, int por, int Nyears,
-                              BackgroundRaster& braster, RiverOptions &rivopt,
-                              boost::mpi::communicator &world){
-        std::string ext = getExtension(filename);
+        ints.clear();
+        dbls.clear();
+        msas.clear();
+        version.clear();
+        porosities.clear();
 
-        std::vector<std::vector<int>> ints;
-        std::vector<std::vector<double>> dbls;
-        std::vector<std::vector<double>> msas;
-        std::vector<int> version;
-        std::vector<double> porosities;
-
-        if (ext.compare("h5") == 0) {
+        if (world.rank() == 0) {
 #if _USEHF > 0
-            if (world.rank() == 0) {
-                std::cout << "Reading " << filename << std::endl;
-            }
             try {
+                std::cout << "Reading " << filename << std::endl;
                 const std::string INT_NameSet("INT");
                 const std::string DBL_NameSet("DBL");
                 const std::string MSA_NameSet("MSA");
@@ -55,17 +56,60 @@ namespace MS{
                 HDFNfile.getDataSet(MSA_NameSet).read(msas);
                 HDFNfile.getDataSet(VER_NameSet).read(version);
                 HDFNfile.getDataSet(POR_NameSet).read(porosities);
+
+                readSuccess = 1;
             }
-            catch (const std::exception& e) {
+            catch (const std::exception& e)
+            {
                 std::cout << "Error reading HDF5 NPSAT file " << filename
                           << ": " << e.what() << std::endl;
-                return false;
+                readSuccess = 0;
             }
 #else
             std::cout << "Error: HDF5 support is disabled but file "
-                  << filename << " has .h5 extension" << std::endl;
-            return false;
+                      << filename << " has .h5 extension" << std::endl;
+            readSuccess = 0;
 #endif
+        }
+
+        world.barrier();
+        sendScalarFromRoot2AllProc<int>(readSuccess, world);
+
+        if (readSuccess == 0)
+        {
+            return false;
+        }
+
+        sendFlatMatrixFromRoot2AllProc<int>(ints, world);
+        sendFlatMatrixFromRoot2AllProc<double>(dbls, world);
+        sendFlatMatrixFromRoot2AllProc<double>(msas, world);
+        sendVectorFromRoot2AllProc<int>(version, world);
+        sendVectorFromRoot2AllProc<double>(porosities, world);
+
+        return true;
+    }
+
+
+    inline bool readNPSATdata(const std::string& filename, WELLS &wells, int por, int Nyears,
+                              BackgroundRaster& braster, RiverOptions &rivopt,
+                              boost::mpi::communicator &world){
+
+        const std::string ext = getExtension(filename);
+
+        std::vector<std::vector<int>> ints;
+        std::vector<std::vector<double>> dbls;
+        std::vector<std::vector<double>> msas;
+        std::vector<int> version;
+        std::vector<double> porosities;
+
+        bool tf = false;
+
+        if (ext == "h5" || ext == "H5") {
+            tf = readNPSATdata_h5_from_root(filename, ints, dbls, msas, version, porosities, world);
+            if (!tf)
+            {
+                return false;
+            }
         }
         else {
             std::vector<int> info;
@@ -124,12 +168,15 @@ namespace MS{
                 std::cout << "Error: MSA.dat row count does not match info.dat" << std::endl;
                 return false;
             }
+        }
 
-            if (PrintMatrices){
-                printMatrixForAllProc<int>(ints, world, 0, 10, 0, intCols);
-                printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dblCols);
-                printMatrixForAllProc<double>(msas, world, 0, 10, 0, msaCols);
-            }
+        if (PrintMatrices){
+            const int intCols = ints.empty() ? 0 : static_cast<int>(ints[0].size());
+            const int dblCols = dbls.empty() ? 0 : static_cast<int>(dbls[0].size());
+            const int msaCols = msas.empty() ? 0 : static_cast<int>(msas[0].size());
+            printMatrixForAllProc<int>(ints, world, 0, 10, 0, intCols);
+            printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dblCols);
+            printMatrixForAllProc<double>(msas, world, 0, 10, 0, msaCols);
         }
 
         // ----------------------------
@@ -298,13 +345,13 @@ namespace MS{
             count = count + 1;
             //std::cout << count << std::endl;
         }
-
-
         return true;
-
     }
 
-    bool readInitSaltConc(std::string filename, WELLS &wells, int rank){
+
+
+
+    inline bool readInitSaltConc(std::string filename, WELLS &wells, int rank){
         std::ifstream datafile;
         datafile.open(filename);
         if (!datafile.is_open()) {
