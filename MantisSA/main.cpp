@@ -13,6 +13,7 @@ bool PrintMatrices = false;
 #include "MS_unsat.h"
 #include "MS_HRU_raster.h"
 #include "MS_loading.h"
+#include "MS_well_cell.h"
 #include "MSdebug.h"
 #include "MS_tests.h"
 
@@ -144,11 +145,8 @@ int main(int argc, char* argv[]) {
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
     MS::WELL_CELLS well_cells;
-    if (world.rank() == 0){
-        bool tf = MS::readDistribPumping(UI.npsatOptions.DistribuPumpFile, well_cells);
-        if (!tf){
-            return 0;
-        }
+    if (!well_cells.read_build(UI.npsatOptions.DistribuPumpFile, world)) {
+        return 0;
     }
     world.barrier();
 
@@ -190,17 +188,29 @@ int main(int argc, char* argv[]) {
         MS::sendVec2Root<double>(wellInitConc, AllwellsInitConc, world);
         // Put the well concentrations in the right cells
         if (world.rank() == 0){
-            MS::WELL_CELLS::iterator it; // well_cells
+            //MS::WELL_CELLS::iterator it; // well_cells
             for (int i = 0; i < world.size(); ++i){
                 for (int j = 0; j < static_cast<int>(AllwellsInitConc[i].size()); j = j + 2){
-                    int eid = static_cast<int>(AllwellsInitConc[i][j]);
-                    it = well_cells.find(eid);
-                    if (it != well_cells.end()){
-                        for (int k = 0; k < it->second.size(); ++k){
-                            ConcFromPump[it->second[k]] = AllwellsInitConc[i][j+1];
-                            WellEidFromPump[it->second[k]] = eid;
+                    const int eid = static_cast<int>(AllwellsInitConc[i][j]);
+                    const double conc = AllwellsInitConc[i][j + 1];
+
+                    const int* begin = nullptr;
+                    const int* end   = nullptr;
+
+                    if (well_cells.get_cells_ptr(eid, begin, end)) {
+                        for (const int* p = begin; p != end; ++p) {
+                            ConcFromPump[*p] = conc;
+                            WellEidFromPump[*p] = eid;
                         }
                     }
+
+                    // it = well_cells.find(eid);
+                    // if (it != well_cells.end()){
+                    //     for (int k = 0; k < it->second.size(); ++k){
+                    //         ConcFromPump[it->second[k]] = AllwellsInitConc[i][j+1];
+                    //         WellEidFromPump[it->second[k]] = eid;
+                    //     }
+                    // }
                 }
             }
         }
@@ -344,16 +354,27 @@ int main(int argc, char* argv[]) {
                 MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
                 // Put the well concentrations in the right cells
                 if (world.rank() == 0){
-                    MS::WELL_CELLS::iterator it; // well_cells
+                    //MS::WELL_CELLS::iterator it; // well_cells
                     for (int i = 0; i < world.size(); ++i){
                         for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); j = j + 2){
-                            int eid = static_cast<int>(AllwellsConc[i][j]);
-                            it = well_cells.find(eid);
-                            if (it != well_cells.end()){
-                                for (int k = 0; k < it->second.size(); ++k){
-                                    ConcFromPump[it->second[k]] = AllwellsConc[i][j+1];
+                            const int eid = static_cast<int>(AllwellsConc[i][j]);
+                            const double conc = AllwellsConc[i][j + 1];
+
+                            const int* begin = nullptr;
+                            const int* end   = nullptr;
+
+                            if (well_cells.get_cells_ptr(eid, begin, end)) {
+                                for (const int* p = begin; p != end; ++p) {
+                                    ConcFromPump[*p] = conc;
                                 }
                             }
+
+                            // it = well_cells.find(eid);
+                            // if (it != well_cells.end()){
+                            //     for (int k = 0; k < it->second.size(); ++k){
+                            //         ConcFromPump[it->second[k]] = AllwellsConc[i][j+1];
+                            //     }
+                            // }
                         }
                     }
                 }
