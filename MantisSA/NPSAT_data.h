@@ -380,45 +380,45 @@ namespace MS{
 
     }
 
-    bool readDistribPumping(std::string filename,  WELL_CELLS &well_cells){
-        std::string ext = getExtension(filename);
-        std::vector<int> cellWell;
-        WELL_CELLS::iterator it;
-        if (ext.compare("h5") == 0){
-#if _USEHF > 0
-            const std::string NameSet("WellID");
-            HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
-            HighFive::DataSet dataset = HDFNfile.getDataSet(NameSet);
-            dataset.read(cellWell);
-#endif
-        }
-        else{
-            bool tf = readVector<int>(filename, cellWell);
-            if (!tf){
-                return false;
-            }
-        }
-
-        int step = cellWell.size()/10;
-        int countSteps = 1;
-        for (int i = 0; i < cellWell.size(); ++i){
-            if (i > countSteps*step){
-                std::cout << countSteps*10 << "% " << std::flush;
-                countSteps++;
-            }
-
-            it = well_cells.find(cellWell[i]);
-            if (it == well_cells.end()){
-                std::vector<int> tmp(1,i);
-                well_cells.insert(std::pair<int, std::vector<int>>(cellWell[i], tmp));
-            }
-            else{
-                it->second.push_back(i);
-            }
-        }
-        std::cout << std::endl;
-        return true;
-    }
+//     bool readDistribPumping(std::string filename,  WELL_CELLS &well_cells){
+//         std::string ext = getExtension(filename);
+//         std::vector<int> cellWell;
+//         WELL_CELLS::iterator it;
+//         if (ext.compare("h5") == 0){
+// #if _USEHF > 0
+//             const std::string NameSet("WellID");
+//             HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
+//             HighFive::DataSet dataset = HDFNfile.getDataSet(NameSet);
+//             dataset.read(cellWell);
+// #endif
+//         }
+//         else{
+//             bool tf = readVector<int>(filename, cellWell);
+//             if (!tf){
+//                 return false;
+//             }
+//         }
+//
+//         int step = cellWell.size()/10;
+//         int countSteps = 1;
+//         for (int i = 0; i < cellWell.size(); ++i){
+//             if (i > countSteps*step){
+//                 std::cout << countSteps*10 << "% " << std::flush;
+//                 countSteps++;
+//             }
+//
+//             it = well_cells.find(cellWell[i]);
+//             if (it == well_cells.end()){
+//                 std::vector<int> tmp(1,i);
+//                 well_cells.insert(std::pair<int, std::vector<int>>(cellWell[i], tmp));
+//             }
+//             else{
+//                 it->second.push_back(i);
+//             }
+//         }
+//         std::cout << std::endl;
+//         return true;
+//     }
 
     void linearizeWellBTCs(WELLS &W, std::vector<double> &v){
         v.clear();

@@ -152,7 +152,8 @@ namespace MS{
 
     //typedef std::map<int, WELL> WELLS;
 
-    typedef std::map<int, std::vector<int>> WELL_CELLS;
+    //typedef std::map<int, std::vector<int>> WELL_CELLS;
+
 
     std::string getExtension(std::string filename){
         // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/

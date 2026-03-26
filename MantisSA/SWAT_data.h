@@ -67,12 +67,14 @@ namespace MS {
         std::vector<SWATField> v1_fields();
         bool readASCIIset(std::string filename, std::vector<std::vector<double>> &data, int nHRU, int Nyrears);
         bool readASCIIHRUS(std::string filename, std::vector<std::vector<int>> &data);
+#if _USEHF > 0
         bool readHDF5PropertyDistrib(HighFive::File* file,
                                  const std::string& dataset_name,
                                  std::vector<std::vector<double>>& data,
                                  int expected_rows,
                                  int expected_cols,
                                  boost::mpi::communicator& world);
+#endif
         bool checkRowsMatchHRU(const std::vector<std::vector<double>>& data,
                            const std::string& name,
                            int nHRU,
@@ -171,6 +173,7 @@ namespace MS {
 
             return true;
         }
+        return false;
     }
 
     bool SWAT_data::read_v1(const std::string& filename, int NSwatYears, boost::mpi::communicator &world) {
@@ -343,14 +346,14 @@ namespace MS {
         }
         return true;
     }
-
+#if _USEHF > 0
     inline bool SWAT_data::readHDF5PropertyDistrib(HighFive::File* file,
                                                    const std::string& dataset_name,
                                                    std::vector<std::vector<double>>& data,
                                                    int expected_rows,
                                                    int expected_cols,
                                                    boost::mpi::communicator& world) {
-#if _USEHF > 0
+
         int readSuccess = 1;
         if (world.rank() == 0) {
             data.clear();
@@ -417,17 +420,10 @@ namespace MS {
 
         sendFlatMatrixFromRoot2AllProc(data, world);
         return true;
-#else
-        (void)h5file;
-        (void)dataset_name;
-        (void)data;
-        (void)expected_rows;
-        (void)expected_cols;
-        (void)world;
-        std::cout << "HDF5 support is not enabled (_USEHF == 0)." << std::endl;
-        return false;
-#endif
+
+
     }
+#endif
 
     inline bool SWAT_data::checkRowsMatchHRU(const std::vector<std::vector<double>>& data,
                                              const std::string& name,
