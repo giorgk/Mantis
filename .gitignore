@@ -85,6 +85,10 @@
 /CPP/BIN/*
 !/CPP/BIN/*.exe
 !/CPP/BIN/*.dll
+!/CPP/BIN/DEV
+/CPP/BIN/DEV/*
+!/CPP/BIN/DEV/*.exe
+!/CPP/BIN/DEV/*.dll
 
 !/MantisSA
 /MantisSA/*
