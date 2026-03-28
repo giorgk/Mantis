@@ -12,6 +12,7 @@ namespace MS{
         //int YearA;
         //int YearB;
         //int idx;
+        int n_reserve = 0;
         std::string Prefix;
         std::string Ext;
         std::vector<std::vector<double>> HistLoad;
@@ -21,7 +22,10 @@ namespace MS{
         double calculateConc(int IJ, int year) const;
 
         bool readInfo(std::string filename, boost::mpi::communicator &world);
-        bool readRasterLoad(std::string filename, std::vector<double> &V,boost::mpi::communicator &world);
+        bool readRasterLoad(const std::string &filename, std::vector<double> &V,boost::mpi::communicator &world);
+        bool RootReadsHDF_HistFileDistrib(const std::string &filename,
+                                         std::vector<double> &V,
+                                         boost::mpi::communicator &world);
     };
 
     bool HistoricLoading::ReadLoading(boost::mpi::communicator &world) {
@@ -58,25 +62,33 @@ namespace MS{
         return conc;
     }
 
-    bool HistoricLoading::readRasterLoad(std::string filename, std::vector<double> &V, boost::mpi::communicator &world) {
+    bool HistoricLoading::readRasterLoad(const std::string &filename, std::vector<double> &V, boost::mpi::communicator &world) {
         std::string ext = getExtension(filename);
-        if (ext.compare("h5") == 0){
-#if _USEHF>0
-            const std::string NameSet("HIST");
-            HighFive::File HDFfile(filename, HighFive::File::ReadOnly);
-            HighFive::DataSet dataset = HDFfile.getDataSet(NameSet);
-            dataset.read(V);
-            return true;
-#endif
+        std::vector<double> tmp;
+        bool tf = false;
+         if (ext == "h5" || ext == "H5"){
+             tf = RootReadsHDF_HistFileDistrib(filename, tmp, world);
         }
         else{
-            std::vector<std::vector<double>> tmp;
-            bool tf = RootReadsMatrixFileDistrib<double>(filename, tmp, 1, true, world, 5000000);
-            if (!tf){ return false;}
-            if (PrintMatrices){printMatrixForAllProc(tmp,world,0,1,345,353);}
-            V = tmp[0];
-            return true;
+            tf = RootReadsVectorFileDistrib<double>(filename, tmp,  world, 5000000, n_reserve);
         }
+
+        if (!tf) {
+            V.clear();
+            return false;
+        }
+
+        if (PrintMatrices) {
+            printVectorForAllProc(tmp, world, 345, 353);
+        }
+        if (tmp.empty()) {
+            std::cout << "Error: no data read from " << filename << std::endl;
+            V.clear();
+            return false;
+        }
+        V = tmp;
+        return true;
+
     }
 
     bool HistoricLoading::readInfo(std::string filename, boost::mpi::communicator &world) {
@@ -96,6 +108,56 @@ namespace MS{
         tf = ReadLoading(world);
         return tf;
     }
+
+    bool HistoricLoading::RootReadsHDF_HistFileDistrib(const std::string &filename,
+                                                       std::vector<double> &V,
+                                                       boost::mpi::communicator &world) {
+#if _USEHF > 0
+        int readSuccess = 1;
+        if (world.rank() == 0) {
+            try {
+                const std::string NameSet("HIST");
+                HighFive::File hdfFile(filename, HighFive::File::ReadOnly);
+                HighFive::DataSet dataset = hdfFile.getDataSet(NameSet);
+
+                dataset.read(V);
+
+                if (V.empty()) {
+                    std::cout << "Error: empty dataset in " << filename << std::endl;
+                    readSuccess = 0;
+                }
+            }
+            catch (const std::exception &e) {
+                std::cout << "Error reading HDF5 historic load file "
+                          << filename << ": " << e.what() << std::endl;
+                readSuccess = 0;
+            }
+            catch (...) {
+                std::cout << "Unknown error reading HDF5 historic load file "
+                          << filename << std::endl;
+                readSuccess = 0;
+            }
+        }
+
+        sendScalarFromRoot2AllProc(readSuccess, world);
+
+        if (readSuccess == 0) {
+            V.clear();
+            return false;
+        }
+
+        sendVectorFromRoot2AllProc(V, world);
+        return true;
+
+#else
+        (void)filename;
+        (void)V;
+        (void)world;
+        std::cout << "Error: HDF5 support is not enabled." << std::endl;
+        return false;
+#endif
+    }
+
 
     void calculateFutureLoading(double &c_cell, double &gw_cell,
                                 const int &IJ, const int &iswat, const int &ver,

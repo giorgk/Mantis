@@ -110,14 +110,14 @@ int main(int argc, char* argv[]) {
     if (!tf){ return 0;}
 
     MS::HRU_Raster hru_raster;
-    tf = hru_raster.read(UI.swatOptions.HRU_raster_file, world);
+    tf = hru_raster.read(UI.swatOptions.HRU_raster_file, world, backRaster.Ncell());
     if (!tf){
         return 0;
     }
 
 
 
-    MS::SWAT_data swat;
+    MS::SWAT_data swat(UI.swatOptions.nhrus, UI.swatOptions.Nyears);
     tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
     if (!tf){
         return 0;
@@ -131,6 +131,7 @@ int main(int argc, char* argv[]) {
 
     MS::HistoricLoading HISTLOAD;
     if (!UI.historicOptions.filename.empty()){
+        HISTLOAD.n_reserve = backRaster.Ncell();
         tf = HISTLOAD.Setup(UI.historicOptions.filename,
                             UI.historicOptions.ext,
                             world);
@@ -139,7 +140,7 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    return 0;
+
 
 
     //This is a map between Eid and cell that receiving water from this well
@@ -156,18 +157,19 @@ int main(int argc, char* argv[]) {
     //sendWellEids(VI, Eid_proc, world);
 
     if (UI.npsatOptions.bUseInitConcVI) {
-        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVIFile, VI, world.rank());
+        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVIFile, VI, world);
         if (!tf){return 0;}
     }
     if (UI.npsatOptions.bUseInitConcVD) {
-        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVDFile, VD, world.rank());
+        tf = MS::readInitSaltConc(UI.npsatOptions.InitSaltVDFile, VD, world);
         if (!tf){return 0;}
     }
 
 
     std::cout << "Proc: " << world.rank() << " has " << VI.wells.size() << " VI wells and " << VD.wells.size() << " VD wells" << std::endl;
 
-    //std::cout << "Here1" << std::endl;
+
+
 
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
     std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
@@ -184,7 +186,7 @@ int main(int argc, char* argv[]) {
             wellInitConc.push_back(static_cast<double>(itw->first));
             wellInitConc.push_back(itw->second.initConc);
         }
-        std::vector<std::vector<double>> AllwellsInitConc(world.size());
+        std::vector<std::vector<double>> AllwellsInitConc;
         MS::sendVec2Root<double>(wellInitConc, AllwellsInitConc, world);
         // Put the well concentrations in the right cells
         if (world.rank() == 0){
@@ -236,6 +238,8 @@ int main(int argc, char* argv[]) {
         }
     }
     world.barrier();
+
+    return 0;
 
 
     // Main simulation loop

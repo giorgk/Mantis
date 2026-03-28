@@ -34,7 +34,8 @@ namespace MS {
 
     class SWAT_data{
     public:
-        SWAT_data(){}
+        SWAT_data(int n_hrus_in, int n_years_in)
+        : n_hrus(n_hrus_in), n_yrears(n_years_in) {}
         bool read(const std::string filename, int NSwatYears, int swat_version, boost::mpi::communicator &world);
         bool read_v0(const std::string filename, int NSwatYears, boost::mpi::communicator &world);
         bool read_v1(const std::string& filename, int NSwatYears, boost::mpi::communicator &world);
@@ -60,6 +61,8 @@ namespace MS {
         std::vector<std::vector<double>> Salt_perc_ppm;
         std::map<int,int> hru_idx_map;
     private:
+        int n_hrus = 0;
+        int n_yrears = 0;
         struct SWATField {
             const char* name;
             std::vector<std::vector<double>>* data;
@@ -198,6 +201,9 @@ namespace MS {
 
         if (ext == "h5" || ext == "H5"){
 #if _USEHF > 0
+            if (world.rank() == 0) {
+                std::cout << "Reading HDF5 SWAT file " << filename << std::endl;
+            }
             int fileOpenSuccess = 1;
             std::unique_ptr<HighFive::File> h5file;
             if (world.rank() == 0) {
@@ -243,6 +249,9 @@ namespace MS {
         else{
             for (const auto& field : fields) {
                 const std::string ascii_file = filename + field.name + ".dat";
+                if (world.rank() == 0) {
+                    std::cout << "Reading " << ascii_file << std::endl;
+                }
                 const bool tf = RootReadsMatrixFileDistribFlat<double>(ascii_file,
                                                                    *(field.data),
                                                                    NSwatYears,
@@ -274,13 +283,13 @@ namespace MS {
     }
 
     bool SWAT_data::read_HRU_idx_Map(std::string filename, boost::mpi::communicator &world){
-        std::vector<std::vector<int>> tmp;
-        bool tf = RootReadsMatrixFileDistribFlat<int>(filename, tmp, 1,  world);
+        std::vector<int> tmp;
+        bool tf = RootReadsVectorFileDistrib<int>(filename, tmp, world,5000000, n_hrus);
         if (!tf){ return false;}
-        if (PrintMatrices){printMatrixForAllProc(tmp,world,0,10,0,1);}
+        if (PrintMatrices){printVectorForAllProc(tmp,world,10,30);}
 
         for (int i = 0; i < tmp.size(); ++i){
-            hru_idx_map.insert(std::pair<int,int>(tmp[i][0], i));
+            hru_idx_map.insert(std::pair<int,int>(tmp[i], i));
         }
         return true;
     }

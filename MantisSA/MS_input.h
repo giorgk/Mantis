@@ -46,7 +46,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.1.01";
+        Version = "0.1.02";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -100,6 +100,7 @@ namespace MS {
             ("SWAT.HRU_Raster", po::value<std::string>(), "HRU raster file")
             ("SWAT.HRU_index", po::value<std::string>(), "Swat HRU index map")
             ("SWAT.Data", po::value<std::string>(), "Swat input file")
+            ("SWAT.NHRU", po::value<int>()->default_value(100000), "Number of rows in Data files")
 
             // [Historic]
             ("Historic.Prefix_name", po::value<std::string>(), "Prefix of historic loading")
@@ -208,6 +209,7 @@ namespace MS {
                     swatOptions.HRU_raster_file = vm_cfg["SWAT.HRU_Raster"].as<std::string>();
                     swatOptions.HRU_index_file = vm_cfg["SWAT.HRU_index"].as<std::string>();
                     swatOptions.Data_file = vm_cfg["SWAT.Data"].as<std::string>();
+                    swatOptions.nhrus = vm_cfg["SWAT.NHRU"].as<int>();
                 }
 
                 {// [Historic]

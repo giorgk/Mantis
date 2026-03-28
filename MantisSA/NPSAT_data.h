@@ -351,33 +351,23 @@ namespace MS{
 
 
 
-    inline bool readInitSaltConc(std::string filename, WELLS &wells, int rank){
-        std::ifstream datafile;
-        datafile.open(filename);
-        if (!datafile.is_open()) {
-            std::cout << "Cant open file: " << filename << std::endl;
-            return false;
+    inline bool readInitSaltConc(std::string filename, WELLS &wells, boost::mpi::communicator &world){
+        std::vector<std::vector<double>> eid_conc;
+        if (world.rank() == 0) {
+            std::cout << "Reading initial salt concentration from " << filename << std::endl;
         }
-        else{
-            if (rank == 0){
-                std::cout << "Reading " << filename << std::endl;
-            }
+        const bool tf = RootReadsMatrixFileDistribFlat<double>(filename, eid_conc, 2, world);
+        if (tf) {
             std::map<int, WELL>::iterator itw;
-            std::string line;
-            int eid;
-            double conc;
-            while (getline(datafile, line)){
-                std::istringstream inp(line.c_str());
-                inp >> eid;
-                inp >> conc;
+            for (std::size_t i = 0; i < eid_conc.size(); ++i){
+                int eid = static_cast<int>(eid_conc[i][0]);
                 itw = wells.wells.find(eid);
                 if (itw != wells.wells.end()){
-                    itw->second.initConc = conc;
+                    itw->second.initConc = eid_conc[i][1];
                 }
             }
-            return true;
         }
-
+        return tf;
     }
 
 //     bool readDistribPumping(std::string filename,  WELL_CELLS &well_cells){

@@ -7,74 +7,63 @@
 namespace MS{
     template<typename T>
     void sendVec2Root(std::vector<T> &v, std::vector<std::vector<T>> &out, boost::mpi::communicator &world){
+        const int rank = world.rank();
+        const int nproc = world.size();
+        const int localSize = static_cast<int>(v.size());
+
         std::vector<int> vSize;
         std::vector<int> displ;
         int totSize = 0;
 
-        // Step 1: Gather sizes at root
-        // Send the size to calculate the displacements
-        int localSize = static_cast<int>(v.size());
+        // Gather local sizes on root
         if (world.rank() == 0){
             boost::mpi::gather(world, localSize, vSize, 0);
             assert(static_cast<int>(vSize.size()) == world.size() && "Size mismatch in gathered sizes");
 
-            // Step 2: Compute displacements
-            displ.reserve(world.size());
-            displ.push_back(0);
-            for (int i = 1; i < vSize.size(); ++i){
-                //if (i!=0){
-                    displ.push_back(displ[i-1] + vSize[i-1]);
-                //}
-                //totSize = totSize + vSize[i];
-                //std::cout << "Size from rank:" << i << " " <<  vSize[i] << " displ " <<  displ[i] << std::endl;
+            // Compute displacements
+            displ.resize(nproc);
+            displ[0] = 0;
+            for (int i = 1; i < nproc; ++i) {
+                displ[i] = displ[i - 1] + vSize[i - 1];
             }
-            totSize = displ.back() + vSize.back();
+
+            if (nproc > 0) {
+                totSize = displ[nproc - 1] + vSize[nproc - 1];
+            }
         }
         else{
             boost::mpi::gather(world, static_cast<int>(v.size()),0);
         }
         world.barrier();
 
-        // Step 3: Gather data from all processes
-        //Send the data
+        // Gather values on root
         std::vector<T> allValues;
         if (world.rank() == 0){
             allValues.resize(totSize);
-            boost::mpi::gatherv(world, v, allValues.data(), vSize, displ,0);
+            if (totSize > 0) {
+                boost::mpi::gatherv(world, v, allValues.data(), vSize, displ, 0);
+            } else {
+                boost::mpi::gatherv(world, v, static_cast<T*>(nullptr), vSize, displ, 0);
+            }
         }
         else{
             boost::mpi::gatherv(world, v, 0);
         }
         world.barrier();
 
-        // Step 4: Reconstruct vectors from gathered data
-        // Root processor gathers the data
+        // Rebuild per-rank vectors on root only
         if (world.rank() == 0){
             out.clear();
-            out.resize(world.size());
-            for (int i = 0; i < world.size(); ++i){
-                int start = displ[i];
-                int end = start + vSize[i];
-                out[i].assign(allValues.begin() + start, allValues.begin() + end);
+            out.resize(nproc);
+
+            for (int i = 0; i < nproc; ++i){
+                const int start = displ[i];
+                const int count = vSize[i];
+                out[i].assign(allValues.begin() + start,
+                          allValues.begin() + start + count);
             }
 
         }
-        //displ.push_back(totSize);
-        //int idx = 0;
-        //if (world.rank() == 0){
-        //    for (int i = 0; i < world.size(); ++i){
-        //        for (int j = displ[i]; j < displ[i+1]; ++j){
-        //            out[i].push_back(allValues[idx]);
-        //            idx = idx + 1;
-        //        }
-        //    }
-            //for (int i = 0; i < world.size(); ++i){
-            //    for (int j = 0; j < out[i].size(); ++j){
-            //        std::cout << out[i][j] << " ";
-            //    }
-            //    std::cout << std::endl;
-            //}
-        //}
         world.barrier();
     }
 
@@ -214,6 +203,61 @@ namespace MS{
                           matrix[i].begin());
             }
         }
+    }
+
+    template<typename T>
+    bool RootReadsVectorFileDistrib(const std::string& filename,
+                                    std::vector<T>& V,
+                                    boost::mpi::communicator& world,
+                                    int freq = 500000,
+                                    int nreserve = 100000) {
+        int readSuccess = 0;
+        if (world.rank() == 0) {
+            try {
+                const bool tf = readVector<T>(filename, V, freq, nreserve);
+                readSuccess = static_cast<int>(tf);
+                if (readSuccess) {
+                    if (V.empty()) {
+                        std::cout << "Error: vector file " << filename
+                                  << " contains no valid data rows" << std::endl;
+                        readSuccess = 0;
+                    }
+                }
+            }
+            catch (const std::exception& e) {
+                std::cout << "Error in RootReadsVectorFileDistrib while reading "
+                          << filename << ": " << e.what() << std::endl;
+                readSuccess = 0;
+            }
+            catch (...) {
+                std::cout << "Unknown error in RootReadsVectorFileDistrib while reading "
+                          << filename << std::endl;
+                readSuccess = 0;
+            }
+        }
+        sendScalarFromRoot2AllProc(readSuccess, world);
+        if (readSuccess == 0) {
+            V.clear();
+            return false;
+        }
+
+        try {
+            sendVectorFromRoot2AllProc(V, world);
+        }
+        catch (const std::exception& e) {
+            std::cout << "Error in RootReadsVectorFileDistrib while distributing "
+                      << filename << ": " << e.what() << std::endl;
+            V.clear();
+            return false;
+        }
+        catch (...) {
+            std::cout << "Unknown error in RootReadsVectorFileDistrib while distributing "
+                      << filename << std::endl;
+            V.clear();
+            return false;
+        }
+
+        return true;
     }
 
     template<typename T>

@@ -30,6 +30,7 @@ namespace MS{
         int Nyears;
         int StartYear;
         int version;
+        int nhrus;
         std::string HRU_raster_file;
         std::string HRU_index_file;
         std::string Data_file;
@@ -308,6 +309,43 @@ namespace MS{
             }
 
             data.push_back(row);
+            ++lineCount;
+
+            if (lineCount >= nextPrint) {
+                std::cout << lineCount << " lines read..." << std::endl;
+                nextPrint += freq;
+            }
+        }
+
+        return !data.empty();
+    }
+
+    template<typename T>
+    bool readVector(const std::string& filename, std::vector<T>& data, int freq = 500000, int nreserve = 100000) {
+        std::ifstream datafile(filename.c_str());
+        if (!datafile.is_open()) {
+            std::cout << "Can't open the file " << filename << std::endl;
+            return false;
+        }
+        data.clear();
+        data.reserve(nreserve); // optional initial reserve
+
+        std::string line;
+        int lineCount = 0;
+        int nextPrint = freq;
+
+        while (std::getline(datafile, line)) {
+
+            std::istringstream iss(line);
+            T value;
+
+            if (!(iss >> value)) {
+                std::cout << "Error reading file " << filename
+                          << " at data row " << lineCount << std::endl;
+                return false;
+            }
+
+            data.push_back(value);
             ++lineCount;
 
             if (lineCount >= nextPrint) {
