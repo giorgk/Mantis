@@ -149,10 +149,13 @@ namespace MS{
             const int msaRows = info[idx + 4];
             const int msaCols = info[idx + 5];
 
+            if (world.rank() == 0) {std::cout << "Reading " << filename + "INT.dat" << std::endl;}
             tf = RootReadsMatrixFileDistribFlat<int>(filename + "INT.dat", ints, intCols, world, 500000);
             if (!tf){return false;}
+            if (world.rank() == 0) {std::cout << "Reading " << filename + "DBL.dat" << std::endl;}
             tf = RootReadsMatrixFileDistribFlat<double>(filename + "DBL.dat", dbls, dblCols, world, 500000);
             if (!tf){return false;}
+            if (world.rank() == 0) {std::cout << "Reading " << filename + "MSA.dat" << std::endl;}
             tf = RootReadsMatrixFileDistribFlat<double>(filename + "MSA.dat", msas, msaCols, world, 500000);
             if (!tf){return false;}
 

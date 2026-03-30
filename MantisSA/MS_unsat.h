@@ -201,24 +201,6 @@ namespace MS{
                     {
                         std::cout << "Error: failed to read depth file " << dpth_file << std::endl;
                     }
-                    else if (names.empty())
-                    {
-                        std::cout << "Error: depth file " << dpth_file
-                                  << " contains no scenario names." << std::endl;
-                    }
-                    else if (data_NxNames.empty())
-                    {
-                        std::cout << "Error: depth file " << dpth_file
-                                  << " contains no data." << std::endl;
-                    }
-                    else if (data_NxNames[0].size() != names.size())
-                    {
-                        std::cout << "Error: depth file " << dpth_file
-                                  << " has inconsistent dimensions. names.size() = "
-                                  << names.size()
-                                  << ", data columns = " << data_NxNames[0].size()
-                                  << std::endl;
-                    }
                 }
 
                 if (!data_NxNames.empty()) {

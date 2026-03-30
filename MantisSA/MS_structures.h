@@ -398,6 +398,7 @@ namespace MS{
         }
 
         std::cout << "Reading " << filename << " ..." << std::endl;
+
         std::string line;
         int nData = 0;
 
@@ -407,11 +408,9 @@ namespace MS{
             return false;
         }
         nData = std::stoi(line);
-        data.clear();
-        data.resize(nData);
+
         names.clear();
         names.reserve(nData);
-
         // --- Read names
         for (int i = 0; i < nData; ++i){
             if (!std::getline(ifile, line)){
@@ -421,31 +420,71 @@ namespace MS{
             names.push_back(line);  // assume each name is a line
         }
 
-        // --- Read values
-        int ir = 0;
+        // read all numeric values into one flat vector
+        std::vector<double> flat;
+        flat.reserve(static_cast<std::size_t>(nData) * 1024); // small initial reserve
+
+        int nRows = 0;
         int nextLog = freq;
-        std::vector<double> rowValues(nData);
-        while (std::getline(ifile, line)){
+
+        while (std::getline(ifile, line)) {
             if (line.empty()) continue;
 
             std::istringstream iss(line);
-            for (int j = 0; j < nData; ++j){
-                if (!(iss >> rowValues[j])) {
-                    std::cerr << "Parsing error at row " << ir << ", column " << j << std::endl;
-                    return false;
-                }
-            }
+
+            const std::size_t oldSize = flat.size();
+            flat.resize(oldSize + nData);
+
             for (int j = 0; j < nData; ++j) {
-                data[j].push_back(rowValues[j]);
+                iss >> flat[oldSize + j];
             }
 
-            ++ir;
-            if (ir >= nextLog) {
-                std::cout << ir << " rows read..." << std::endl;
+            ++nRows;
+            if (nRows >= nextLog) {
+                std::cout << nRows << " rows read..." << std::endl;
                 nextLog += freq;
             }
         }
+
+        // reshape to Nrows x Nnames
+        data.assign(nRows, std::vector<double>(nData));
+        for (int i = 0; i < nRows; ++i) {
+            const std::size_t offset = static_cast<std::size_t>(i) * nData;
+            for (int j = 0; j < nData; ++j) {
+                data[i][j] = flat[offset + j];
+            }
+        }
+
         return true;
+
+        // // --- Read values
+        // data.clear();
+        //
+        // int ir = 0;
+        // int nextLog = freq;
+        //
+        // std::vector<double> rowValues(nData);
+        // while (std::getline(ifile, line)){
+        //     if (line.empty()) continue;
+        //
+        //     std::istringstream iss(line);
+        //     for (int j = 0; j < nData; ++j){
+        //         if (!(iss >> rowValues[j])) {
+        //             std::cerr << "Parsing error at row " << ir << ", column " << j << std::endl;
+        //             return false;
+        //         }
+        //     }
+        //     for (int j = 0; j < nData; ++j) {
+        //         data[j].push_back(rowValues[j]);
+        //     }
+        //
+        //     ++ir;
+        //     if (ir >= nextLog) {
+        //         std::cout << ir << " rows read..." << std::endl;
+        //         nextLog += freq;
+        //     }
+        // }
+        // return true;
     }
 
     inline double calcRiverInfluence(double dist, const RiverOptions &ropt){

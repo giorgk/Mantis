@@ -77,8 +77,19 @@ int main(int argc, char* argv[]) {
         tf = MS::readSelectedWells(UI.outputOptions.SelectedWells, UI.outputOptions.SelectedWellsGroups, SWGmap, world);
     }
 
+    {
+        MS::SWAT_data swat(UI.swatOptions.nhrus, UI.swatOptions.Nyears);
+        tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
+        if (!tf){
+            return 0;
+        }
+        tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.Nyears, UI.swatOptions.version, world);
+        if (!tf){
+            return 0;
+        }
 
-
+        return 0;
+    }
 
     MS::BackgroundRaster backRaster;
     tf = backRaster.readData(UI.rasterOptions.File, UI.rasterOptions.Nrows, UI.rasterOptions.Ncols, UI.rasterOptions.Ncells, world);
@@ -98,7 +109,6 @@ int main(int argc, char* argv[]) {
         if (!tf){return 0;}
     }
 
-
     world.barrier();
     if (world.rank() == 0){
         std::cout << "The unsaturated data are using the old matlab format and should be updated if the depth data are updated to the new format" << std::endl;
@@ -115,8 +125,6 @@ int main(int argc, char* argv[]) {
         return 0;
     }
 
-
-
     MS::SWAT_data swat(UI.swatOptions.nhrus, UI.swatOptions.Nyears);
     tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
     if (!tf){
@@ -126,8 +134,6 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
-
-
 
     MS::HistoricLoading HISTLOAD;
     if (!UI.historicOptions.filename.empty()){

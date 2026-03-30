@@ -121,7 +121,9 @@ namespace MS{
 
 
 #endif
+        return false;
     }
+
 }
 
 #endif //MANTISSA_MS_HRU_RASTER_H
