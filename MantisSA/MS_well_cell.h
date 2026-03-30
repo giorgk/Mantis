@@ -79,7 +79,7 @@ namespace MS {
         std::vector<int> offsets;                 // size Nwells + 1
         std::vector<int> cells;                   // flattened cell indices
 
-        bool read_ascii(const std::string& filename, std::vector<int>& cellWell);
+        bool read_ascii(const std::string& filename, std::vector<int>& cellWell, int freq = 5000000);
         bool read_hdf5(const std::string& filename, std::vector<int>& cellWell);
         bool build_from_cellWell(const std::vector<int>& cellWell);
         void print_progress_10(std::size_t i,
@@ -119,7 +119,7 @@ namespace MS {
         return true;
     }
 
-    inline bool WELL_CELLS::read_ascii(const std::string& filename, std::vector<int>& cellWell) {
+    inline bool WELL_CELLS::read_ascii(const std::string& filename, std::vector<int>& cellWell, int freq) {
         std::ifstream fin(filename.c_str());
         if (!fin.is_open()) {
             std::cout << "Cannot open file " << filename << std::endl;
@@ -133,6 +133,7 @@ namespace MS {
         std::string line;
         int value = 0;
         std::size_t lineCount = 0;
+        std::size_t nextPrint = freq;
 
         while (std::getline(fin, line)) {
             std::istringstream iss(line);
@@ -145,6 +146,11 @@ namespace MS {
 
             cellWell.push_back(value);
             ++lineCount;
+
+            if (lineCount >= nextPrint) {
+                std::cout << lineCount << " lines read..." << std::endl;
+                nextPrint += freq;
+            }
         }
 
         if (cellWell.empty()) {

@@ -416,11 +416,14 @@ namespace MS{
     void linearizeWellBTCs(WELLS &W, std::vector<double> &v){
         v.clear();
         v.push_back(static_cast<double>(W.wells.size()));
+
         std::map<int, WELL>::iterator itw;
         for (itw = W.wells.begin(); itw != W.wells.end(); ++itw){
             v.push_back(static_cast<double>(itw->first));
-            for (unsigned int i = 0; i < itw->second.wellBtc.size(); ++i){
-                v.push_back(itw->second.wellBtc[i]);
+
+            const std::vector<double> &btc = itw->second.wellBtc;
+            for (unsigned int i = 0; i < btc.size(); ++i){
+                v.push_back(btc[i]);
             }
         }
     }

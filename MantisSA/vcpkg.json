@@ -1,0 +1,16 @@
+{
+  "name": "mantissa",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "boost-mpi",
+    "boost-serialization",
+    "boost-program-options",
+    "boost-system",
+    "zlib",
+    "hdf5",
+    {
+      "name": "highfive",
+      "default-features": true
+    }
+  ]
+}

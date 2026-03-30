@@ -70,25 +70,10 @@ int main(int argc, char* argv[]) {
         dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_conc, c_swat, UNshift" << std::endl;
     }
 
-
     //std::vector<int> VIids, VDids;
     std::map<int,MS::SelectedWellsGroup> SWGmap;
     if (UI.outputOptions.printSelectedWells){
         tf = MS::readSelectedWells(UI.outputOptions.SelectedWells, UI.outputOptions.SelectedWellsGroups, SWGmap, world);
-    }
-
-    {
-        MS::SWAT_data swat(UI.swatOptions.nhrus, UI.swatOptions.Nyears);
-        tf = swat.read_HRU_idx_Map(UI.swatOptions.HRU_index_file, world);
-        if (!tf){
-            return 0;
-        }
-        tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.Nyears, UI.swatOptions.version, world);
-        if (!tf){
-            return 0;
-        }
-
-        return 0;
     }
 
     MS::BackgroundRaster backRaster;
@@ -147,8 +132,6 @@ int main(int argc, char* argv[]) {
     }
 
 
-
-
     //This is a map between Eid and cell that receiving water from this well
     // Only root processor knows this
     MS::WELL_CELLS well_cells;
@@ -156,8 +139,6 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     world.barrier();
-
-
 
     //std::vector<std::vector<int>> Eid_proc;
     //sendWellEids(VI, Eid_proc, world);
@@ -171,7 +152,7 @@ int main(int argc, char* argv[]) {
         if (!tf){return 0;}
     }
 
-
+    world.barrier();
     std::cout << "Proc: " << world.rank() << " has " << VI.wells.size() << " VI wells and " << VD.wells.size() << " VD wells" << std::endl;
 
 
@@ -255,56 +236,77 @@ int main(int argc, char* argv[]) {
     //int hruidx;
     //std::vector<double> totMfeed(UI.NsimYears, 0);
     auto startTotal = std::chrono::high_resolution_clock::now();
+
     int YYYY = UI.simOptions.StartYear;
     int iswat = swatYRIDmap.find(YYYY)->second;
+
     for (int iyr = 0; iyr < UI.simOptions.Nyears; ++iyr){
         //std::cout << "Here1" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
+        const bool is_last_year = (iyr == UI.simOptions.Nyears - 1);
+
+        // Packed as [well_id, concentration, well_id, concentration, ...]
+        // Used only for feedback to update ConcFromPump on root.
         std::vector<double> wellConc;
+
         world.barrier();
+
         bool printThis = false;
+
+        // ============================================================
+        // 1. Simulate loading / BTC for VI wells for this year
+        // ============================================================
         for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
             if (UI.doDebug){
                 if (UI.dbg_id == itw->first){
                     printThis = true;
                 }
             }
-            //std::cout << itw->first << std::endl;
-            std::vector<double> wellbtc(iyr + 1,0.0);
+
+            auto &well = itw->second;
+
+            // For the current year, wellbtc has size (iyr + 1), because the
+            // convolution is based on lf_conc accumulated up to this year.
+            std::vector<double> wellbtc(iyr + 1, 0.0);
+
             double sumW = 0;
             int cntS = 0;
-            for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
 
+            for (unsigned int i = 0; i < well.strml.size(); ++i) {
+                auto &strm = well.strml[i];
 
-                //std::cout << i << " " << std::flush;
-                //Calculate the C_SWAT
+                // Compute loading concentration for this streamline at the current year.
                 double c_tot = 0.0;
                 double c_gw = 0.0;
 
-
                 MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
-                                               itw->second.strml[i], UI, itw->second.initConc,
+                                               strm, UI, well.initConc,
                                                HISTLOAD,backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
 
+                // Store the yearly loading history for this streamline.
+                strm.gw_conc.push_back(c_gw);
+                strm.lf_conc.push_back(c_tot);
 
-                itw->second.strml[i].gw_conc.push_back(c_gw);
-                itw->second.strml[i].lf_conc.push_back(c_tot);
+                // Convolve the streamline loading history with the streamline URF.
+                std::vector<double> btc(strm.lf_conc.size(), 0);
+                std::vector<double> prebtc(strm.lf_conc.size(), 0);
 
-                std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
-                std::vector<double> prebtc(itw->second.strml[i].lf_conc.size(), 0);
-                MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf_conc, btc, prebtc, itw->second.initConc);
+                MS::convolute(strm.urf, strm.lf_conc, btc, prebtc, well.initConc);
 
-
+                // Add weighted streamline contribution to the well BTC.
                 for (unsigned int j = 0; j < btc.size(); ++j){
-                    wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j] + prebtc[j]);
-                    if (iyr == UI.simOptions.Nyears-1){
-                        itw->second.strml[i].btc.push_back(btc[j] + prebtc[j]);
+                    const double c_here = btc[j] + prebtc[j];
+                    wellbtc[j] += strm.W * c_here;
+
+                    // On the last simulation year, store the full BTC per streamline.
+                    if (is_last_year){
+                        strm.btc.push_back(c_here);
                     }
                 }
 
-                sumW = sumW + itw->second.strml[i].W;
-                cntS = cntS + 1;
+                sumW += strm.W;
+                cntS += 1;
 
                 //if (printThis){
                 //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
@@ -313,58 +315,68 @@ int main(int argc, char* argv[]) {
                 //}
             }// Loop streamlines
 
+            // No active streamlines for this well
             if (cntS == 0){
-                if (iyr == UI.simOptions.Nyears - 1 && UI.simOptions.OutofAreaConc < 0){
+                if (is_last_year && UI.simOptions.OutofAreaConc < 0) {
                     // if we ignore out of area streamlines we have to ignore the wells
                     // with streamlines that originate from outside. To avoid breaking the printing procedures
                     // we will print -9
-                    for (unsigned int i = 0; i < wellbtc.size(); ++i){
+                    for (unsigned int i = 0; i < wellbtc.size(); ++i) {
                         wellbtc[i] = -9.0;
                     }
                 }
-                sumW = 1;
+                sumW = 1.0;
             }
 
-            //std::cout << std::endl;
-            if (iyr == UI.simOptions.Nyears - 1){
-                for (unsigned int i = 0; i < wellbtc.size(); ++i){
-                    itw->second.wellBtc.push_back(wellbtc[i] / sumW);
+            // On the last year, store the full well BTC.
+            // Otherwise store only the current-year value for feedback.
+            if (is_last_year) {
+                for (unsigned int i = 0; i < wellbtc.size(); ++i) {
+                    well.wellBtc.push_back(wellbtc[i] / sumW);
                 }
             }
             else{
                 wellConc.push_back(static_cast<double>(itw->first));
-                wellConc.push_back(wellbtc.back()/sumW);
+                wellConc.push_back(wellbtc.back() / sumW);
             }
             if (printThis){printThis = false;}
-        }// Loop wells
+        }// end loop VI wells
 
-        // Go through the domestic wells but built only this year concentration
-        for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw){
-            //std::cout << itw->first << std::endl;
-            for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
+        // ============================================================
+        // 2. For VD wells, only build yearly loading histories here.
+        //    Full BTC is computed only on the last year.
+        // ============================================================
+        for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw) {
+            auto &well = itw->second;
+
+            for (unsigned int i = 0; i < well.strml.size(); ++i) {
+                auto &strm = well.strml[i];
 
                 double c_tot = 0.0;
                 double c_gw = 0.0;
 
 
                 MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VD.version,
-                                               itw->second.strml[i], UI, itw->second.initConc,
-                                               HISTLOAD,backRaster, UZ, hru_raster, swat,
+                                               strm, UI, well.initConc,
+                                               HISTLOAD, backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
 
-                itw->second.strml[i].gw_conc.push_back(c_gw);
-                itw->second.strml[i].lf_conc.push_back(c_tot);
+                strm.gw_conc.push_back(c_gw);
+                strm.lf_conc.push_back(c_tot);
             }
         }
 
-        // Send this year pumped concentration to root processor
-        if (iyr < UI.simOptions.Nyears-1){
+        // ============================================================
+        // 3. Feedback step for VI wells (not needed on last year)
+        // ============================================================
+        if (!is_last_year) {
             if (UI.simOptions.EnableFeedback) {
+                // Gather current-year well concentrations to root.
                 std::vector<std::vector<double>> AllwellsConc(world.size());
                 MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
-                // Put the well concentrations in the right cells
-                if (world.rank() == 0){
-                    //MS::WELL_CELLS::iterator it; // well_cells
+
+                // Root updates ConcFromPump in all cells associated with each well.
+                if (world.rank() == 0) {
                     for (int i = 0; i < world.size(); ++i){
                         for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); j = j + 2){
                             const int eid = static_cast<int>(AllwellsConc[i][j]);
@@ -378,71 +390,79 @@ int main(int argc, char* argv[]) {
                                     ConcFromPump[*p] = conc;
                                 }
                             }
-
-                            // it = well_cells.find(eid);
-                            // if (it != well_cells.end()){
-                            //     for (int k = 0; k < it->second.size(); ++k){
-                            //         ConcFromPump[it->second[k]] = AllwellsConc[i][j+1];
-                            //     }
-                            // }
                         }
                     }
                 }
+
                 world.barrier();
                 MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
                 world.barrier();
             }
+
             world.barrier();
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
+
             if (world.rank() == 0){
                 std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
             }
         }
-        else{ // if this is the last year of the simulation calculate the domestic wells
+        else{
+            // ========================================================
+            // 4. Last year: compute full BTCs for VD wells
+            // ========================================================
             world.barrier();
+
             auto finish = std::chrono::high_resolution_clock::now();
             std::chrono::duration<double> elapsed = finish - start;
+
             if (world.rank() == 0){
                 std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+                std::cout << "Simulating VD BTCs ..." << std::endl;
             }
 
             start = std::chrono::high_resolution_clock::now();
-            if (world.rank() == 0){
-                std::cout << "Simulating VD BTCs ..." << std::endl;
-            }
             world.barrier();
-            for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw){
+
+            for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw) {
+                auto &well = itw->second;
+
                 std::vector<double> wellbtc(UI.simOptions.Nyears, 0.0);
                 double sumW = 0;
                 int cntS = 0;
-                for (unsigned int i = 0; i < itw->second.strml.size(); ++i){
-                    if (itw->second.strml[i].lf_conc.size() == 0){
+
+                for (unsigned int i = 0; i < well.strml.size(); ++i) {
+                    auto &strm = well.strml[i];
+
+                    if (strm.lf_conc.empty()) {
                         continue;
                     }
-                    std::vector<double> btc(itw->second.strml[i].lf_conc.size(), 0);
-                    std::vector<double> prebtc(itw->second.strml[i].lf_conc.size(), 0);
-                    MS::convolute(itw->second.strml[i].urf, itw->second.strml[i].lf_conc, btc, prebtc, itw->second.initConc);
-                    //int shift = UZ.traveltime(itw->second.strml[i].IJ);
+
+                    std::vector<double> btc(strm.lf_conc.size(), 0.0);
+                    std::vector<double> prebtc(strm.lf_conc.size(), 0.0);
+
+                    MS::convolute(strm.urf, strm.lf_conc, btc, prebtc, well.initConc);
 
                     for (unsigned int j = 0; j < btc.size(); ++j){
-                        wellbtc[j] = wellbtc[j] + itw->second.strml[i].W * (btc[j] + prebtc[j]);
-                        itw->second.strml[i].btc.push_back(btc[j] + prebtc[j]);
+                        const double c_here = btc[j] + prebtc[j];
+                        wellbtc[j] += strm.W * c_here;
+                        strm.btc.push_back(c_here);
                     }
-                    sumW = sumW + itw->second.strml[i].W;
-                    cntS = cntS + 1;
+
+                    sumW += strm.W;
+                    cntS += 1;
                 }
+
                 if (cntS == 0){
-                    if (iyr == UI.simOptions.Nyears-1 && UI.simOptions.OutofAreaConc < 0){
-                        // if we ignore out of area streamlines we have to ignore the wells
-                        // with streamlines that originate from outside. To avoid breaking the printing procedures
-                        // we will print -9
+                    if (UI.simOptions.OutofAreaConc < 0) {
+                        // Mark invalid / ignored wells with -9 so downstream printing logic works.
                         for (unsigned int i = 0; i < wellbtc.size(); ++i){
                             wellbtc[i] = -9.0;
                         }
                     }
-                    sumW = 1;
+                    sumW = 1.0;
                 }
+
                 for (unsigned int i = 0; i < wellbtc.size(); ++i){
                     itw->second.wellBtc.push_back(wellbtc[i] / sumW);
                 }
@@ -450,19 +470,20 @@ int main(int argc, char* argv[]) {
 
             finish = std::chrono::high_resolution_clock::now();
             elapsed = finish - start;
+
             if (world.rank() == 0){
                 std::cout << "VD simulation time : " << elapsed.count() << std::endl;
             }
-
         }
-        iswat = iswat + 1;
+
+        ++iswat;
         if (iswat >= UI.swatOptions.Nyears){
             iswat = 0;
         }
-        YYYY = YYYY + 1;
+
+        // Advance calendar year
+        ++YYYY;
     }
-
-
 
     auto finishTotal = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedTotal = finishTotal - startTotal;
@@ -470,19 +491,17 @@ int main(int argc, char* argv[]) {
         std::cout << "Total simulation for " << UI.simOptions.Nyears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
     }
 
-    //{
-    //    if (world.rank() == 0){
-    //        std::string tmpname = "ConcPump1.dat";
-    //        MS::printConcFromPump(tmpname, ConcFromPump);
-    //    }
-    //}
-
     { // Print the VI
         world.barrier();
+        // Flatten this rank's well BTC data into a single vector:
+        // [Nwells, eid1, btc1_1, ..., btc1_Nyears, eid2, ...]
         std::vector<double> thisProcBTCVI;
         MS::linearizeWellBTCs(VI, thisProcBTCVI);
+
+        // Gather all ranks' flattened BTC vectors to root
         std::vector<std::vector<double>> AllProcBTCVI;
         MS::sendVec2Root<double>(thisProcBTCVI, AllProcBTCVI, world);
+
         if (world.rank() == 0){
             std::cout << "Printing VI BTCs ..." << std::endl;
             std::string fn;

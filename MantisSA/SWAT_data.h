@@ -235,7 +235,7 @@ namespace MS {
                     return false;
                 }
                 if (PrintMatrices) {
-                    printMatrixForAllProc(*(field.data), world, 0, 10, 34, 40);
+                    printMatrixForAllProc(*(field.data), world, 46, 58, 1, 10);
                 }
             }
             return true;
@@ -263,7 +263,7 @@ namespace MS {
                     return false;
                 }
                 if (PrintMatrices) {
-                    printMatrixForAllProc(*(field.data), world, 34, 40, 0, 10);
+                    printMatrixForAllProc(*(field.data), world, 46, 58, 0, 10);
                 }
             }
             return true;
