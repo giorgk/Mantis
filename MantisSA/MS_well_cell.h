@@ -173,7 +173,51 @@ namespace MS {
             }
 
             HighFive::DataSet ds = file.getDataSet("WellID");
-            ds.read(cellWell);
+
+            // --- Get dimensions
+            std::vector<size_t> dims = ds.getDimensions();
+            if (dims.empty()) {
+                std::cout << "Dataset WellID in " << filename << " has no dimensions." << std::endl;
+                return false;
+            }
+
+            // --- Case 1: 1D dataset
+            if (dims.size() == 1) {
+                ds.read(cellWell);
+            }
+            // --- Case 2: 2D dataset (1xN or Nx1)
+            else if (dims.size() == 2) {
+                std::vector<std::vector<int>> tmp2D;
+                ds.read(tmp2D);
+                if (tmp2D.empty()) {
+                    std::cout << "Dataset WellID in " << filename << " is empty." << std::endl;
+                    return false;
+                }
+
+                // 1 x N
+                if (dims[0] == 1) {
+                    cellWell = tmp2D[0];
+                }
+                // N x 1
+                else if (dims[1] == 1) {
+                    cellWell.resize(tmp2D.size());
+                    for (std::size_t i = 0; i < tmp2D.size(); ++i) {
+                        cellWell[i] = tmp2D[i][0];
+                    }
+                }
+                else {
+                    std::cout << "Dataset WellID in " << filename
+                              << " is not 1xN or Nx1 (dims = "
+                              << dims[0] << "x" << dims[1] << ")" << std::endl;
+                    return false;
+                }
+
+            }
+            else {
+                std::cout << "Dataset WellID in " << filename
+                  << " has unsupported rank: " << dims.size() << std::endl;
+                return false;
+            }
 
             if (cellWell.empty()) {
                 std::cout << "Dataset WellID in " << filename << " is empty." << std::endl;

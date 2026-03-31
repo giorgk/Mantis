@@ -63,7 +63,6 @@ int main(int argc, char* argv[]) {
     }
     world.barrier();
 
-
     std::ofstream dbg_file;
     if (UI.doDebug){
         dbg_file.open(UI.dbg_file.c_str());
@@ -226,7 +225,7 @@ int main(int argc, char* argv[]) {
     }
     world.barrier();
 
-    return 0;
+    //return 0;
 
 
     // Main simulation loop

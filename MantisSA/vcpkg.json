@@ -1,16 +1,17 @@
 {
   "name": "mantissa",
   "version-string": "0.1.0",
+  "description": "MantisSA groundwater transport and salinity simulation tool",
   "dependencies": [
     "boost-mpi",
     "boost-serialization",
     "boost-program-options",
     "boost-system",
     "zlib",
-    "hdf5",
     {
-      "name": "highfive",
-      "default-features": true
-    }
+      "name": "hdf5",
+      "features": ["cpp", "zlib"]
+    },
+    "highfive"
   ]
 }
