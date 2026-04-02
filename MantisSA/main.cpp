@@ -159,6 +159,10 @@ int main(int argc, char* argv[]) {
 
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
     std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
+    MS::Matrix<double> mass_removed;
+    if (world.rank() == 0) {
+        mass_removed.allocate(UI.swatOptions.nhrus, UI.simOptions.Nyears);
+    }
     // Initialize Concentration from pumping with the initial concentration
     world.barrier();
 
@@ -277,10 +281,11 @@ int main(int argc, char* argv[]) {
                 // Compute loading concentration for this streamline at the current year.
                 double c_tot = 0.0;
                 double c_gw = 0.0;
+                double m_rmv = 0.0;
 
-                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
+                MS::CreateLoadingForStreamline(c_tot, c_gw, m_rmv, iyr, iswat, YYYY, VI.version,
                                                strm, UI, well.initConc,
-                                               HISTLOAD,backRaster, UZ, hru_raster, swat,
+                                               HISTLOAD, backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
 
                 // Store the yearly loading history for this streamline.
@@ -306,6 +311,7 @@ int main(int argc, char* argv[]) {
 
                 sumW += strm.W;
                 cntS += 1;
+                well.m_rmv[i] += m_rmv;
 
                 //if (printThis){
                 //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
@@ -353,9 +359,9 @@ int main(int argc, char* argv[]) {
 
                 double c_tot = 0.0;
                 double c_gw = 0.0;
+                double m_rmv = 0.0;
 
-
-                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VD.version,
+                MS::CreateLoadingForStreamline(c_tot, c_gw, m_rmv, iyr, iswat, YYYY, VD.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
@@ -391,12 +397,50 @@ int main(int argc, char* argv[]) {
                             }
                         }
                     }
+
+                    // Salt removal
+                    if (UI.saltRemoveOptions.enable) {
+                        for (int i = 0; i < ConcFromPump.size(); ++i) {
+                            constexpr double cell_area = 2500.0;
+                            double mass_remove_cell = 0.0;
+                            const int hru = hru_raster.getHRU(i);// This is the hru id for the cell i
+                            if (hru < 0) {
+                                continue;
+                            }
+                            const int hru_idx = swat.hru_index(hru); // This is the row index of the hru in the swat data
+                            if (hru_idx < 0) {
+                                continue;
+                            }
+
+                            double volume_SW_cell = swat.irrSW_mm[hru_idx][iswat] * cell_area / 1000.0;
+                            double volume_GW_cell = swat.irrGW_mm[hru_idx][iswat] * cell_area / 1000.0;
+                            double mass_SW_cell = swat.irrsaltSW_kgha[hru_idx][iswat] * cell_area/10000.0;
+                            double mass_GW_cell = 0.001 * ConcFromPump[i] * volume_GW_cell;
+                            double mass_cell = mass_GW_cell + mass_SW_cell;
+                            double volume_cell = volume_GW_cell + volume_SW_cell;
+                            double conc_trgt = UI.saltRemoveOptions.Trgt_AW_ppm;
+                            if (UI.saltRemoveOptions.usefield) {
+                                conc_trgt = swat.Trgt_AW_ppm[hru_idx][iswat];
+                            }
+                            double mass_trgt_cell = 0.001 * conc_trgt * volume_cell;
+                            mass_remove_cell = std::max(0.0, mass_cell - mass_trgt_cell);
+                            if (volume_GW_cell < 0.01) {
+                                ConcFromPump[i] = 0.0;
+                            }
+                            else {
+                                const double mass_GW_new = std::max(0.0, mass_cell - mass_remove_cell - mass_SW_cell);
+                                ConcFromPump[i] = 1000.0 * mass_GW_new / volume_GW_cell;
+                            }
+                            mass_removed(hru_idx,iyr) += mass_remove_cell;
+                        }
+                    }
                 }
 
                 world.barrier();
                 MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
                 world.barrier();
             }
+
 
             world.barrier();
             auto finish = std::chrono::high_resolution_clock::now();
@@ -488,6 +532,24 @@ int main(int argc, char* argv[]) {
     std::chrono::duration<double> elapsedTotal = finishTotal - startTotal;
     if (world.rank() == 0){
         std::cout << "Total simulation for " << UI.simOptions.Nyears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
+    }
+
+    {// Print mass removal
+        if (UI.saltRemoveOptions.enable) {
+            if (world.rank() == 0) {
+                std::cout << "Printing mass removed ..." << std::endl;
+                std::string fn;
+                if (UI.outputOptions.compress){
+                    fn = UI.outputOptions.OutFile + "_Mrmv.dat.gz";
+                }
+                else{
+                    fn = UI.outputOptions.OutFile + "_Mrmv.dat";
+                }
+                MS::printHRUMassRemoved(swat.hru_idx_map,mass_removed,fn, UI.outputOptions.compress);
+            }
+        }
+
+
     }
 
     { // Print the VI

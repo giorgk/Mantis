@@ -9,6 +9,36 @@
 
 namespace MS{
 
+    template<typename T>
+    class Matrix {
+    private:
+        std::vector<T> data;
+        size_t rows = 0;
+        size_t cols = 0;
+
+    public:
+        void allocate(size_t r, size_t c) {
+            rows = r;
+            cols = c;
+            // Resizes the vector and initializes all new elements to 0.0
+            data.assign(r * c, T{});
+        }
+
+        // Accessors
+        inline T& operator()(size_t r, size_t c) {
+            return data[r * cols + c];
+        }
+
+        inline T operator()(size_t r, size_t c) const {
+            return data[r * cols + c];
+        }
+
+        // Helpers to check state
+        bool empty() const { return data.empty(); }
+        size_t num_rows() const { return rows; }
+        size_t num_cols() const { return cols; }
+    };
+
     struct SelectedWellsGroup{
         std::string groupName;
         std::vector<int> idVI;
@@ -101,6 +131,13 @@ namespace MS{
         double dp_mult;
     };
 
+    struct SaltRemoveOptions{
+        double Trgt_AW_ppm;
+        std::string InputField;
+        bool enable;
+        bool usefield;
+    };
+
     struct STRML{
         int Sid;
         int urfI;
@@ -117,7 +154,6 @@ namespace MS{
         int wellSourceId;
         std::vector<double> urf;
         std::vector<double> lf_conc;
-        //std::vector<double> lf_mass;
         std::vector<double> gw_conc;
         //std::vector<double> gw_conc;
         std::vector<double> btc;
@@ -128,6 +164,7 @@ namespace MS{
         double initConc = 0.0;
         std::vector<STRML> strml;
         std::vector<double> wellBtc;
+        std::vector<double> m_rmv;
     };
 
     struct NPSATTMP{

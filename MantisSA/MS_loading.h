@@ -5,6 +5,8 @@
 #ifndef MANTISSA_MS_LOADING_H
 #define MANTISSA_MS_LOADING_H
 
+#include <random>
+
 namespace MS{
     class HistoricLoading{
     public:
@@ -165,6 +167,7 @@ namespace MS{
 #endif
     }
 
+
     // Computes the future-loading concentration for one raster cell.
     //
     // Outputs:
@@ -192,9 +195,8 @@ namespace MS{
     //   4. Otherwise, form a simple salt mass balance and convert to concentration.
     //   5. Optionally blend with river concentration.
     //   6. Optionally blend with a prescribed surface concentration.
-    void calculateFutureLoading(double &c_cell, double &gw_cell,
-                                const int &IJ, const int &iswat, const int &ver,
-                                const double &initConc, const double &concfromPump, const double &RivInfl,
+    void calculateFutureLoading(double &c_cell, double &gw_cell, const int &IJ, const int &iswat,
+                                const int &ver, const double &initConc, const double &concfromPump, const double &RivInfl,
                                 const double &rivConcVal, const double &SurfConcValue, const double &surf_perc,
                                 const MS::HRU_Raster &hru_raster,
                                 const MS::SWAT_data &swat,
@@ -229,8 +231,6 @@ namespace MS{
             // Mass contribution from NPSAT groundwater irrigation term.
             // Unit consistency depends on the SWAT/NPSAT convention already used in the rest of the model.
             double m_npsat = concfromPump * swat.irrGW_mm[hruidx][iswat] / 100.0;
-
-            //double m_total = 0;
 
             // Small or negative groundwater contribution:
             // set the diagnostic to zero, and do not allow negative mass.
@@ -285,7 +285,7 @@ namespace MS{
         }
     }
 
-    void CreateLoadingForStreamline(double &c_strml, double &gw_strml,
+    void CreateLoadingForStreamline(double &c_strml, double &gw_strml, double &m_rmv_strml,
                                     const int &iyr, // simulation year index (relative index, not calendar year)
                                     const int &iswat, // SWAT time index for future loading
                                     const int &yyyy, // calendar year corresponding to iyr
@@ -327,6 +327,7 @@ namespace MS{
             for (int jj = strm.urfJ - UI.simOptions.nBuffer; jj <= strm.urfJ + UI.simOptions.nBuffer; ++jj){
                 double c_cell = 0.0; // concentration assigned to this neighborhood cell
                 double gw_cell = 0.0; // groundwater contribution diagnostic for this cell
+                double m_remove_cell = 0.0;
 
                 // Convert raster coordinates to active-cell index.
                 int IJ = backRaster.IJ(ii, jj);
@@ -374,6 +375,7 @@ namespace MS{
                             // Future value based on SWAT + pumping-derived groundwater term
                             double c_cell_fut = 0.0;
                             double gw_cell_fut = 0.0;
+                            double m_remove = 0.0;
                             double cfP = ConcFromPump[IJ];
                             double surf_perc = UZ.getSurfPerc(IJ);
 
@@ -405,11 +407,13 @@ namespace MS{
                 // Accumulate for neighborhood averaging
                 c_strml = c_strml + c_cell;
                 gw_strml = gw_strml + gw_cell;
+                m_rmv_strml = m_rmv_strml + m_remove_cell;
                 n_cells = n_cells + 1.0;
             }// loop jj
         }// loop ii
         c_strml = c_strml / n_cells;
         gw_strml = gw_strml / n_cells;
+        m_rmv_strml = m_rmv_strml / n_cells;
 
         if (c_strml > UI.simOptions.MaxConc){
             c_strml = UI.simOptions.MaxConc;
@@ -430,6 +434,11 @@ namespace MS{
             c_final = (1-u) * c_hist + u * c_fut;
         }
     }
+
+
+
+
+
 
 }
 

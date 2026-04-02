@@ -59,6 +59,7 @@ namespace MS {
         std::vector<std::vector<double>> totpercsalt_kgha;
         std::vector<std::vector<double>> perc_mm;
         std::vector<std::vector<double>> Salt_perc_ppm;
+        std::vector<std::vector<double>> Trgt_AW_ppm;
         std::map<int,int> hru_idx_map;
     private:
         int n_hrus = 0;

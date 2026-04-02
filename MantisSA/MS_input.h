@@ -34,6 +34,7 @@ namespace MS {
         SimOptions simOptions;
         UnsatOptions unsatOptions;
         OutputOptions outputOptions;
+        SaltRemoveOptions saltRemoveOptions;
         MiscOptions miscOptions;
 
         std::string Version;
@@ -46,7 +47,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.1.02";
+        Version = "0.1.10";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -146,6 +147,11 @@ namespace MS {
             ("Output.printURFs", po::value<int>(), "prints the urfs of the selected wells")
             ("Output.printBTCs", po::value<int>(), "prints the BTCs for each streamline of the selected wells")
             ("Output.compress", po::value<int>(), "Print compressed files")
+
+            // [SaltRemove]
+            ("SaltRemove.InputField", po::value<std::string>(), "SWAT field for Salt remove")
+            ("SaltRemove.Trgt_AW_ppm", po::value<double>()->default_value(990.0), "Numeric target value if field is empty")
+            ("SaltRemove.enable", po::value<int>()->default_value(0), "Simulate salt removal")
 
             //[Misc]
             ("Misc.dp_mult", po::value<double>()->default_value(1.0), "Deep percolation multiplier")
@@ -265,11 +271,20 @@ namespace MS {
                     outputOptions.compress = vm_cfg["Output.compress"].as<int>() != 0;
                 }
 
-                {
+                {// [SaltRemove]
+                    saltRemoveOptions.InputField = vm_cfg["SaltRemove.InputField"].as<std::string>();
+                    saltRemoveOptions.Trgt_AW_ppm = vm_cfg["SaltRemove.Trgt_AW_ppm"].as<double>();
+                    saltRemoveOptions.enable = vm_cfg["SaltRemove.enable"].as<double>();
+                    saltRemoveOptions.usefield = !(saltRemoveOptions.InputField.empty() || saltRemoveOptions.InputField == "none");
+
+
+                }
+
+                {// [Misc]
                     miscOptions.dp_mult = vm_cfg["Misc.dp_mult"].as<double>();
                 }
 
-                {// [Other
+                {// [Other]
                     dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
                     dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
                     PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;

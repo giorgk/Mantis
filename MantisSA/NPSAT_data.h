@@ -343,6 +343,7 @@ namespace MS{
                 calcURFs(Nyears,s.m, s.s, s.a, s.Len, s.urf);
                 w.strml.push_back(s);
             }
+            w.m_rmv.resize(Nyears,0.0);
 
             wells.wells.insert(std::pair<int,WELL>(itwtmp->first, w));
             count = count + 1;
@@ -930,6 +931,75 @@ namespace MS{
             }
         }
         // Close output
+#ifdef _USEZLIB
+        if (gz_out) gzclose(gz_out);
+#endif
+        if (out_file.is_open()) out_file.close();
+    }
+
+    void printHRUMassRemoved(const std::map<int,int> &hru_idx_map, const Matrix<double> &mass_removed,
+                            const std::string &filename, bool compress = false) {
+
+        const bool use_compression = compress || has_gz_extension(filename);
+
+        std::function<void(const std::string&)> write_line;
+#ifdef _USEZLIB
+        gzFile gz_out = nullptr;
+#endif
+        std::ofstream out_file;
+
+        // --- Open output stream
+        if (use_compression) {
+#ifdef _USEZLIB
+            gz_out = gzopen(filename.c_str(), "wb");
+            if (!gz_out) {
+                std::cerr << "Failed to open gzip file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&gz_out](const std::string& line){
+                gzputs(gz_out, line.c_str());
+            };
+#else
+            std::cerr << "Compression requested, but zlib support is not compiled in." << std::endl;
+            return;
+#endif
+        }
+        else {
+            out_file.open(filename);
+            if (!out_file.is_open()) {
+                std::cerr << "Failed to open file: " << filename << std::endl;
+                return;
+            }
+            write_line = [&out_file](const std::string& line) {
+                out_file << line;
+            };
+        }
+
+        const int Nyears = mass_removed.num_cols();
+        // --- Header
+        std::ostringstream header;
+        header << "hru";
+        for (int i = 1; i <= Nyears; ++i)
+            header << ", mrmv" << i;
+        header << "\n";
+        write_line(header.str());
+        // --- Data rows
+        for (const auto &kv : hru_idx_map){
+            const int hru     = kv.first;
+            const int hru_idx = kv.second;
+
+            std::ostringstream row;
+            row << std::scientific << std::setprecision(6);
+            row << hru;
+
+            for (int iyr = 0; iyr < Nyears; ++iyr){
+                row << ", " << mass_removed(hru_idx, iyr);
+            }
+            row << "\n";
+            write_line(row.str());
+        }
+
+        // --- Close output
 #ifdef _USEZLIB
         if (gz_out) gzclose(gz_out);
 #endif
