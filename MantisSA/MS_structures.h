@@ -17,6 +17,17 @@ namespace MS{
         size_t cols = 0;
 
     public:
+        // Default constructor
+        Matrix() = default;
+
+        // Constructor with allocation
+        Matrix(size_t r, size_t c)
+            : data(r * c), rows(r), cols(c) {}
+
+        // Constructor with allocation and initialization value
+        Matrix(size_t r, size_t c, const T& value)
+            : data(r * c, value), rows(r), cols(c) {}
+
         void allocate(size_t r, size_t c) {
             rows = r;
             cols = c;
@@ -24,19 +35,57 @@ namespace MS{
             data.assign(r * c, T{});
         }
 
+        void clear() {
+            data.clear();
+            rows = 0;
+            cols = 0;
+        }
+
         // Accessors
-        inline T& operator()(size_t r, size_t c) {
+        T& operator()(size_t r, size_t c) {
             return data[r * cols + c];
         }
 
-        inline T operator()(size_t r, size_t c) const {
+        const T& operator()(size_t r, size_t c) const {
             return data[r * cols + c];
         }
+
+        // Raw access (useful for MPI / IO)
+        T* raw() { return data.data(); }
+        const T* raw() const { return data.data(); }
 
         // Helpers to check state
         bool empty() const { return data.empty(); }
         size_t num_rows() const { return rows; }
         size_t num_cols() const { return cols; }
+        size_t size() const { return data.size(); }
+
+        void transpose()
+        {
+            if (rows == 0 || cols == 0) return;
+
+            // --- Square matrix: in-place transpose
+            if (rows == cols) {
+                for (size_t i = 0; i < rows; ++i) {
+                    for (size_t j = i + 1; j < cols; ++j) {
+                        std::swap(data[i * cols + j], data[j * cols + i]);
+                    }
+                }
+                return;
+            }
+
+            // --- Rectangular matrix: allocate temporary
+            std::vector<T> tmp(data.size());
+
+            for (size_t i = 0; i < rows; ++i) {
+                for (size_t j = 0; j < cols; ++j) {
+                    tmp[j * rows + i] = data[i * cols + j];
+                }
+            }
+
+            data.swap(tmp);
+            std::swap(rows, cols);
+        }
     };
 
     struct SelectedWellsGroup{
@@ -226,7 +275,7 @@ namespace MS{
         return true;
     }
 
-    inline bool readSelectedWellsGroupInfo(std::string filename, std::map<int,SelectedWellsGroup>& swg_map,
+    inline bool readSelectedWellsGroupInfo(const std::string &filename, std::map<int,SelectedWellsGroup>& swg_map,
                                            boost::mpi::communicator &world){
         std::ifstream datafile(filename.c_str());
         if (!datafile.good()) {
@@ -314,7 +363,7 @@ namespace MS{
     }
 
     template<typename T>
-    bool readMatrix(const std::string& filename, std::vector<std::vector<T>>& data, int nCols, int freq = 500000)
+    bool readMatrix(const std::string& filename, Matrix<T>& M, int nCols, int freq = 500000, int nrows_alloc = 100000)
     {
         std::ifstream datafile(filename.c_str());
         if (!datafile.is_open()) {
@@ -322,17 +371,17 @@ namespace MS{
             return false;
         }
 
-        data.clear();
-
         std::string line;
         int lineCount = 0;
         int nextPrint = freq;
 
+        // Temporary flat buffer (fastest approach)
+        std::vector<T> buffer;
+        buffer.reserve(nrows_alloc * nCols);
+
         while (std::getline(datafile, line)) {
 
             std::istringstream iss(line);
-            std::vector<T> row;
-            row.reserve(static_cast<std::size_t>(nCols));
 
             for (int j = 0; j < nCols; ++j) {
                 T value;
@@ -342,10 +391,9 @@ namespace MS{
                               << ", column " << j << std::endl;
                     return false;
                 }
-                row.push_back(value);
+                buffer.push_back(value);
             }
 
-            data.push_back(row);
             ++lineCount;
 
             if (lineCount >= nextPrint) {
@@ -354,7 +402,14 @@ namespace MS{
             }
         }
 
-        return !data.empty();
+        if (buffer.empty()) return false;
+
+        // Final allocation (single contiguous block)
+        M.allocate(static_cast<size_t>(lineCount), static_cast<size_t>(nCols));
+
+        // Move data (fast memcpy for POD types)
+        std::copy(buffer.begin(), buffer.end(), M.raw());
+        return true;
     }
 
     template<typename T>

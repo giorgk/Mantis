@@ -274,10 +274,8 @@ namespace MS {
                 {// [SaltRemove]
                     saltRemoveOptions.InputField = vm_cfg["SaltRemove.InputField"].as<std::string>();
                     saltRemoveOptions.Trgt_AW_ppm = vm_cfg["SaltRemove.Trgt_AW_ppm"].as<double>();
-                    saltRemoveOptions.enable = vm_cfg["SaltRemove.enable"].as<double>();
+                    saltRemoveOptions.enable = vm_cfg["SaltRemove.enable"].as<int>() == 1;
                     saltRemoveOptions.usefield = !(saltRemoveOptions.InputField.empty() || saltRemoveOptions.InputField == "none");
-
-
                 }
 
                 {// [Misc]

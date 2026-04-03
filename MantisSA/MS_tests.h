@@ -73,36 +73,32 @@ namespace MS{
             MS::printVectorForAllProc(tmp_d,world);
         }
 
-        void sentMatrixFromRoot2AllProc(boost::mpi::communicator& world, bool useFlat){
-            std::vector<std::vector<int>> m_i;
-            std::vector<std::vector<double>> m_d;
+        void sentMatrixFromRoot2AllProc(boost::mpi::communicator& world){
+            Matrix<int> m_i;
+            Matrix<double> m_d;
+
             int nr;
             int nc;
+
             if (world.rank() == 0){
                 nr = 10;
                 nc = 5;
-                for (int i = 0; i < nr; ++i){
-                    std::vector<int> tmp_i;
-                    std::vector<double> tmp_d;
-                    for (int j = 0; j < nc; ++j){
-                        tmp_i.push_back(j+i*10);
-                        tmp_d.push_back(static_cast<double>(j) + static_cast<double>(i) * 10.343);
+
+                m_i.allocate(nr, nc);
+                m_d.allocate(nr, nc);
+
+                for (int i = 0; i < nr; ++i) {
+                    for (int j = 0; j < nc; ++j) {
+                        m_i(i, j) = j + i * 10;
+                        m_d(i, j) = static_cast<double>(j) + static_cast<double>(i) * 10.343;
                     }
-                    m_i.push_back(tmp_i);
-                    m_d.push_back(tmp_d);
                 }
             }
-            if (useFlat){
-                MS::sendFlatMatrixFromRoot2AllProc(m_i, world);
-                MS::sendFlatMatrixFromRoot2AllProc(m_d, world);
-            }
-            else{
-                MS::sentMatrixFromRoot2AllProc(m_i, world);
-                MS::sentMatrixFromRoot2AllProc(m_d, world);
-            }
+            sendMatrixFromRoot2AllProc(m_i, world);
+            sendMatrixFromRoot2AllProc(m_d, world);
 
-            MS::printMatrixForAllProc(m_i, world);
-            MS::printMatrixForAllProc(m_d, world);
+            printMatrixForAllProc(m_i, world);
+            printMatrixForAllProc(m_d, world);
         }
     }
 }

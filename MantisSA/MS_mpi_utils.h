@@ -121,23 +121,32 @@ namespace MS{
     }
 
     template<typename T>
-    void sentMatrixFromRoot2AllProc(std::vector<std::vector<T>> &v, boost::mpi::communicator &world){
-        int nRows = 0;
-        int nCols = 0;
-        if (world.rank() == 0){
-            nRows = static_cast<int>(v.size());
-            nCols = nRows > 0 ? static_cast<int>(v[0].size()) : 0;
+    bool sendMatrixFromRoot2AllProc(Matrix<T>& M, boost::mpi::communicator& world){
+        try {
+            int nRows = 0;
+            int nCols = 0;
+
+            if (world.rank() == 0) {
+                nRows = static_cast<int>(M.num_rows());
+                nCols = static_cast<int>(M.num_cols());
+            }
+
+            boost::mpi::broadcast(world, nRows, 0);
+            boost::mpi::broadcast(world, nCols, 0);
+
+            if (world.rank() != 0) {
+                M.allocate(static_cast<size_t>(nRows), static_cast<size_t>(nCols));
+            }
+
+            const int size = nRows * nCols;
+
+            if (size > 0) {
+                boost::mpi::broadcast(world, M.raw(), size, 0);
+            }
+            return true;
         }
-        world.barrier();
-        // Send the dimensions and initialize the matrix for the other processors
-        sendScalarFromRoot2AllProc(nRows,world);
-        sendScalarFromRoot2AllProc(nCols, world);
-        if (world.rank() > 0){
-            v.assign(nRows, std::vector<T>(nCols, T{}));
-        }
-        world.barrier();
-        for (int i = 0; i < nRows; ++i){
-            sendVectorFromRoot2AllProc<T>(v[i], world);
+        catch (...) {
+            return false;
         }
     }
 
@@ -261,42 +270,18 @@ namespace MS{
     }
 
     template<typename T>
-    bool RootReadsMatrixFileDistribFlat(const std::string& filename,
-                                    std::vector<std::vector<T>>& M,
+    bool RootReadsMatrixFileDistrib(const std::string& filename,
+                                    Matrix<T>& M,
                                     int nCols,
                                     boost::mpi::communicator& world,
-                                    int freq = 500000)
+                                    int freq = 500000, int nrows_alloc = 100000)
     {
         int readSuccess = 0;
 
         if (world.rank() == 0) {
             try {
-                const bool tf = readMatrix<T>(filename, M, nCols, freq);
+                const bool tf = readMatrix<T>(filename, M, nCols, freq, nrows_alloc);
                 readSuccess = static_cast<int>(tf);
-
-                if (readSuccess) {
-                    if (M.empty()) {
-                        std::cout << "Error: matrix file " << filename
-                                  << " contains no valid data rows" << std::endl;
-                        readSuccess = 0;
-                    }
-                    else if (M[0].empty()) {
-                        std::cout << "Error: matrix file " << filename
-                                  << " has zero columns" << std::endl;
-                        readSuccess = 0;
-                    }
-                    else {
-                        const std::size_t nCols0 = M[0].size();
-                        for (std::size_t i = 1; i < M.size(); ++i) {
-                            if (M[i].size() != nCols0) {
-                                std::cout << "Error: matrix file " << filename
-                                          << " is not rectangular" << std::endl;
-                                readSuccess = 0;
-                                break;
-                            }
-                        }
-                    }
-                }
             }
             catch (const std::exception& e) {
                 std::cout << "Error in RootReadsMatrixFileDistrib while reading "
@@ -318,7 +303,7 @@ namespace MS{
         }
 
         try {
-            sendFlatMatrixFromRoot2AllProc(M, world);
+            sendMatrixFromRoot2AllProc(M, world);
         }
         catch (const std::exception& e) {
             std::cout << "Error in RootReadsMatrixFileDistrib while distributing "
@@ -332,7 +317,6 @@ namespace MS{
             M.clear();
             return false;
         }
-
         return true;
     }
 
@@ -422,21 +406,19 @@ namespace MS{
     }
 
     template<typename T>
-    void printMatrixForAllProc(std::vector<std::vector<T>> & M, boost::mpi::communicator& world,
+    void printMatrixForAllProc(Matrix<T> &M, boost::mpi::communicator& world,
                                int startRow = -9, int endRow = -9,
                                int startCol = -9, int endCol = -9){
-        const std::size_t nRows = M.size();
-        const std::size_t nCols = M[0].size();
 
         std::size_t i0 = (startRow < 0) ? 0 : static_cast<std::size_t>(startRow);
-        std::size_t i1 = (endRow   < 0) ? nRows : static_cast<std::size_t>(endRow);
+        std::size_t i1 = (endRow   < 0) ? M.num_rows() : static_cast<std::size_t>(endRow);
         std::size_t j0 = (startCol < 0) ? 0 : static_cast<std::size_t>(startCol);
-        std::size_t j1 = (endCol   < 0) ? nCols : static_cast<std::size_t>(endCol);
+        std::size_t j1 = (endCol   < 0) ? M.num_cols() : static_cast<std::size_t>(endCol);
 
-        if (i0 > nRows) i0 = nRows;
-        if (i1 > nRows) i1 = nRows;
-        if (j0 > nCols) j0 = nCols;
-        if (j1 > nCols) j1 = nCols;
+        if (i0 > M.num_rows()) i0 = M.num_rows();
+        if (i1 > M.num_rows()) i1 = M.num_rows();
+        if (j0 > M.num_cols()) j0 = M.num_cols();
+        if (j1 > M.num_cols()) j1 = M.num_cols();
 
 
         for (int irank = 0; irank < world.size(); ++irank){
@@ -444,7 +426,7 @@ namespace MS{
                 std::cout << "Rank " << world.rank() << "  ----------" << std::endl;
                  for (std::size_t i = i0; i < i1; ++i){
                     for (std::size_t j = j0; j < j1; ++j){
-                        std::cout << M[i][j] << " ";
+                        std::cout << M(i,j) << " ";
                     }
                     std::cout << std::endl;
                 }

@@ -101,10 +101,8 @@ namespace MS{
     }
 
     bool HistoricLoading::readInfo(std::string filename, boost::mpi::communicator &world) {
-        std::vector<std::vector<int>> tmp;
-        bool tf = RootReadsMatrixFileDistrib<int>(filename, tmp, 1, true, world, 5000000);
+        bool tf = RootReadsVectorFileDistrib<int>(filename, Years,  world);
         if (!tf){ return false;}
-        Years = tmp[0];
         return true;
     }
 
@@ -114,6 +112,7 @@ namespace MS{
         Ext = ext;
         std::string finfo = Prefix + "info.dat";
         bool tf = readInfo(finfo,world);
+        if (!tf){ return false;}
         tf = ReadLoading(world);
         return tf;
     }
@@ -219,8 +218,8 @@ namespace MS{
 
         // Very small percolation:
         // avoid unstable division by a tiny number and use SWAT's percolate concentration directly.
-        if (swat.perc_mm[hruidx][iswat] < 0.01){
-            c_cell = swat.Salt_perc_ppm[hruidx][iswat];
+        if (swat.perc_mm(hruidx, iswat) < 0.01){
+            c_cell = swat.Salt_perc_ppm(hruidx, iswat);
             gw_cell = 0.0;
         }
         else{
@@ -230,7 +229,7 @@ namespace MS{
 
             // Mass contribution from NPSAT groundwater irrigation term.
             // Unit consistency depends on the SWAT/NPSAT convention already used in the rest of the model.
-            double m_npsat = concfromPump * swat.irrGW_mm[hruidx][iswat] / 100.0;
+            double m_npsat = concfromPump * swat.irrGW_mm(hruidx, iswat) / 100.0;
 
             // Small or negative groundwater contribution:
             // set the diagnostic to zero, and do not allow negative mass.
@@ -250,16 +249,16 @@ namespace MS{
             // Negative sinks:
             //   - runoff/export
             //   - plant uptake
-            double m_total = swat.irrsaltSW_kgha[hruidx][iswat] +
+            double m_total = swat.irrsaltSW_kgha(hruidx, iswat) +
                       m_npsat +
-                      swat.fertsalt_kgha[hruidx][iswat] +
-                      swat.dssl_kgha[hruidx][iswat] -
-                      swat.Qsalt_kgha[hruidx][iswat] -
-                      swat.uptk_kgha[hruidx][iswat];// -
+                      swat.fertsalt_kgha(hruidx, iswat) +
+                      swat.dssl_kgha(hruidx, iswat) -
+                      swat.Qsalt_kgha(hruidx, iswat) -
+                      swat.uptk_kgha(hruidx, iswat);// -
                     //swat.dSoilSalt_kgha[hruidx][iswat];
 
             // Apply the groundwater partition / weighting term used by the model.
-            m_total = m_total * swat.pGW[hruidx][iswat];
+            m_total = m_total * swat.pGW(hruidx, iswat);
 
             // Do not allow negative total mass
             if (m_total < 0){
@@ -270,7 +269,7 @@ namespace MS{
             // perc_mm is the deep percolation denominator,
             // dp_mult is an additional scaling / dilution factor.
             //double c_cell_tmp = m_total * 100 / (swat.perc_mm[hruidx][iswat]);
-            c_cell = m_total * 100 / (swat.perc_mm[hruidx][iswat] * dp_mult);
+            c_cell = m_total * 100 / (swat.perc_mm(hruidx, iswat) * dp_mult);
         }
 
         // Optional river-influence blending.

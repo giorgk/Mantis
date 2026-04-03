@@ -155,8 +155,6 @@ int main(int argc, char* argv[]) {
     std::cout << "Proc: " << world.rank() << " has " << VI.wells.size() << " VI wells and " << VD.wells.size() << " VD wells" << std::endl;
 
 
-
-
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
     std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
     MS::Matrix<double> mass_removed;
@@ -412,15 +410,15 @@ int main(int argc, char* argv[]) {
                                 continue;
                             }
 
-                            double volume_SW_cell = swat.irrSW_mm[hru_idx][iswat] * cell_area / 1000.0;
-                            double volume_GW_cell = swat.irrGW_mm[hru_idx][iswat] * cell_area / 1000.0;
-                            double mass_SW_cell = swat.irrsaltSW_kgha[hru_idx][iswat] * cell_area/10000.0;
+                            double volume_SW_cell = swat.irrSW_mm(hru_idx,iswat) * cell_area / 1000.0;
+                            double volume_GW_cell = swat.irrGW_mm(hru_idx,iswat) * cell_area / 1000.0;
+                            double mass_SW_cell = swat.irrsaltSW_kgha(hru_idx,iswat) * cell_area/10000.0;
                             double mass_GW_cell = 0.001 * ConcFromPump[i] * volume_GW_cell;
                             double mass_cell = mass_GW_cell + mass_SW_cell;
                             double volume_cell = volume_GW_cell + volume_SW_cell;
                             double conc_trgt = UI.saltRemoveOptions.Trgt_AW_ppm;
                             if (UI.saltRemoveOptions.usefield) {
-                                conc_trgt = swat.Trgt_AW_ppm[hru_idx][iswat];
+                                conc_trgt = swat.Trgt_AW_ppm(hru_idx,iswat);
                             }
                             double mass_trgt_cell = 0.001 * conc_trgt * volume_cell;
                             mass_remove_cell = std::max(0.0, mass_cell - mass_trgt_cell);

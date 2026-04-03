@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <zlib.h>
 
+#include "MS_structures.h"
 #include "MS_urf_calc.h"
 #include "MS_unsat.h"
 #include "MS_HRU_raster.h"
@@ -25,9 +26,9 @@ namespace MS{
     }
 
     inline bool readNPSATdata_h5_from_root(const std::string& filename,
-                                       std::vector<std::vector<int>>& ints,
-                                       std::vector<std::vector<double>>& dbls,
-                                       std::vector<std::vector<double>>& msas,
+                                       Matrix<int>& ints,
+                                       Matrix<double>& dbls,
+                                       Matrix<double>& msas,
                                        std::vector<int>& version,
                                        std::vector<double>& porosities,
                                        boost::mpi::communicator& world) {
@@ -51,9 +52,49 @@ namespace MS{
 
                 HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
 
-                HDFNfile.getDataSet(INT_NameSet).read(ints);
-                HDFNfile.getDataSet(DBL_NameSet).read(dbls);
-                HDFNfile.getDataSet(MSA_NameSet).read(msas);
+                // --- INT
+                {
+                    std::vector<std::vector<int>> tmp;
+                    HDFNfile.getDataSet(INT_NameSet).read(tmp);
+
+                    const size_t nRows = tmp.size();
+                    const size_t nCols = (nRows > 0 ? tmp[0].size() : 0);
+
+                    ints.allocate(nRows, nCols);
+                    for (size_t i = 0; i < nRows; ++i)
+                        for (size_t j = 0; j < nCols; ++j)
+                            ints(i, j) = tmp[i][j];
+                }
+
+                // --- DBL
+                {
+                    std::vector<std::vector<double>> tmp;
+                    HDFNfile.getDataSet(DBL_NameSet).read(tmp);
+
+                    const size_t nRows = tmp.size();
+                    const size_t nCols = (nRows > 0 ? tmp[0].size() : 0);
+
+                    dbls.allocate(nRows, nCols);
+                    for (size_t i = 0; i < nRows; ++i)
+                        for (size_t j = 0; j < nCols; ++j)
+                            dbls(i, j) = tmp[i][j];
+                }
+
+                // --- MSA
+                {
+                    std::vector<std::vector<double>> tmp;
+                    HDFNfile.getDataSet(MSA_NameSet).read(tmp);
+
+                    const size_t nRows = tmp.size();
+                    const size_t nCols = (nRows > 0 ? tmp[0].size() : 0);
+
+                    msas.allocate(nRows, nCols);
+                    for (size_t i = 0; i < nRows; ++i)
+                        for (size_t j = 0; j < nCols; ++j)
+                            msas(i, j) = tmp[i][j];
+                }
+
+                // --- 1D datasets (unchanged)
                 HDFNfile.getDataSet(VER_NameSet).read(version);
                 HDFNfile.getDataSet(POR_NameSet).read(porosities);
 
@@ -80,9 +121,9 @@ namespace MS{
             return false;
         }
 
-        sendFlatMatrixFromRoot2AllProc<int>(ints, world);
-        sendFlatMatrixFromRoot2AllProc<double>(dbls, world);
-        sendFlatMatrixFromRoot2AllProc<double>(msas, world);
+        sendMatrixFromRoot2AllProc<int>(ints, world);
+        sendMatrixFromRoot2AllProc<double>(dbls, world);
+        sendMatrixFromRoot2AllProc<double>(msas, world);
         sendVectorFromRoot2AllProc<int>(version, world);
         sendVectorFromRoot2AllProc<double>(porosities, world);
 
@@ -96,9 +137,9 @@ namespace MS{
 
         const std::string ext = getExtension(filename);
 
-        std::vector<std::vector<int>> ints;
-        std::vector<std::vector<double>> dbls;
-        std::vector<std::vector<double>> msas;
+        Matrix<int> ints;
+        Matrix<double> dbls;
+        Matrix<double> msas;
         std::vector<int> version;
         std::vector<double> porosities;
 
@@ -150,13 +191,13 @@ namespace MS{
             const int msaCols = info[idx + 5];
 
             if (world.rank() == 0) {std::cout << "Reading " << filename + "INT.dat" << std::endl;}
-            tf = RootReadsMatrixFileDistribFlat<int>(filename + "INT.dat", ints, intCols, world, 500000);
+            tf = RootReadsMatrixFileDistrib<int>(filename + "INT.dat", ints, intCols, world, 500000, intRows);
             if (!tf){return false;}
             if (world.rank() == 0) {std::cout << "Reading " << filename + "DBL.dat" << std::endl;}
-            tf = RootReadsMatrixFileDistribFlat<double>(filename + "DBL.dat", dbls, dblCols, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "DBL.dat", dbls, dblCols, world, 500000, dblRows);
             if (!tf){return false;}
             if (world.rank() == 0) {std::cout << "Reading " << filename + "MSA.dat" << std::endl;}
-            tf = RootReadsMatrixFileDistribFlat<double>(filename + "MSA.dat", msas, msaCols, world, 500000);
+            tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msaCols, world, 500000, msaRows);
             if (!tf){return false;}
 
             if (static_cast<int>(ints.size()) != intRows) {
@@ -174,12 +215,9 @@ namespace MS{
         }
 
         if (PrintMatrices){
-            const int intCols = ints.empty() ? 0 : static_cast<int>(ints[0].size());
-            const int dblCols = dbls.empty() ? 0 : static_cast<int>(dbls[0].size());
-            const int msaCols = msas.empty() ? 0 : static_cast<int>(msas[0].size());
-            printMatrixForAllProc<int>(ints, world, 0, 10, 0, intCols);
-            printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dblCols);
-            printMatrixForAllProc<double>(msas, world, 0, 10, 0, msaCols);
+            printMatrixForAllProc<int>(ints, world, 0, 10, 0, ints.num_cols());
+            printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dbls.num_cols());
+            printMatrixForAllProc<double>(msas, world, 0, 10, 0, msas.num_cols());
         }
 
         // ----------------------------
@@ -200,7 +238,7 @@ namespace MS{
             return false;
         }
 
-        if (ints.size() != dbls.size() || ints.size() != msas.size()) {
+        if (ints.num_rows() != dbls.num_rows() || ints.num_rows() != msas.num_rows()) {
             std::cout << "Error: INT, DBL, and MSA row counts do not match in "
                       << filename << std::endl;
             return false;
@@ -210,20 +248,6 @@ namespace MS{
         if (ver != 0 && ver != 1) {
             std::cout << "Error: unsupported NPSAT version " << ver << std::endl;
             return false;
-        }
-
-        const int requiredIntCols = (ver == 0) ? 5 : 4;
-        const int requiredDblCols = (ver == 0) ? 2 : 3;
-
-        for (std::size_t i = 0; i < ints.size(); ++i) {
-            if (static_cast<int>(ints[i].size()) < requiredIntCols) {
-                std::cout << "Error: INT row " << i << " has too few columns" << std::endl;
-                return false;
-            }
-            if (static_cast<int>(dbls[i].size()) < requiredDblCols) {
-                std::cout << "Error: DBL row " << i << " has too few columns" << std::endl;
-                return false;
-            }
         }
 
         int por_pos = -1;
@@ -242,15 +266,6 @@ namespace MS{
 
         const int por_idx = 3 * por_pos;
 
-        for (std::size_t i = 0; i < msas.size(); ++i) {
-            if (static_cast<int>(msas[i].size()) < por_idx + 3) {
-                std::cout << "Error: MSA row " << i
-                          << " does not contain enough columns for porosity " << por
-                          << std::endl;
-                return false;
-            }
-        }
-
         if (world.rank() == 0){
             std::cout << "Assembling NPSAT urf data ..." << std::endl;
         }
@@ -265,7 +280,7 @@ namespace MS{
         //std::pair<std::map<int, WELL>::iterator,bool> ret;
 
         for (std::size_t i = 0; i < ints.size(); ++i){
-            const int wellId = ints[i][0];
+            const int wellId = ints(i,0);
 
             if (itwtmp == tw.end() || itwtmp->first != wellId) {
                 itwtmp = tw.find(wellId);
@@ -279,24 +294,24 @@ namespace MS{
                 }
             }
 
-            itwtmp->second.Sid.push_back(ints[i][1]);
-            itwtmp->second.urfI.push_back(ints[i][2]);
-            itwtmp->second.urfJ.push_back(ints[i][3]);
+            itwtmp->second.Sid.push_back(ints(i,1));
+            itwtmp->second.urfI.push_back(ints(i,2));
+            itwtmp->second.urfJ.push_back(ints(i,3));
             if (version[0] == 0){
-                itwtmp->second.inRiv.push_back(ints[i][4] == 1);
+                itwtmp->second.inRiv.push_back(ints(i,4) == 1);
             }
 
-            itwtmp->second.W.push_back(dbls[i][0]);
-            itwtmp->second.Len.push_back(dbls[i][1]);
+            itwtmp->second.W.push_back(dbls(i,0));
+            itwtmp->second.Len.push_back(dbls(i,1));
 
             if (version[0] == 1){
-                itwtmp->second.rivDist.push_back(dbls[i][2]);
+                itwtmp->second.rivDist.push_back(dbls(i,2));
             }
 
-            itwtmp->second.m.push_back(msas[i][por_idx + 0]);
-            itwtmp->second.s.push_back(msas[i][por_idx + 1]);
-            itwtmp->second.a.push_back(msas[i][por_idx + 2]);
-            itwtmp->second.sumW += dbls[i][0];
+            itwtmp->second.m.push_back(msas(i,por_idx + 0));
+            itwtmp->second.s.push_back(msas(i,por_idx + 1));
+            itwtmp->second.a.push_back(msas(i,por_idx + 2));
+            itwtmp->second.sumW += dbls(i,0);
         }
 
         //Normalize streamlines and split them according to the processors
@@ -352,67 +367,24 @@ namespace MS{
         return true;
     }
 
-
-
-
-    inline bool readInitSaltConc(std::string filename, WELLS &wells, boost::mpi::communicator &world){
-        std::vector<std::vector<double>> eid_conc;
+    inline bool readInitSaltConc(const std::string &filename, WELLS &wells, boost::mpi::communicator &world){
+        Matrix<double> eid_conc;
         if (world.rank() == 0) {
             std::cout << "Reading initial salt concentration from " << filename << std::endl;
         }
-        const bool tf = RootReadsMatrixFileDistribFlat<double>(filename, eid_conc, 2, world);
+        const bool tf = RootReadsMatrixFileDistrib<double>(filename, eid_conc, 2, world,1000000, 250000);
         if (tf) {
             std::map<int, WELL>::iterator itw;
             for (std::size_t i = 0; i < eid_conc.size(); ++i){
-                int eid = static_cast<int>(eid_conc[i][0]);
+                int eid = static_cast<int>(eid_conc(i,0));
                 itw = wells.wells.find(eid);
                 if (itw != wells.wells.end()){
-                    itw->second.initConc = eid_conc[i][1];
+                    itw->second.initConc = eid_conc(i,1);
                 }
             }
         }
         return tf;
     }
-
-//     bool readDistribPumping(std::string filename,  WELL_CELLS &well_cells){
-//         std::string ext = getExtension(filename);
-//         std::vector<int> cellWell;
-//         WELL_CELLS::iterator it;
-//         if (ext.compare("h5") == 0){
-// #if _USEHF > 0
-//             const std::string NameSet("WellID");
-//             HighFive::File HDFNfile(filename, HighFive::File::ReadOnly);
-//             HighFive::DataSet dataset = HDFNfile.getDataSet(NameSet);
-//             dataset.read(cellWell);
-// #endif
-//         }
-//         else{
-//             bool tf = readVector<int>(filename, cellWell);
-//             if (!tf){
-//                 return false;
-//             }
-//         }
-//
-//         int step = cellWell.size()/10;
-//         int countSteps = 1;
-//         for (int i = 0; i < cellWell.size(); ++i){
-//             if (i > countSteps*step){
-//                 std::cout << countSteps*10 << "% " << std::flush;
-//                 countSteps++;
-//             }
-//
-//             it = well_cells.find(cellWell[i]);
-//             if (it == well_cells.end()){
-//                 std::vector<int> tmp(1,i);
-//                 well_cells.insert(std::pair<int, std::vector<int>>(cellWell[i], tmp));
-//             }
-//             else{
-//                 it->second.push_back(i);
-//             }
-//         }
-//         std::cout << std::endl;
-//         return true;
-//     }
 
     void linearizeWellBTCs(WELLS &W, std::vector<double> &v){
         v.clear();
@@ -1006,7 +978,7 @@ namespace MS{
         if (out_file.is_open()) out_file.close();
     }
 
-    inline bool readSelectedWells(std::string filename, std::string groupFilename,
+    inline bool readSelectedWells(const std::string &filename, const std::string &groupFilename,
                                   /*std::vector<int> &idsVI, std::vector<int> &idsVD,*/
                                   std::map<int,MS::SelectedWellsGroup> &SWGmap,
                                   boost::mpi::communicator &world){
@@ -1015,49 +987,41 @@ namespace MS{
         if (!tf){
             return false;
         }
-        std::vector<std::vector<int>> T;
-        tf = RootReadsMatrixFileDistribFlat<int>(filename,T,3, world);
+        Matrix<int> M;
+        tf = RootReadsMatrixFileDistrib<int>(filename, M,3, world,100000, 20000);
         if (!tf){
             return false;
         }
         if (PrintMatrices){
-            printMatrixForAllProc<int>(T, world, 910, 917, 0, 3);
+            printMatrixForAllProc<int>(M, world, 910, 917, 0, 3);
         }
         //bool tf = readMatrix<int>(filename,T,nSelectedWells,2);
 
         std::map<int,MS::SelectedWellsGroup>::iterator it;
-        for (std::size_t i = 0; i < T.size(); ++i){
-            if (T[i].size() != 3) {
-                if (world.rank() == 0) {
-                    std::cout << "Error: selected wells matrix row " << i
-                              << " does not have 3 columns" << std::endl;
-                }
-                return false;
-            }
-
-            it = SWGmap.find(T[i][2]);
+        for (std::size_t i = 0; i < M.num_rows(); ++i){
+            it = SWGmap.find(M(i,2));
             if (it == SWGmap.end()) {
                 if (world.rank() == 0) {
-                    std::cout << "The group id " << T[i][2]
-                              << " of the well id " << T[i][1]
-                              << " of type " << T[i][0]
+                    std::cout << "The group id " << M(i,2)
+                              << " of the well id " << M(i,1)
+                              << " of type " << M(i,0)
                               << " is not listed in the Groups file" << std::endl;
                 }
                 return false;
             }
 
-            if (T[i][0] == 1){
+            if (M(i,0) == 1){
                 //idsVI.push_back(T[i][1]);
-                it->second.idVI.push_back(T[i][1]);
+                it->second.idVI.push_back(M(i,1));
             }
-            else if (T[i][0] == 2){
+            else if (M(i,0) == 2){
                 //idsVD.push_back(T[i][1]);
-                it->second.idVD.push_back(T[i][1]);
+                it->second.idVD.push_back(M(i,1));
             }
             else {
                 if (world.rank() == 0) {
-                    std::cout << "Invalid well type " << T[i][0]
-                              << " for well id " << T[i][1]
+                    std::cout << "Invalid well type " << M(i,0)
+                              << " for well id " << M(i,1)
                               << " in file " << filename << std::endl;
                 }
                 return false;

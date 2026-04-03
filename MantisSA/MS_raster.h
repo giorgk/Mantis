@@ -48,7 +48,7 @@ namespace MS{
         std::unordered_map<std::uint64_t, int> rc_to_idx;
         std::vector<std::pair<int,int>> idx_to_rc;
 
-        bool readData_h5(const std::string& filename, std::vector<std::vector<int>>& rasterCol,
+        bool readData_h5(const std::string& filename, Matrix<int>& rasterCol,
                  boost::mpi::communicator& world);
     };
 
@@ -80,7 +80,7 @@ namespace MS{
         Nrows = Nr;
         Ncols = Nc;
         Ncells = Ncell;
-        std::vector<std::vector<int>> rasterCol;
+        Matrix<int> rasterCol;
         if (world.rank() == 0) {
             std::cout << "Reading raster file " << filename << std::endl;
         }
@@ -93,7 +93,7 @@ namespace MS{
             }
         }
         else{
-            const bool tf = RootReadsMatrixFileDistribFlat(filename, rasterCol,2, world, 5000000);
+            const bool tf = RootReadsMatrixFileDistrib(filename, rasterCol,2, world, 5000000, Ncell);
             world.barrier();
             if (!tf){return false;}
         }
@@ -117,13 +117,9 @@ namespace MS{
         idx_to_rc.reserve(rasterCol.size());
 
         for (std::size_t i = 0; i < rasterCol.size(); ++i) {
-            if (rasterCol[i].size() != 2) {
-                std::cout << "Error: raster row " << i << " does not have 2 columns" << std::endl;
-                return false;
-            }
 
-            const int r = rasterCol[i][0];
-            const int c = rasterCol[i][1];
+            const int r = rasterCol(i,0);
+            const int c = rasterCol(i,1);
 
             if (r < 0 || r >= Nrows || c < 0 || c >= Ncols) {
                 std::cout << "I can't assign pixel (" << r << "," << c
@@ -175,7 +171,7 @@ namespace MS{
     }
 
     inline bool BackgroundRaster::readData_h5(const std::string& filename,
-                                          std::vector<std::vector<int>>& rasterCol,
+                                          Matrix<int>& rasterCol,
                                           boost::mpi::communicator& world) {
         int readSuccess = 0;
         rasterCol.clear();
@@ -198,12 +194,11 @@ namespace MS{
                 {
                     // 2 x N  -> transpose to N x 2
                     const std::size_t N = tmp[0].size();
-                    rasterCol.assign(N, std::vector<int>(2, 0));
+                    rasterCol.allocate(N, 2);
 
-                    for (std::size_t i = 0; i < N; ++i)
-                    {
-                        rasterCol[i][0] = tmp[0][i];
-                        rasterCol[i][1] = tmp[1][i];
+                    for (std::size_t i = 0; i < N; ++i) {
+                        rasterCol(i, 0) = tmp[0][i];
+                        rasterCol(i, 1) = tmp[1][i];
                     }
 
                     readSuccess = 1;
@@ -211,7 +206,12 @@ namespace MS{
                 else if (tmp[0].size() == 2)
                 {
                     // already N x 2
-                    rasterCol = tmp;
+                    const std::size_t N = tmp.size();
+                    rasterCol.allocate(N, 2);
+                    for (std::size_t i = 0; i < N; ++i) {
+                        rasterCol(i, 0) = tmp[i][0];
+                        rasterCol(i, 1) = tmp[i][1];
+                    }
                     readSuccess = 1;
                 }
                 else
@@ -239,8 +239,11 @@ namespace MS{
             return false;
         }
 
-        sendFlatMatrixFromRoot2AllProc<int>(rasterCol, world);
-
+        bool tf = sendMatrixFromRoot2AllProc<int>(rasterCol, world);
+        if (!tf) {
+            rasterCol.clear();
+            return false;
+        }
         return true;
     }
 
