@@ -215,9 +215,9 @@ namespace MS{
         }
 
         if (PrintMatrices){
-            printMatrixForAllProc<int>(ints, world, 0, 10, 0, ints.num_cols());
-            printMatrixForAllProc<double>(dbls, world, 0, 10, 0, dbls.num_cols());
-            printMatrixForAllProc<double>(msas, world, 0, 10, 0, msas.num_cols());
+            printMatrixForAllProc<int>(ints, world, 0, 10, 0, static_cast<int>(ints.num_cols()));
+            printMatrixForAllProc<double>(dbls, world, 0, 10, 0, static_cast<int>(dbls.num_cols()));
+            printMatrixForAllProc<double>(msas, world, 0, 10, 0, static_cast<int>(msas.num_cols()));
         }
 
         // ----------------------------
@@ -279,7 +279,7 @@ namespace MS{
         //std::map<int, WELL>::iterator itw = wells.wells.end();
         //std::pair<std::map<int, WELL>::iterator,bool> ret;
 
-        for (std::size_t i = 0; i < ints.size(); ++i){
+        for (std::size_t i = 0; i < ints.num_rows(); ++i){
             const int wellId = ints(i,0);
 
             if (itwtmp == tw.end() || itwtmp->first != wellId) {
@@ -358,7 +358,7 @@ namespace MS{
                 calcURFs(Nyears,s.m, s.s, s.a, s.Len, s.urf);
                 w.strml.push_back(s);
             }
-            w.m_rmv.resize(Nyears,0.0);
+            //w.m_rmv.resize(Nyears,0.0);
 
             wells.wells.insert(std::pair<int,WELL>(itwtmp->first, w));
             count = count + 1;
@@ -375,7 +375,7 @@ namespace MS{
         const bool tf = RootReadsMatrixFileDistrib<double>(filename, eid_conc, 2, world,1000000, 250000);
         if (tf) {
             std::map<int, WELL>::iterator itw;
-            for (std::size_t i = 0; i < eid_conc.size(); ++i){
+            for (std::size_t i = 0; i < eid_conc.num_rows(); ++i){
                 int eid = static_cast<int>(eid_conc(i,0));
                 itw = wells.wells.find(eid);
                 if (itw != wells.wells.end()){
@@ -947,7 +947,7 @@ namespace MS{
             };
         }
 
-        const int Nyears = mass_removed.num_cols();
+        const int Nyears = static_cast<int>(mass_removed.num_cols());
         // --- Header
         std::ostringstream header;
         header << "hru";

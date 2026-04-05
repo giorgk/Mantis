@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
-    tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.Nyears, UI.swatOptions.version, world);
+    tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.version, world);
     if (!tf){
         return 0;
     }
@@ -236,12 +236,23 @@ int main(int argc, char* argv[]) {
 
     //int hruidx;
     //std::vector<double> totMfeed(UI.NsimYears, 0);
+    if (world.rank() == 0) {
+        std::cout << std::endl;
+        std::cout << "==============================================================" << std::endl;
+        std::cout << "Start simulation..." << std::endl;
+        std::cout << "==============================================================" << std::endl;
+        std::cout << std::endl;
+    }
+
     auto startTotal = std::chrono::high_resolution_clock::now();
 
     int YYYY = UI.simOptions.StartYear;
     int iswat = swatYRIDmap.find(YYYY)->second;
 
     for (int iyr = 0; iyr < UI.simOptions.Nyears; ++iyr){
+        if (world.rank() == 0) {
+            std::cout << "Year " << iyr << " ..."  << std::flush;
+        }
         //std::cout << "Here1" << std::endl;
         auto start = std::chrono::high_resolution_clock::now();
         const bool is_last_year = (iyr == UI.simOptions.Nyears - 1);
@@ -279,9 +290,8 @@ int main(int argc, char* argv[]) {
                 // Compute loading concentration for this streamline at the current year.
                 double c_tot = 0.0;
                 double c_gw = 0.0;
-                double m_rmv = 0.0;
 
-                MS::CreateLoadingForStreamline(c_tot, c_gw, m_rmv, iyr, iswat, YYYY, VI.version,
+                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
@@ -309,7 +319,7 @@ int main(int argc, char* argv[]) {
 
                 sumW += strm.W;
                 cntS += 1;
-                well.m_rmv[i] += m_rmv;
+                //well.m_rmv[i] += m_rmv;
 
                 //if (printThis){
                 //    dbg_file << iyr << ", " << itw->first << ", " << itw->second.strml[i].Sid << ", " << hruidx << ", "
@@ -357,9 +367,9 @@ int main(int argc, char* argv[]) {
 
                 double c_tot = 0.0;
                 double c_gw = 0.0;
-                double m_rmv = 0.0;
+                //double m_rmv = 0.0;
 
-                MS::CreateLoadingForStreamline(c_tot, c_gw, m_rmv, iyr, iswat, YYYY, VD.version,
+                MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VD.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
                                                ConcFromPump);
@@ -410,8 +420,28 @@ int main(int argc, char* argv[]) {
                                 continue;
                             }
 
+                            if (hru_idx >= mass_removed.num_rows() || iyr >= mass_removed.num_cols()) {
+                                std::cout << "mass_removed index error: hru_idx=" << hru_idx
+                                          << " iyr=" << iyr
+                                          << " rows=" << mass_removed.num_rows()
+                                          << " cols=" << mass_removed.num_cols() << std::endl;
+                                __debugbreak();
+                            }
+
+                            if (hru_idx >= swat.irrSW_mm.num_rows() || iswat >= swat.irrSW_mm.num_cols()) {
+                                std::cout << "irrSW_mm index error: hru_idx=" << hru_idx
+                                          << " iswat=" << iswat << std::endl;
+                                __debugbreak();
+                            }
+
                             double volume_SW_cell = swat.irrSW_mm(hru_idx,iswat) * cell_area / 1000.0;
+                            if (volume_SW_cell > 0.01) {
+                                bool tf1 = true;
+                            }
                             double volume_GW_cell = swat.irrGW_mm(hru_idx,iswat) * cell_area / 1000.0;
+                            if (volume_GW_cell > 0.01) {
+                                bool tf2 = true;
+                            }
                             double mass_SW_cell = swat.irrsaltSW_kgha(hru_idx,iswat) * cell_area/10000.0;
                             double mass_GW_cell = 0.001 * ConcFromPump[i] * volume_GW_cell;
                             double mass_cell = mass_GW_cell + mass_SW_cell;
@@ -421,7 +451,13 @@ int main(int argc, char* argv[]) {
                                 conc_trgt = swat.Trgt_AW_ppm(hru_idx,iswat);
                             }
                             double mass_trgt_cell = 0.001 * conc_trgt * volume_cell;
+                            if (mass_trgt_cell > mass_cell) {
+                                bool tf3 = true;
+                            }
                             mass_remove_cell = std::max(0.0, mass_cell - mass_trgt_cell);
+                            if (mass_remove_cell > 0.01) {
+                                bool tf4 = true;
+                            }
                             if (volume_GW_cell < 0.01) {
                                 ConcFromPump[i] = 0.0;
                             }
@@ -431,6 +467,8 @@ int main(int argc, char* argv[]) {
                             }
                             mass_removed(hru_idx,iyr) += mass_remove_cell;
                         }
+                        //std::cout << "Mass removed: " << mass_removed.sum_column(iyr)/1000000.0 << " kt"  << std::endl;
+
                     }
                 }
 
@@ -445,7 +483,7 @@ int main(int argc, char* argv[]) {
             std::chrono::duration<double> elapsed = finish - start;
 
             if (world.rank() == 0){
-                std::cout << "Year: " << iyr << " in " << elapsed.count() << std::endl;
+                std::cout << " in " << elapsed.count() << " sec" << "(Mass removed: " << mass_removed.sum_column(iyr)/1000000.0 << " kt)"  << std::endl;
             }
         }
         else{
@@ -529,7 +567,12 @@ int main(int argc, char* argv[]) {
     auto finishTotal = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsedTotal = finishTotal - startTotal;
     if (world.rank() == 0){
+        std::cout << std::endl;
+        std::cout << "==============================================================" << std::endl;
         std::cout << "Total simulation for " << UI.simOptions.Nyears << " : " << elapsedTotal.count() / 60.0 << " min" << std::endl;
+        std::cout << "==============================================================" << std::endl;
+        std::cout << std::endl;
+        std::cout << "Printing simulation results..." << std::endl;
     }
 
     {// Print mass removal
@@ -546,8 +589,6 @@ int main(int argc, char* argv[]) {
                 MS::printHRUMassRemoved(swat.hru_idx_map,mass_removed,fn, UI.outputOptions.compress);
             }
         }
-
-
     }
 
     { // Print the VI
@@ -732,8 +773,10 @@ int main(int argc, char* argv[]) {
     world.barrier();
     if (world.rank() == 0){
         std::time_t result = std::time(nullptr);
+        std::cout << "==============================================================" << std::endl;
         std::cout << "MantisSA Finished at " << std::asctime(std::localtime(&result)) << std::endl;
         std::cout << "Total simulation for : " << elapsedTotalSimulation.count() / 60.0 << " min" << std::endl;
+        std::cout << "==============================================================" << std::endl;
     }
 
     return 0;

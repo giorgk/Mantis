@@ -86,6 +86,20 @@ namespace MS{
             data.swap(tmp);
             std::swap(rows, cols);
         }
+
+        T sum_column(int col) const {
+            T sum = T{};
+
+            const size_t c = static_cast<size_t>(col);
+
+            const T* ptr = data.data() + c;  // start at (0, col)
+
+            for (size_t i = 0; i < rows; ++i) {
+                sum += ptr[i * cols];
+            }
+
+            return sum;
+        }
     };
 
     struct SelectedWellsGroup{
@@ -213,7 +227,7 @@ namespace MS{
         double initConc = 0.0;
         std::vector<STRML> strml;
         std::vector<double> wellBtc;
-        std::vector<double> m_rmv;
+        //std::vector<double> m_rmv;
     };
 
     struct NPSATTMP{

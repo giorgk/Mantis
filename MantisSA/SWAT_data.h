@@ -36,9 +36,9 @@ namespace MS {
     public:
         SWAT_data(int n_hrus_in, int n_years_in)
         : n_hrus(n_hrus_in), n_yrears(n_years_in) {}
-        bool read(const std::string &filename, int NSwatYears, int swat_version, boost::mpi::communicator &world);
+        bool read(const std::string &filename, int swat_version, boost::mpi::communicator &world);
         //bool read_v0(const std::string &filename, int NSwatYears, boost::mpi::communicator &world);
-        bool read_v1(const std::string &filename, int NSwatYears, boost::mpi::communicator &world);
+        bool read_v1(const std::string &filename, boost::mpi::communicator &world);
         bool read_HRU_idx_Map(const std::string &filename, boost::mpi::communicator &world);
         int hru_index(int HRU) const;
 
@@ -69,19 +69,16 @@ namespace MS {
             Matrix<double>* data;
         };
         std::vector<SWATField> v1_fields();
-        bool readASCIIset(const std::string &filename, Matrix<double> &data, int nHRU, int Nyrears);
+        //bool readASCIIset(const std::string &filename, Matrix<double> &data, int nHRU, int Nyrears);
         //bool readASCIIHRUS(std::string filename, Matrix<int> &data);
 #if _USEHF > 0
         bool readHDF5PropertyDistrib(HighFive::File* file,
                                  const std::string& dataset_name,
                                  Matrix<double>& data,
-                                 int expected_rows,
-                                 int expected_cols,
-                                 boost::mpi::communicator& world);
+                                 boost::mpi::communicator& world) const;
 #endif
         bool checkRowsMatchHRU(const Matrix<double>& data,
                            const std::string& name,
-                           int nHRU,
                            boost::mpi::communicator& world) const;
     };
 
@@ -180,18 +177,17 @@ namespace MS {
 //         return false;
 //     }
 
-    bool SWAT_data::read_v1(const std::string& filename, int NSwatYears, boost::mpi::communicator &world) {
+    bool SWAT_data::read_v1(const std::string& filename, boost::mpi::communicator &world) {
         const std::string ext = getExtension(filename);
-        const int nHRU = static_cast<int>(hru_idx_map.size());
 
-        if (nHRU <= 0) {
+        if (n_hrus <= 0) {
             if (world.rank() == 0) {
                 std::cout << "SWAT_data::read_v1 error: hru_idx_map is empty." << std::endl;
             }
             return false;
         }
 
-        if (NSwatYears <= 0) {
+        if (n_yrears <= 0) {
             if (world.rank() == 0) {
                 std::cout << "SWAT_data::read_v1 error: NSwatYears must be > 0." << std::endl;
             }
@@ -229,13 +225,15 @@ namespace MS {
                 const bool tf = readHDF5PropertyDistrib(file_ptr,
                                                         field.name,
                                                         *(field.data),
-                                                        nHRU,
-                                                        NSwatYears,
                                                         world);
                 if (!tf) {
                     return false;
                 }
                 if (PrintMatrices) {
+                    if (world.rank() == 0) {
+                        std::cout << "Data for: " << field.name << std::endl;
+                    }
+
                     printMatrixForAllProc(*(field.data), world, 46, 58, 1, 10);
                 }
             }
@@ -255,12 +253,12 @@ namespace MS {
                 }
                 const bool tf = RootReadsMatrixFileDistrib<double>(ascii_file,
                                                                    *(field.data),
-                                                                   NSwatYears,
+                                                                   n_yrears,
                                                                    world, 1000000, n_hrus);
                 if (!tf) {
                     return false;
                 }
-                if (!checkRowsMatchHRU(*(field.data), ascii_file, nHRU, world)) {
+                if (!checkRowsMatchHRU(*(field.data), ascii_file, world)) {
                     return false;
                 }
                 if (PrintMatrices) {
@@ -271,7 +269,7 @@ namespace MS {
         }
     }
 
-    bool SWAT_data::read(const std::string &filename, int NSwatYears, int swat_version,
+    bool SWAT_data::read(const std::string &filename, int swat_version,
                          boost::mpi::communicator &world) {
         bool tf = false;
         // if (swat_version == 0){
@@ -279,7 +277,7 @@ namespace MS {
         // }
         // else
         if(swat_version == 1){
-            tf = read_v1(filename, NSwatYears, world);
+            tf = read_v1(filename, world);
         }
         return tf;
     }
@@ -289,6 +287,12 @@ namespace MS {
         bool tf = RootReadsVectorFileDistrib<int>(filename, tmp, world,5000000, n_hrus);
         if (!tf){ return false;}
         if (PrintMatrices){printVectorForAllProc(tmp,world,10,30);}
+        if (tmp.size() != n_hrus) {
+            if (world.rank() == 0) {
+                std::cout << "Error: the number of HRUs in the file " << filename << " does not match the number of HRUs in the model." << std::endl;
+            }
+            return false;
+        }
 
         for (int i = 0; i < tmp.size(); ++i){
             hru_idx_map.insert(std::pair<int,int>(tmp[i], i));
@@ -307,34 +311,33 @@ namespace MS {
         else{
             return -9;
         }
-
     }
 
-    bool SWAT_data::readASCIIset(const std::string &filename, Matrix<double> &data, int nHRU, int Nyrears){
-        data.allocate(Nyrears, nHRU);
-
-        std::ifstream ifile(filename);
-        if (!ifile.is_open()){
-            std::cout << "Cant open file: " << filename << std::endl;
-            return false;
-        }
-        else{
-            std::cout << "Reading " << filename << std::endl;
-            std::string line;
-            double val;
-
-            for (int i = 0; i < nHRU; ++i){
-                getline(ifile, line);
-                std::istringstream inp(line.c_str());
-                for (int j = 0; j < Nyrears; ++j){
-                    inp >> val;
-                    data(j,i) = val;
-                }
-            }
-            ifile.close();
-            return true;
-        }
-    }
+    // bool SWAT_data::readASCIIset(const std::string &filename, Matrix<double> &data, int nHRU, int Nyrears){
+    //     data.allocate(Nyrears, nHRU);
+    //
+    //     std::ifstream ifile(filename);
+    //     if (!ifile.is_open()){
+    //         std::cout << "Cant open file: " << filename << std::endl;
+    //         return false;
+    //     }
+    //     else{
+    //         std::cout << "Reading " << filename << std::endl;
+    //         std::string line;
+    //         double val;
+    //
+    //         for (int i = 0; i < nHRU; ++i){
+    //             getline(ifile, line);
+    //             std::istringstream inp(line.c_str());
+    //             for (int j = 0; j < Nyrears; ++j){
+    //                 inp >> val;
+    //                 data(j,i) = val;
+    //             }
+    //         }
+    //         ifile.close();
+    //         return true;
+    //     }
+    // }
 
     // bool SWAT_data::readASCIIHRUS(const std::string &filename, Matrix<int> &data){
     //     std::ifstream datafile(filename.c_str());
@@ -361,9 +364,7 @@ namespace MS {
     inline bool SWAT_data::readHDF5PropertyDistrib(HighFive::File* file,
                                                    const std::string& dataset_name,
                                                    Matrix<double>& data,
-                                                   int expected_rows,
-                                                   int expected_cols,
-                                                   boost::mpi::communicator& world) {
+                                                   boost::mpi::communicator& world) const {
 
         int readSuccess = 1;
         if (world.rank() == 0) {
@@ -385,43 +386,28 @@ namespace MS {
                         std::cout << "Dataset " << dataset_name << " is not 2D" << std::endl;
                         readSuccess = 0;
                     }
-                    else if ((static_cast<int>(dims[0]) != expected_rows)) {
-                        std::cout << "Dataset " << dataset_name
-                             << " has wrong number of rows. Expected "
-                             << expected_rows << " got " << dims[0] << std::endl;
-                        readSuccess = 0;
-                    }
-                    else if (static_cast<int>(dims[1]) != expected_cols) {
-                        std::cout << "Dataset " << dataset_name
-                             << " has wrong number of columns. Expected "
-                             << expected_cols << " got " << dims[1] << std::endl;
-                        readSuccess = 0;
-                    }
                     else {
-                        std::vector<std::vector<double>> tmp;
-                        ds.read(tmp);
-
-                        if (static_cast<int>(tmp.size()) != expected_rows) {
-                            std::cout << "Dataset " << dataset_name
-                                  << " read wrong outer size after HDF5 read." << std::endl;
+                        if (!((dims[0] == n_hrus && dims[1] == n_yrears) || (dims[1] == n_hrus && dims[0] == n_yrears))) {
+                            std::cout << "The dataset dimensions are not [" << n_hrus << " x " << n_yrears << "] or ["
+                                      << n_yrears << " x " << n_hrus << "] but [" << dims[0] << " x " << dims[1] << "]" << std::endl;
                             readSuccess = 0;
                         }
                         else {
-                            for (int i = 0; i < expected_rows; ++i) {
-                                if (static_cast<int>(tmp[i].size()) != expected_cols) {
-                                    std::cout << "Dataset " << dataset_name
-                                              << " row " << i
-                                              << " has wrong size after HDF5 read." << std::endl;
-                                    readSuccess = 0;
-                                    break;
+                            std::vector<std::vector<double>> tmp;
+                            ds.read(tmp);
+                            data.allocate(n_hrus, n_yrears);
+                            if (dims[0] == n_hrus && dims[1] == n_yrears) {
+                                for (int i = 0; i < n_hrus; ++i) {
+                                    for (int j = 0; j < n_yrears; ++j) {
+                                        data(i, j) = tmp[i][j];
+                                    }
                                 }
                             }
-                        }
-                        if (readSuccess) {
-                            data.allocate(expected_rows, expected_cols);
-                            for (int i = 0; i < expected_rows; ++i) {
-                                for (int j = 0; j < expected_cols; ++j) {
-                                    data(i, j) = tmp[i][j];
+                            else if (dims[0] == n_yrears && dims[1] == n_hrus) {
+                                for (int i = 0; i < n_hrus; ++i) {
+                                    for (int j = 0; j < n_yrears; ++j) {
+                                        data(i, j) = tmp[j][i];
+                                    }
                                 }
                             }
                         }
@@ -448,13 +434,12 @@ namespace MS {
 
     inline bool SWAT_data::checkRowsMatchHRU(const Matrix<double>& data,
                                              const std::string& name,
-                                             int nHRU,
                                              boost::mpi::communicator& world) const
     {
-        if (static_cast<int>(data.num_rows()) != nHRU) {
+        if (static_cast<int>(data.num_rows()) != n_hrus) {
             if (world.rank() == 0) {
                 std::cout << name << " row count does not match hru_idx_map. "
-                          << "Expected " << nHRU << ", got " << data.num_rows() << std::endl;
+                          << "Expected " << n_hrus << ", got " << data.num_rows() << std::endl;
             }
             return false;
         }

@@ -112,11 +112,11 @@ namespace MS{
         std::cout << "Build raster indexing ..." << std::endl;
 
         rc_to_idx.clear();
-        rc_to_idx.reserve(rasterCol.size());
+        rc_to_idx.reserve(rasterCol.num_rows());
         idx_to_rc.clear();
-        idx_to_rc.reserve(rasterCol.size());
+        idx_to_rc.reserve(rasterCol.num_rows());
 
-        for (std::size_t i = 0; i < rasterCol.size(); ++i) {
+        for (std::size_t i = 0; i < rasterCol.num_rows(); ++i) {
 
             const int r = rasterCol(i,0);
             const int c = rasterCol(i,1);
