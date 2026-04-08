@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     std::map<int, int> swatYRIDmap;
-    MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);
+    MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);09
 
     auto startTotalSimulation = std::chrono::high_resolution_clock::now();
     if (world.rank() == 0){
@@ -161,6 +161,7 @@ int main(int argc, char* argv[]) {
     MS::Matrix<double> volume_removed;
     if (world.rank() == 0) {
         mass_removed.allocate(UI.swatOptions.nhrus, UI.simOptions.Nyears);
+        volume_removed.allocate(UI.swatOptions.nhrus, UI.simOptions.Nyears);
     }
     // Initialize Concentration from pumping with the initial concentration
     world.barrier();
@@ -467,7 +468,7 @@ int main(int argc, char* argv[]) {
                                 ConcFromPump[i] = 1000.0 * mass_GW_new / volume_GW_cell;
                             }
                             mass_removed(hru_idx,iyr) += mass_remove_cell;
-                            volume_removed(hru_idx,iyr) += volume_GW_cell;
+                            volume_removed(hru_idx,iyr) += volume_cell;
                         }
                         //std::cout << "Mass removed: " << mass_removed.sum_column(iyr)/1000000.0 << " kt"  << std::endl;
 
