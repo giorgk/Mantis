@@ -158,6 +158,7 @@ int main(int argc, char* argv[]) {
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
     std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
     MS::Matrix<double> mass_removed;
+    MS::Matrix<double> volume_removed;
     if (world.rank() == 0) {
         mass_removed.allocate(UI.swatOptions.nhrus, UI.simOptions.Nyears);
     }
@@ -466,6 +467,7 @@ int main(int argc, char* argv[]) {
                                 ConcFromPump[i] = 1000.0 * mass_GW_new / volume_GW_cell;
                             }
                             mass_removed(hru_idx,iyr) += mass_remove_cell;
+                            volume_removed(hru_idx,iyr) += volume_GW_cell;
                         }
                         //std::cout << "Mass removed: " << mass_removed.sum_column(iyr)/1000000.0 << " kt"  << std::endl;
 
@@ -578,15 +580,28 @@ int main(int argc, char* argv[]) {
     {// Print mass removal
         if (UI.saltRemoveOptions.enable) {
             if (world.rank() == 0) {
-                std::cout << "Printing mass removed ..." << std::endl;
-                std::string fn;
-                if (UI.outputOptions.compress){
-                    fn = UI.outputOptions.OutFile + "_Mrmv.dat.gz";
+                {
+                    std::cout << "Printing mass removed ..." << std::endl;
+                    std::string fn;
+                    if (UI.outputOptions.compress){
+                        fn = UI.outputOptions.OutFile + "_Mrmv.dat.gz";
+                    }
+                    else{
+                        fn = UI.outputOptions.OutFile + "_Mrmv.dat";
+                    }
+                    MS::printHRUMassVolRemoved(swat.hru_idx_map,mass_removed,fn, "mrmv", UI.outputOptions.compress);
                 }
-                else{
-                    fn = UI.outputOptions.OutFile + "_Mrmv.dat";
+                {
+                    std::cout << "Printing Volume removed ..." << std::endl;
+                    std::string fn;
+                    if (UI.outputOptions.compress){
+                        fn = UI.outputOptions.OutFile + "_Vrmv.dat.gz";
+                    }
+                    else{
+                        fn = UI.outputOptions.OutFile + "_Vrmv.dat";
+                    }
+                    MS::printHRUMassVolRemoved(swat.hru_idx_map, volume_removed,fn, "vrmv", UI.outputOptions.compress);
                 }
-                MS::printHRUMassRemoved(swat.hru_idx_map,mass_removed,fn, UI.outputOptions.compress);
             }
         }
     }

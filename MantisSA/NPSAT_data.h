@@ -200,15 +200,15 @@ namespace MS{
             tf = RootReadsMatrixFileDistrib<double>(filename + "MSA.dat", msas, msaCols, world, 500000, msaRows);
             if (!tf){return false;}
 
-            if (static_cast<int>(ints.size()) != intRows) {
+            if (static_cast<int>(ints.num_rows()) != intRows) {
                 std::cout << "Error: INT.dat row count does not match info.dat" << std::endl;
                 return false;
             }
-            if (static_cast<int>(dbls.size()) != dblRows) {
+            if (static_cast<int>(dbls.num_rows()) != dblRows) {
                 std::cout << "Error: DBL.dat row count does not match info.dat" << std::endl;
                 return false;
             }
-            if (static_cast<int>(msas.size()) != msaRows) {
+            if (static_cast<int>(msas.num_rows()) != msaRows) {
                 std::cout << "Error: MSA.dat row count does not match info.dat" << std::endl;
                 return false;
             }
@@ -909,8 +909,8 @@ namespace MS{
         if (out_file.is_open()) out_file.close();
     }
 
-    void printHRUMassRemoved(const std::map<int,int> &hru_idx_map, const Matrix<double> &mass_removed,
-                            const std::string &filename, bool compress = false) {
+    void printHRUMassVolRemoved(const std::map<int,int> &hru_idx_map, const Matrix<double> &mass_removed,
+                            const std::string &filename, const std::string &field_prefix, bool compress = false) {
 
         const bool use_compression = compress || has_gz_extension(filename);
 
@@ -952,7 +952,7 @@ namespace MS{
         std::ostringstream header;
         header << "hru";
         for (int i = 1; i <= Nyears; ++i)
-            header << ", mrmv" << i;
+            header << ", " << field_prefix << i;
         header << "\n";
         write_line(header.str());
         // --- Data rows
