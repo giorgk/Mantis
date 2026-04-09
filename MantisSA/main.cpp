@@ -52,7 +52,7 @@ int main(int argc, char* argv[]) {
         return 0;
     }
     std::map<int, int> swatYRIDmap;
-    MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);09
+    MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);
 
     auto startTotalSimulation = std::chrono::high_resolution_clock::now();
     if (world.rank() == 0){
