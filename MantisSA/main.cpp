@@ -114,7 +114,7 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
-    tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.version, world);
+    tf = swat.read(UI.swatOptions.Data_file, UI.swatOptions.version, UI.saltRemoveOptions, world);
     if (!tf){
         return 0;
     }

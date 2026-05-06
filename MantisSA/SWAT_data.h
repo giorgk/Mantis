@@ -36,9 +36,9 @@ namespace MS {
     public:
         SWAT_data(int n_hrus_in, int n_years_in)
         : n_hrus(n_hrus_in), n_yrears(n_years_in) {}
-        bool read(const std::string &filename, int swat_version, boost::mpi::communicator &world);
+        bool read(const std::string &filename, int swat_version, SaltRemoveOptions &sro, boost::mpi::communicator &world);
         //bool read_v0(const std::string &filename, int NSwatYears, boost::mpi::communicator &world);
-        bool read_v1(const std::string &filename, boost::mpi::communicator &world);
+        bool read_v1(const std::string &filename, SaltRemoveOptions &sro, boost::mpi::communicator &world);
         bool read_HRU_idx_Map(const std::string &filename, boost::mpi::communicator &world);
         int hru_index(int HRU) const;
 
@@ -177,7 +177,7 @@ namespace MS {
 //         return false;
 //     }
 
-    bool SWAT_data::read_v1(const std::string& filename, boost::mpi::communicator &world) {
+    bool SWAT_data::read_v1(const std::string& filename, SaltRemoveOptions &sro, boost::mpi::communicator &world) {
         const std::string ext = getExtension(filename);
 
         if (n_hrus <= 0) {
@@ -203,6 +203,7 @@ namespace MS {
             }
             int fileOpenSuccess = 1;
             std::unique_ptr<HighFive::File> h5file;
+
             if (world.rank() == 0) {
                 try {
                     h5file = std::make_unique<HighFive::File>(filename, HighFive::File::ReadOnly);
@@ -237,6 +238,27 @@ namespace MS {
                     printMatrixForAllProc(*(field.data), world, 46, 58, 1, 10);
                 }
             }
+
+            if (sro.usefield) {
+                if (world.rank() == 0) {
+                    std::cout << "Reading target applied-water concentration field: "
+                              << sro.InputField << std::endl;
+                }
+                const bool tf = readHDF5PropertyDistrib(file_ptr,
+                                                    sro.InputField,
+                                                    this->Trgt_AW_ppm,
+                                                    world);
+                if (!tf) {
+                    return false;
+                }
+
+                if (PrintMatrices) {
+                    if (world.rank() == 0) {
+                        std::cout << "Data for: " << sro.InputField << std::endl;
+                    }
+                    printMatrixForAllProc(this->Trgt_AW_ppm, world, 46, 58, 1, 10);
+                }
+            }
             return true;
 #else
             if (world.rank() == 0) {
@@ -248,9 +270,11 @@ namespace MS {
         else{
             for (const auto& field : fields) {
                 const std::string ascii_file = filename + field.name + ".dat";
+
                 if (world.rank() == 0) {
                     std::cout << "Reading " << ascii_file << std::endl;
                 }
+
                 const bool tf = RootReadsMatrixFileDistrib<double>(ascii_file,
                                                                    *(field.data),
                                                                    n_yrears,
@@ -258,18 +282,46 @@ namespace MS {
                 if (!tf) {
                     return false;
                 }
+
                 if (!checkRowsMatchHRU(*(field.data), ascii_file, world)) {
                     return false;
                 }
+
                 if (PrintMatrices) {
                     printMatrixForAllProc(*(field.data), world, 46, 58, 0, 10);
+                }
+            }
+
+            if (sro.usefield) {
+                const std::string ascii_file = filename + sro.InputField + ".dat";
+                if (world.rank() == 0) {
+                    std::cout << "Reading target applied-water concentration field: "
+                              << ascii_file << std::endl;
+                }
+
+                const bool tf = RootReadsMatrixFileDistrib<double>(ascii_file,
+                                                               this->Trgt_AW_ppm,
+                                                               n_yrears,
+                                                               world,
+                                                               1000000,
+                                                               n_hrus);
+                if (!tf) {
+                    return false;
+                }
+
+                if (!checkRowsMatchHRU(this->Trgt_AW_ppm, ascii_file, world)) {
+                    return false;
+                }
+
+                if (PrintMatrices) {
+                    printMatrixForAllProc(this->Trgt_AW_ppm, world, 46, 58, 0, 10);
                 }
             }
             return true;
         }
     }
 
-    bool SWAT_data::read(const std::string &filename, int swat_version,
+    bool SWAT_data::read(const std::string &filename, int swat_version, SaltRemoveOptions &sro,
                          boost::mpi::communicator &world) {
         bool tf = false;
         // if (swat_version == 0){
@@ -277,7 +329,7 @@ namespace MS {
         // }
         // else
         if(swat_version == 1){
-            tf = read_v1(filename, world);
+            tf = read_v1(filename, sro, world);
         }
         return tf;
     }
