@@ -47,7 +47,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.1.10";
+        Version = "0.1.11";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -151,6 +151,7 @@ namespace MS {
             // [SaltRemove]
             ("SaltRemove.InputField", po::value<std::string>(), "SWAT field for Salt remove")
             ("SaltRemove.Trgt_AW_ppm", po::value<double>()->default_value(990.0), "Numeric target value if field is empty")
+            ("SaltRemove.StartAfterNYears", po::value<int>()->default_value(0), "Start salt removal after this many simulation years")
             ("SaltRemove.enable", po::value<int>()->default_value(0), "Simulate salt removal")
 
             //[Misc]
@@ -274,6 +275,7 @@ namespace MS {
                 {// [SaltRemove]
                     saltRemoveOptions.InputField = vm_cfg["SaltRemove.InputField"].as<std::string>();
                     saltRemoveOptions.Trgt_AW_ppm = vm_cfg["SaltRemove.Trgt_AW_ppm"].as<double>();
+                    saltRemoveOptions.StartAfterNYears = vm_cfg["SaltRemove.StartAfterNYears"].as<int>();
                     saltRemoveOptions.enable = vm_cfg["SaltRemove.enable"].as<int>() == 1;
                     saltRemoveOptions.usefield = !(saltRemoveOptions.InputField.empty() || saltRemoveOptions.InputField == "none");
                 }

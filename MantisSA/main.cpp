@@ -409,7 +409,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     // Salt removal
-                    if (UI.saltRemoveOptions.enable) {
+                    if (UI.saltRemoveOptions.enable && iyr >= UI.saltRemoveOptions.StartAfterNYears) {
                         for (int i = 0; i < ConcFromPump.size(); ++i) {
                             constexpr double cell_area = 2500.0;
                             double mass_remove_cell = 0.0;

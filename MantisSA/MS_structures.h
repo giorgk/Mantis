@@ -196,6 +196,7 @@ namespace MS{
 
     struct SaltRemoveOptions{
         double Trgt_AW_ppm;
+        int StartAfterNYears;
         std::string InputField;
         bool enable;
         bool usefield;
