@@ -15,15 +15,15 @@ namespace MS{
         double lambda = 0.0;
         double dm = 1e-7;
     };
-    inline const ADEoptions opt{};
-    inline const double sqrt2pi = std::sqrt(2.0 * std::acos(-1.0));
-    inline const double pi = 4.0 * std::atan(1.0);
-    inline const std::vector<double> urfOne {
+    static const ADEoptions opt{};
+    static const double sqrt2pi = std::sqrt(2.0 * std::acos(-1.0));
+    static const double pi = 4.0 * std::atan(1.0);
+    static const std::vector<double> urfOne {
         0.48443252, 0.41642340, 0.08307405, 0.01338364, 0.00219913,
         0.00039049, 0.00007584, 0.00001608, 0.00000370, 0.00000092, 0.00000023
     };
 
-    inline const std::vector<double> urfTwo {
+    static const std::vector<double> urfTwo {
         0.00095171, 0.19513243, 0.41957050, 0.25244126, 0.09333424,
         0.02803643, 0.00771540, 0.00206063, 0.00055016, 0.00014916,
         0.00004141, 0.00001182, 0.00000347, 0.00000106, 0.00000032

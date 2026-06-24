@@ -373,7 +373,7 @@ namespace MS{
         }
 
         sendScalarFromRoot2AllProc<int>(preTranspose, world);
-        sentMatrixFromRoot2AllProc<T>(Mtmp1, world);
+        sendFlatMatrixFromRoot2AllProc<T>(Mtmp1, world);
 
 
         try {

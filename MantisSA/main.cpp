@@ -2,6 +2,7 @@
 #include <boost/mpi.hpp>
 
 #include <chrono>
+#include <stdexcept>
 
 bool PrintMatrices = false;
 
@@ -427,13 +428,13 @@ int main(int argc, char* argv[]) {
                                           << " iyr=" << iyr
                                           << " rows=" << mass_removed.num_rows()
                                           << " cols=" << mass_removed.num_cols() << std::endl;
-                                __debugbreak();
+                                throw std::runtime_error("mass_removed index error");
                             }
 
                             if (hru_idx >= swat.irrSW_mm.num_rows() || iswat >= swat.irrSW_mm.num_cols()) {
                                 std::cout << "irrSW_mm index error: hru_idx=" << hru_idx
                                           << " iswat=" << iswat << std::endl;
-                                __debugbreak();
+                                throw std::runtime_error("irrSW_mm index error");
                             }
 
                             double volume_SW_cell = swat.irrSW_mm(hru_idx,iswat) * cell_area / 1000.0;
