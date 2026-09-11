@@ -1,7 +1,9 @@
 #include <iostream>
 #include <boost/mpi.hpp>
 
+#include <algorithm>
 #include <chrono>
+#include <functional>
 #include <stdexcept>
 
 bool PrintMatrices = false;
@@ -52,6 +54,16 @@ int main(int argc, char* argv[]) {
     if (!tf){
         return 0;
     }
+
+    // CHANGE (v0.1.13): salt removal operates on groundwater concentrations produced
+    // by feedback. Running salt removal without feedback would leave no yearly pumped
+    // groundwater concentration to treat, so reject that inconsistent configuration.
+    if (UI.saltRemoveOptions.enable && !UI.simOptions.EnableFeedback) {
+        if (world.rank() == 0) {
+            std::cout << "SaltRemove.enable requires Simulation.EnableFeedback." << std::endl;
+        }
+        return 0;
+    }
     std::map<int, int> swatYRIDmap;
     MS::yearMap(swatYRIDmap, UI.simOptions.StartYear, UI.simOptions.StartYear + UI.simOptions.Nyears, UI.swatOptions.StartYear, UI.swatOptions.Nyears);
 
@@ -64,11 +76,16 @@ int main(int argc, char* argv[]) {
     }
     world.barrier();
 
-    std::ofstream dbg_file;
-    if (UI.doDebug){
-        dbg_file.open(UI.dbg_file.c_str());
-        dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_conc, c_swat, UNshift" << std::endl;
-    }
+    // CHANGE (v0.1.15): each rank owns one output stream for each selected
+    // local VI well. No debug records are exchanged between MPI ranks.
+    std::map<int, std::ofstream> debug_files;
+
+    // OLD (pre-v0.1.15): all ranks opened one shared file for one well.
+    // std::ofstream dbg_file;
+    // if (UI.doDebug){
+    //     dbg_file.open(UI.dbg_file.c_str());
+    //     dbg_file << "Time, Eid, Sid, hruidx, gw_ratio, m_gw, v_gw, m_npsat, gw_conc, c_swat, UNshift" << std::endl;
+    // }
 
     //std::vector<int> VIids, VDids;
     std::map<int,MS::SelectedWellsGroup> SWGmap;
@@ -152,11 +169,22 @@ int main(int argc, char* argv[]) {
         if (!tf){return 0;}
     }
 
+    std::map<int, MS::WELL>::iterator itw;
+
+    /*
+    OLD draft location (v0.1.15): debug files were initially opened here.
+    They are now opened after feedback initialization so wellSourceId has been
+    assigned before STREAMLINE_STATIC records are written.
+    */
+
     world.barrier();
     std::cout << "Proc: " << world.rank() << " has " << VI.wells.size() << " VI wells and " << VD.wells.size() << " VD wells" << std::endl;
 
 
     std::vector<double> ConcFromPump(backRaster.Ncell(), 0);
+    // CHANGE (v0.1.13): keep raw feedback separate from the treated concentration used
+    // during a simulation year. Only root updates this vector between simulation years.
+    std::vector<double> FeedbackFromPreviousYear(backRaster.Ncell(), 0);
     std::vector<int> WellEidFromPump(backRaster.Ncell(), 0);
     MS::Matrix<double> mass_removed;
     MS::Matrix<double> volume_removed;
@@ -167,7 +195,9 @@ int main(int argc, char* argv[]) {
     // Initialize Concentration from pumping with the initial concentration
     world.barrier();
 
-    std::map<int, MS::WELL>::iterator itw;
+    // OLD location (pre-v0.1.15): the iterator is now declared before local
+    // debug files are initialized.
+    // std::map<int, MS::WELL>::iterator itw;
     if (UI.simOptions.EnableFeedback){
         if (world.rank() == 0){
             std::cout << "Initialize Pumping distribution matrix..." << std::endl;
@@ -227,8 +257,52 @@ int main(int argc, char* argv[]) {
                 }
             }
         }
+
+        // The first simulation year starts from the initialized well concentrations.
+        // Later years replace this vector with raw concentrations gathered from VI wells.
+        if (world.rank() == 0) {
+            FeedbackFromPreviousYear = ConcFromPump;
+        }
     }
     world.barrier();
+
+    // Initialize debug files only for selected VI wells owned by this rank.
+    // No well, streamline, or cell debug information is exchanged through MPI.
+    if (UI.doDebug) {
+        int local_debug_files_ok = 1;
+
+        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw) {
+            if (std::find(UI.dbg_ids.begin(), UI.dbg_ids.end(), itw->first) ==
+                UI.dbg_ids.end()) {
+                continue;
+            }
+
+            itw->second.dbg = true;
+            const std::string filename = UI.dbg_file + "_" +
+                                         std::to_string(itw->first) + ".csv";
+            std::ofstream &file = debug_files[itw->first];
+            file.open(filename.c_str());
+            if (!file.good()) {
+                std::cout << "Rank " << world.rank()
+                          << " cannot open debug file " << filename << std::endl;
+                local_debug_files_ok = 0;
+                continue;
+            }
+
+            MS::writeDebugHeader(file);
+            MS::writeDebugStaticRows(file, itw->first, itw->second);
+            file.flush();
+        }
+
+        // Exchange only file-open success, not debug calculation data. This avoids
+        // leaving other ranks blocked if one owner cannot create its local file.
+        int all_debug_files_ok = 0;
+        boost::mpi::all_reduce(world, local_debug_files_ok, all_debug_files_ok,
+                               std::multiplies<int>());
+        if (all_debug_files_ok == 0) {
+            return 0;
+        }
+    }
 
     //return 0;
 
@@ -266,19 +340,141 @@ int main(int argc, char* argv[]) {
 
         world.barrier();
 
-        bool printThis = false;
+        // ============================================================
+        // 1. Prepare pumped-groundwater concentration for this year
+        // ============================================================
+        // CHANGE (v0.1.13): ConcFromPump is a fixed snapshot for the whole current
+        // simulation year. Start from raw feedback generated by the previous year,
+        // remove salt from pumped groundwater, and only then run the VI and VD wells.
+        if (UI.simOptions.EnableFeedback) {
+            if (world.rank() == 0) {
+                ConcFromPump = FeedbackFromPreviousYear;
 
-        // ============================================================
-        // 1. Simulate loading / BTC for VI wells for this year
-        // ============================================================
-        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
-            if (UI.doDebug){
-                if (UI.dbg_id == itw->first){
-                    printThis = true;
+                if (UI.saltRemoveOptions.enable &&
+                    iyr >= UI.saltRemoveOptions.StartAfterNYears) {
+
+                    const double cell_area = UI.rasterOptions.CellSize *
+                                             UI.rasterOptions.CellSize;
+
+                    for (int i = 0; i < static_cast<int>(ConcFromPump.size()); ++i) {
+                        const int hru = hru_raster.getHRU(i);
+                        if (hru < 0) {
+                            continue;
+                        }
+
+                        const int hru_idx = swat.hru_index(hru);
+                        if (hru_idx < 0) {
+                            continue;
+                        }
+
+                        if (hru_idx >= mass_removed.num_rows() ||
+                            iyr >= mass_removed.num_cols()) {
+                            std::cout << "mass_removed index error: hru_idx=" << hru_idx
+                                      << " iyr=" << iyr
+                                      << " rows=" << mass_removed.num_rows()
+                                      << " cols=" << mass_removed.num_cols() << std::endl;
+                            throw std::runtime_error("mass_removed index error");
+                        }
+
+                        if (hru_idx >= swat.irrSW_mm.num_rows() ||
+                            iswat >= swat.irrSW_mm.num_cols()) {
+                            std::cout << "irrSW_mm index error: hru_idx=" << hru_idx
+                                      << " iswat=" << iswat << std::endl;
+                            throw std::runtime_error("irrSW_mm index error");
+                        }
+
+                        // CHANGE (v0.1.14): read the removal target before calculating
+                        // irrigation volumes and salt masses. A negative value in the
+                        // target field means salt removal is not allowed for this HRU/year.
+                        double conc_trgt = UI.saltRemoveOptions.Trgt_AW_ppm;
+                        if (UI.saltRemoveOptions.usefield) {
+                            conc_trgt = swat.Trgt_AW_ppm(hru_idx,iswat);
+                            if (conc_trgt < 0.0) {
+                                continue;
+                            }
+                        }
+
+                        // Irrigation volumes for this raster cell, in cubic meters.
+                        const double volume_SW_cell =
+                                swat.irrSW_mm(hru_idx,iswat) * cell_area / 1000.0;
+                        const double volume_GW_cell =
+                                swat.irrGW_mm(hru_idx,iswat) * cell_area / 1000.0;
+
+                        // Salt masses in kilograms. Salt removal can change only the
+                        // groundwater mass; the surface-water mass remains unchanged.
+                        const double mass_SW_cell =
+                                swat.irrsaltSW_kgha(hru_idx,iswat) * cell_area / 10000.0;
+                        const double mass_GW_cell = std::max(
+                                0.0, 0.001 * ConcFromPump[i] * volume_GW_cell);
+                        const double mass_cell = mass_GW_cell + mass_SW_cell;
+                        const double volume_cell = volume_GW_cell + volume_SW_cell;
+
+                        // OLD (pre-v0.1.14): the target was read after all volume and mass
+                        // calculations and a negative field value was treated as a target.
+                        // double conc_trgt = UI.saltRemoveOptions.Trgt_AW_ppm;
+                        // if (UI.saltRemoveOptions.usefield) {
+                        //     conc_trgt = swat.Trgt_AW_ppm(hru_idx,iswat);
+                        // }
+
+                        // The target applies to the blended SW + GW irrigation water.
+                        // Remove only the groundwater salt required to reach that target.
+                        // If groundwater does not contain enough salt, remove all available
+                        // groundwater salt and allow the final blend to remain above target.
+                        const double mass_trgt_cell =
+                                0.001 * conc_trgt * volume_cell;
+                        const double mass_removal_needed =
+                                std::max(0.0, mass_cell - mass_trgt_cell);
+                        const double mass_remove_cell =
+                                std::min(mass_GW_cell, mass_removal_needed);
+
+                        if (volume_GW_cell < 0.01) {
+                            // Groundwater concentration has no loading effect when no
+                            // groundwater irrigation volume is applied.
+                            ConcFromPump[i] = 0.0;
+                        }
+                        else {
+                            const double mass_GW_new =
+                                    std::max(0.0, mass_GW_cell - mass_remove_cell);
+                            ConcFromPump[i] =
+                                    1000.0 * mass_GW_new / volume_GW_cell;
+                        }
+
+                        mass_removed(hru_idx,iyr) += mass_remove_cell;
+
+                        // volume_removed records groundwater volume actually treated.
+                        // No treatment is counted when the blend is already below target.
+                        if (mass_remove_cell > 0.0) {
+                            volume_removed(hru_idx,iyr) += volume_GW_cell;
+                        }
+                    }
                 }
             }
 
+            // Every rank must use the same treated snapshot for both well groups.
+            world.barrier();
+            MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
+            world.barrier();
+        }
+
+        // OLD (pre-v0.1.15): one integer controlled one shared debug file.
+        // bool printThis = false;
+
+        // ============================================================
+        // 2. Simulate loading / BTC for VI wells for this year
+        // ============================================================
+        for (itw = VI.wells.begin(); itw != VI.wells.end(); ++itw){
+            // OLD (pre-v0.1.15): single-well debug selection.
+            // if (UI.doDebug){
+            //     if (UI.dbg_id == itw->first){
+            //         printThis = true;
+            //     }
+            // }
+
             auto &well = itw->second;
+            std::ofstream *well_debug_file = nullptr;
+            if (well.dbg) {
+                well_debug_file = &debug_files[itw->first];
+            }
 
             // For the current year, wellbtc has size (iyr + 1), because the
             // convolution is based on lf_conc accumulated up to this year.
@@ -297,7 +493,7 @@ int main(int argc, char* argv[]) {
                 MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
-                                               ConcFromPump);
+                                               ConcFromPump, well_debug_file, itw->first);
 
                 // Store the yearly loading history for this streamline.
                 strm.gw_conc.push_back(c_gw);
@@ -318,6 +514,14 @@ int main(int argc, char* argv[]) {
                     if (is_last_year){
                         strm.btc.push_back(c_here);
                     }
+                }
+
+                if (well_debug_file != nullptr) {
+                    MS::writeDebugStreamlineRow(*well_debug_file, iyr, YYYY, iswat,
+                                                itw->first, strm, well.initConc,
+                                                c_gw, c_tot, btc.back(), prebtc.back(),
+                                                sumW + strm.W,
+                                                UI.simOptions.MaxAge);
                 }
 
                 sumW += strm.W;
@@ -344,6 +548,8 @@ int main(int argc, char* argv[]) {
                 sumW = 1.0;
             }
 
+            const double current_well_conc = wellbtc.back() / sumW;
+
             // On the last year, store the full well BTC.
             // Otherwise store only the current-year value for feedback.
             if (is_last_year) {
@@ -353,13 +559,22 @@ int main(int argc, char* argv[]) {
             }
             else{
                 wellConc.push_back(static_cast<double>(itw->first));
-                wellConc.push_back(wellbtc.back() / sumW);
+                wellConc.push_back(current_well_conc);
             }
-            if (printThis){printThis = false;}
+
+            if (well_debug_file != nullptr) {
+                MS::writeDebugWellRow(*well_debug_file, iyr, YYYY, iswat,
+                                      itw->first, well.initConc, sumW,
+                                      current_well_conc);
+                well_debug_file->flush();
+            }
+
+            // OLD (pre-v0.1.15): state for the single shared debug file.
+            // if (printThis){printThis = false;}
         }// end loop VI wells
 
         // ============================================================
-        // 2. For VD wells, only build yearly loading histories here.
+        // 3. For VD wells, only build yearly loading histories here.
         //    Full BTC is computed only on the last year.
         // ============================================================
         for (itw = VD.wells.begin(); itw != VD.wells.end(); ++itw) {
@@ -383,7 +598,7 @@ int main(int argc, char* argv[]) {
         }
 
         // ============================================================
-        // 3. Feedback step for VI wells (not needed on last year)
+        // 4. Save VI feedback for the next year (not needed on last year)
         // ============================================================
         if (!is_last_year) {
             if (UI.simOptions.EnableFeedback) {
@@ -391,8 +606,14 @@ int main(int argc, char* argv[]) {
                 std::vector<std::vector<double>> AllwellsConc(world.size());
                 MS::sendVec2Root<double>(wellConc, AllwellsConc, world);
 
-                // Root updates ConcFromPump in all cells associated with each well.
+                // Root creates raw feedback for the next simulation year. ConcFromPump
+                // is not changed here because it must remain the treated current-year
+                // snapshot until both well simulations are complete.
                 if (world.rank() == 0) {
+                    // Start from the previous raw feedback so cells not assigned by the
+                    // current gather do not receive salt removal repeatedly.
+                    std::vector<double> FeedbackForNextYear = FeedbackFromPreviousYear;
+
                     for (int i = 0; i < world.size(); ++i){
                         for (int j = 0; j < static_cast<int>(AllwellsConc[i].size()); j = j + 2){
                             const int eid = static_cast<int>(AllwellsConc[i][j]);
@@ -403,11 +624,25 @@ int main(int argc, char* argv[]) {
 
                             if (well_cells.get_cells_ptr(eid, begin, end)) {
                                 for (const int* p = begin; p != end; ++p) {
-                                    ConcFromPump[*p] = conc;
+                                    FeedbackForNextYear[*p] = conc;
+
+                                    // OLD (pre-v0.1.13): this changed the concentration
+                                    // snapshot immediately after the current-year run.
+                                    // ConcFromPump[*p] = conc;
                                 }
                             }
                         }
                     }
+
+                    // Save untreated current-year well feedback. At the beginning of the
+                    // next year it will be copied to ConcFromPump and treated before use.
+                    FeedbackFromPreviousYear.swap(FeedbackForNextYear);
+
+                    /*
+                    OLD (pre-v0.1.13): salt removal was performed after the well simulation
+                    and after ConcFromPump had been updated with current-year concentrations.
+                    The treated concentration therefore did not affect loading until the next
+                    simulation year. This block is retained temporarily for reference.
 
                     // Salt removal
                     if (UI.saltRemoveOptions.enable && iyr >= UI.saltRemoveOptions.StartAfterNYears) {
@@ -474,11 +709,15 @@ int main(int argc, char* argv[]) {
                         //std::cout << "Mass removed: " << mass_removed.sum_column(iyr)/1000000.0 << " kt"  << std::endl;
 
                     }
+                    */
                 }
 
-                world.barrier();
-                MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
-                world.barrier();
+                // OLD (pre-v0.1.13): ConcFromPump was broadcast after simulation and was
+                // therefore first consumed in the following year. It is now broadcast at
+                // the beginning of the year, after salt removal.
+                // world.barrier();
+                // MS::sendVectorFromRoot2AllProc(ConcFromPump, world);
+                // world.barrier();
             }
 
 
@@ -780,8 +1019,16 @@ int main(int argc, char* argv[]) {
     //}
 
     if (UI.doDebug){
-        dbg_file.close();
+        for (std::map<int, std::ofstream>::iterator it = debug_files.begin();
+             it != debug_files.end(); ++it) {
+            it->second.close();
+        }
     }
+
+    // OLD (pre-v0.1.15): close the single shared debug stream.
+    // if (UI.doDebug){
+    //     dbg_file.close();
+    // }
 
     world.barrier();
     auto finishTotalSimulation = std::chrono::high_resolution_clock::now();

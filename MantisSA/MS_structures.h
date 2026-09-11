@@ -4,8 +4,11 @@
 
 #ifndef MANTISSA_MS_STRUCTURES_H
 #define MANTISSA_MS_STRUCTURES_H
+#include <limits>
+#include <map>
 #include <string>
 #include <fstream>
+#include <vector>
 
 namespace MS{
 
@@ -207,15 +210,15 @@ namespace MS{
         int urfI;
         int urfJ;
         int IJ;
-        bool inRiv;
-        double rivInfl;
+        bool inRiv = false;
+        double rivInfl = 0.0;
         //int hru_idx;
         double W;
         double Len;
         double m;
         double s;
         double a;
-        int wellSourceId;
+        int wellSourceId = -1;
         std::vector<double> urf;
         std::vector<double> lf_conc;
         std::vector<double> gw_conc;
@@ -226,6 +229,9 @@ namespace MS{
 
     struct WELL{
         double initConc = 0.0;
+        // CHANGE (v0.1.15): true only on the MPI rank that owns a selected
+        // debug well. This flag affects printing only, not model calculations.
+        bool dbg = false;
         std::vector<STRML> strml;
         std::vector<double> wellBtc;
         //std::vector<double> m_rmv;
@@ -249,6 +255,42 @@ namespace MS{
     struct WELLS{
         std::map<int, WELL> wells;
         int version;
+    };
+
+    // Values collected while one buffer cell is evaluated. NaN means that a
+    // value does not apply to the cell's loading regime and is printed blank.
+    // Keeping these values in a plain structure lets nested loading functions
+    // report calculation details without changing their numerical results.
+    struct CellDebugData {
+        std::string regime;
+        int hru = -1;
+        int hruidx = -1;
+        int shift = -1;
+        int shifted_iyr = -1;
+        double blend_u = std::numeric_limits<double>::quiet_NaN();
+        double treated_conc_from_pump = std::numeric_limits<double>::quiet_NaN();
+        double surf_perc = std::numeric_limits<double>::quiet_NaN();
+        double irrGW_mm = std::numeric_limits<double>::quiet_NaN();
+        double irrSW_mm = std::numeric_limits<double>::quiet_NaN();
+        double irrsaltSW_kgha = std::numeric_limits<double>::quiet_NaN();
+        double fertsalt_kgha = std::numeric_limits<double>::quiet_NaN();
+        double dssl_kgha = std::numeric_limits<double>::quiet_NaN();
+        double Qsalt_kgha = std::numeric_limits<double>::quiet_NaN();
+        double uptk_kgha = std::numeric_limits<double>::quiet_NaN();
+        double pGW = std::numeric_limits<double>::quiet_NaN();
+        double m_npsat = std::numeric_limits<double>::quiet_NaN();
+        double m_total_raw = std::numeric_limits<double>::quiet_NaN();
+        double m_total = std::numeric_limits<double>::quiet_NaN();
+        double perc_mm = std::numeric_limits<double>::quiet_NaN();
+        double Salt_perc_ppm = std::numeric_limits<double>::quiet_NaN();
+        double water_weight = std::numeric_limits<double>::quiet_NaN();
+        double c_hist = std::numeric_limits<double>::quiet_NaN();
+        double c_future = std::numeric_limits<double>::quiet_NaN();
+        double c_before_river = std::numeric_limits<double>::quiet_NaN();
+        double c_after_river = std::numeric_limits<double>::quiet_NaN();
+        double c_after_surface = std::numeric_limits<double>::quiet_NaN();
+        double c_cell = std::numeric_limits<double>::quiet_NaN();
+        double c_gw = std::numeric_limits<double>::quiet_NaN();
     };
     typedef std::map<int,NPSATTMP> tmpWELLS;
 

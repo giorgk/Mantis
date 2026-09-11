@@ -6,6 +6,7 @@
 #define MANTISSA_MS_LOADING_H
 
 #include <random>
+#include "MSdebug.h"
 
 namespace MS{
     class HistoricLoading{
@@ -170,8 +171,12 @@ namespace MS{
     // Computes the future-loading concentration for one raster cell.
     //
     // Outputs:
-    //   c_cell  = final concentration assigned to this cell for the future-loading regime
-    //   gw_cell = groundwater-irrigation concentration contribution diagnostic
+    //   c_cell     = final concentration assigned to this cell for the future-loading regime
+    //   gw_cell    = groundwater-irrigation concentration contribution diagnostic
+    //   water_cell = effective percolating-water depth used to weight this cell in the
+    //                streamline concentration calculation
+    //   return     = true when water_cell comes from a valid SWAT HRU; false when the
+    //                caller must use a fallback water-volume estimate
     //
     // Inputs:
     //   IJ            = active-cell index in the background raster
@@ -194,31 +199,71 @@ namespace MS{
     //   4. Otherwise, form a simple salt mass balance and convert to concentration.
     //   5. Optionally blend with river concentration.
     //   6. Optionally blend with a prescribed surface concentration.
-    void calculateFutureLoading(double &c_cell, double &gw_cell, const int &IJ, const int &iswat,
+    bool calculateFutureLoading(double &c_cell, double &gw_cell, double &water_cell,
+                                const int &IJ, const int &iswat,
                                 const int &ver, const double &initConc, const double &concfromPump, const double &RivInfl,
                                 const double &rivConcVal, const double &SurfConcValue, const double &surf_perc,
                                 const MS::HRU_Raster &hru_raster,
                                 const MS::SWAT_data &swat,
-                                const double &dp_mult
+                                const double &dp_mult,
+                                CellDebugData *debug_data
                                 //const MS::MiscOptions &miscopt
                                 ){
         // Default outputs
         c_cell = 0.0;
         gw_cell = 0.0;
+        water_cell = 0.0;
 
         // Map model cell to SWAT HRU
         const int hru = hru_raster.getHRU(IJ);
         const int hruidx = swat.hru_index(hru);
 
+        if (debug_data != nullptr) {
+            debug_data->hru = hru;
+            debug_data->hruidx = hruidx;
+            debug_data->treated_conc_from_pump = concfromPump;
+            debug_data->surf_perc = surf_perc;
+        }
+
         // If no valid HRU exists, fall back to the initial concentration
         if (hruidx < 0){
             c_cell = initConc;
-            return;
+            if (debug_data != nullptr) {
+                debug_data->c_before_river = c_cell;
+                debug_data->c_after_river = c_cell;
+                debug_data->c_after_surface = c_cell;
+                debug_data->c_future = c_cell;
+            }
+            return false;
+        }
+
+        // CHANGE (v0.1.16): SWAT percolation is the only weight used for buffer cells.
+        // All raster cells have the same area, so percolation depth is proportional to
+        // water volume and the common cell area cancels from the weighted average.
+        const double perc_cell = swat.perc_mm(hruidx, iswat);
+        // OLD (pre-v0.1.16): water_cell = perc_cell * dp_mult;
+        water_cell = perc_cell;
+        if (water_cell < 0.0){
+            water_cell = 0.0;
+        }
+
+        if (debug_data != nullptr) {
+            debug_data->irrGW_mm = swat.irrGW_mm(hruidx, iswat);
+            debug_data->irrSW_mm = swat.irrSW_mm(hruidx, iswat);
+            debug_data->irrsaltSW_kgha = swat.irrsaltSW_kgha(hruidx, iswat);
+            debug_data->fertsalt_kgha = swat.fertsalt_kgha(hruidx, iswat);
+            debug_data->dssl_kgha = swat.dssl_kgha(hruidx, iswat);
+            debug_data->Qsalt_kgha = swat.Qsalt_kgha(hruidx, iswat);
+            debug_data->uptk_kgha = swat.uptk_kgha(hruidx, iswat);
+            debug_data->pGW = swat.pGW(hruidx, iswat);
+            debug_data->perc_mm = perc_cell;
+            debug_data->Salt_perc_ppm = swat.Salt_perc_ppm(hruidx, iswat);
+            debug_data->water_weight = water_cell;
         }
 
         // Very small percolation:
         // avoid unstable division by a tiny number and use SWAT's percolate concentration directly.
-        if (swat.perc_mm(hruidx, iswat) < 0.01){
+        if (perc_cell < 0.01){
             c_cell = swat.Salt_perc_ppm(hruidx, iswat);
             gw_cell = 0.0;
         }
@@ -240,6 +285,10 @@ namespace MS{
                 }
             }
 
+            if (debug_data != nullptr) {
+                debug_data->m_npsat = m_npsat;
+            }
+
             // Total salt mass available to deep percolation.
             // Positive sources:
             //   - irrigation surface-water salt
@@ -249,13 +298,15 @@ namespace MS{
             // Negative sinks:
             //   - runoff/export
             //   - plant uptake
-            double m_total = swat.irrsaltSW_kgha(hruidx, iswat) +
+            const double m_total_raw = swat.irrsaltSW_kgha(hruidx, iswat) +
                       m_npsat +
                       swat.fertsalt_kgha(hruidx, iswat) +
                       swat.dssl_kgha(hruidx, iswat) -
                       swat.Qsalt_kgha(hruidx, iswat) -
                       swat.uptk_kgha(hruidx, iswat);// -
                     //swat.dSoilSalt_kgha[hruidx][iswat];
+
+            double m_total = m_total_raw;
 
             // Apply the groundwater partition / weighting term used by the model.
             m_total = m_total * swat.pGW(hruidx, iswat);
@@ -265,11 +316,20 @@ namespace MS{
                 m_total = 0.0;
             }
 
+            if (debug_data != nullptr) {
+                debug_data->m_total_raw = m_total_raw;
+                debug_data->m_total = m_total;
+            }
+
             // Convert mass loading to concentration.
             // perc_mm is the deep percolation denominator,
             // dp_mult is an additional scaling / dilution factor.
             //double c_cell_tmp = m_total * 100 / (swat.perc_mm[hruidx][iswat]);
-            c_cell = m_total * 100 / (swat.perc_mm(hruidx, iswat) * dp_mult);
+            c_cell = m_total * 100 / (perc_cell * dp_mult);
+        }
+
+        if (debug_data != nullptr) {
+            debug_data->c_before_river = c_cell;
         }
 
         // Optional river-influence blending.
@@ -278,10 +338,21 @@ namespace MS{
             c_cell = (1 - RivInfl) * c_cell + RivInfl * rivConcVal;
         }
 
+        if (debug_data != nullptr) {
+            debug_data->c_after_river = c_cell;
+        }
+
         // Optional surface-source blending.
         if (SurfConcValue > 0 && surf_perc > 0) {
             c_cell = c_cell * (1 - surf_perc) + surf_perc * SurfConcValue;
         }
+
+        if (debug_data != nullptr) {
+            debug_data->c_after_surface = c_cell;
+            debug_data->c_future = c_cell;
+        }
+
+        return true;
     }
 
     void CreateLoadingForStreamline(double &c_strml, double &gw_strml,
@@ -297,7 +368,9 @@ namespace MS{
                                     const MS::UNSAT &UZ, // unsaturated travel time / surface fraction info
                                     const MS::HRU_Raster &hru_raster,
                                     const MS::SWAT_data &swat,
-                                    const std::vector<double> &ConcFromPump){
+                                    const std::vector<double> &ConcFromPump,
+                                    std::ofstream *debug_file = nullptr,
+                                    int debug_eid = -1){
 
         // Output defaults
         c_strml = 0.0;
@@ -319,13 +392,30 @@ namespace MS{
             return;
         }
 
-        // We will average concentration over a square neighborhood centered at (urfI, urfJ).
-        double n_cells = 0.0;
+        // CHANGE (v0.1.12): concentrations are now weighted by the water volume represented
+        // by each cell. This is equivalent to summing mass and volume, while also preserving
+        // the concentration-level historic, river, surface-water, and transition blends.
+        double weighted_c_sum = 0.0;
+        double weighted_gw_sum = 0.0;
+        double total_water = 0.0;
+
+        // OLD (pre-v0.1.12): arithmetic averaging gave dry and wet cells equal influence.
+        // double n_cells = 0.0;
+
+        // CHANGE (v0.1.17): zero-based counter identifying each buffer position
+        // for this streamline. For nBuffer == 1 the counter runs from 0 to 8.
+        int buffer_cell = 0;
 
         for (int ii = strm.urfI - UI.simOptions.nBuffer; ii <= strm.urfI + UI.simOptions.nBuffer; ++ii){
             for (int jj = strm.urfJ - UI.simOptions.nBuffer; jj <= strm.urfJ + UI.simOptions.nBuffer; ++jj){
                 double c_cell = 0.0; // concentration assigned to this neighborhood cell
                 double gw_cell = 0.0; // groundwater contribution diagnostic for this cell
+                double water_cell = 0.0; // effective water depth/volume used as this cell's weight
+                CellDebugData cell_debug;
+                CellDebugData *debug_data = nullptr;
+                if (debug_file != nullptr) {
+                    debug_data = &cell_debug;
+                }
 
                 // Convert raster coordinates to active-cell index.
                 int IJ = backRaster.IJ(ii, jj);
@@ -333,26 +423,59 @@ namespace MS{
                 // If the raster cell is inactive / outside domain, use initial concentration.
                 if (IJ < 0){
                     c_cell = initConc;
+                    cell_debug.regime = "inactive";
+                    // CHANGE (v0.1.12): an inactive cell has no modeled recharge volume, so it
+                    // does not bias a streamline near the edge of the active raster.
+                    water_cell = 0.0;
                 }
                 else{
+                    cell_debug.hru = hru_raster.getHRU(IJ);
+                    cell_debug.hruidx = swat.hru_index(cell_debug.hru);
+                    cell_debug.treated_conc_from_pump = ConcFromPump[IJ];
+                    cell_debug.surf_perc = UZ.getSurfPerc(IJ);
+
+                    // CHANGE (v0.1.16): a cell without a valid SWAT HRU is excluded
+                    // from the average. Do not substitute UZ recharge or another weight.
+                    if (cell_debug.hruidx < 0) {
+                        c_cell = initConc;
+                        water_cell = 0.0;
+                        cell_debug.regime = "missing_hru";
+                    }
+                    else {
+                        // SWAT percolation is always the cell weight, including initial,
+                        // historic, transition, and future loading regimes.
+                        water_cell = swat.perc_mm(cell_debug.hruidx, iswat);
+                        if (water_cell < 0.0) {
+                            water_cell = 0.0;
+                        }
+                        cell_debug.perc_mm = swat.perc_mm(cell_debug.hruidx, iswat);
+
+                        // OLD (pre-v0.1.16): historic and initial cells used UZ recharge.
+                        // water_cell = UZ.getRch(IJ);
+
                     // Unsaturated-zone travel time shift (in years/index units).
                     // The loading that arrives now at the water table comes from an earlier time.
                     int shift = UZ.traveltime(IJ);
+                    cell_debug.shift = shift;
 
                     // If travel time is longer than elapsed simulation time,
                     // then historic/future loading has not yet arrived; use initial concentration.
                     if (shift > iyr){
                         c_cell = initConc;
+                        cell_debug.regime = "initial";
                     }
                     else{
                         // After unsaturated travel time has passed, we use historic loading from year zero
                         // Time index after removing unsaturated travel time.
                         int shifted_iyr = iyr - shift;
+                        cell_debug.shifted_iyr = shifted_iyr;
 
                         // Period 1: historic loading only
                         if (shifted_iyr < UI.simOptions.nYears_historic){
+                            cell_debug.regime = "historic";
                             // We are in the historic loading period
                             c_cell = histload.calculateConc(IJ, yyyy - shift);
+                            cell_debug.c_hist = c_cell;
 
                             // Optional river-influence blending
                             if (ver == 1){
@@ -362,7 +485,12 @@ namespace MS{
 
                         // Period 2: transition/blending from historic to future loading
                         else if (shifted_iyr < UI.simOptions.nYears_blendEnd){
+                            cell_debug.regime = "blend";
                             // We are in the blending period
+                            // OLD (pre-v0.1.16): transition weighting blended UZ recharge
+                            // and future percolation. The weight now remains SWAT perc_mm.
+                            // const double historic_water_cell = water_cell;
+
                             // Historic value at shifted time
                             double c_cell_hist = histload.calculateConc(IJ, yyyy - shift);
 
@@ -373,45 +501,116 @@ namespace MS{
                             // Future value based on SWAT + pumping-derived groundwater term
                             double c_cell_fut = 0.0;
                             double gw_cell_fut = 0.0;
+                            double future_water_cell = 0.0;
                             double cfP = ConcFromPump[IJ];
                             double surf_perc = UZ.getSurfPerc(IJ);
 
-                            calculateFutureLoading(c_cell_fut, gw_cell_fut, IJ, iswat, ver, initConc, cfP,
-                                                   strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
-                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult);
+                            const bool has_swat_water = calculateFutureLoading(
+                                                   c_cell_fut, gw_cell_fut, future_water_cell,
+                                                   IJ, iswat, ver, initConc, cfP, strm.rivInfl,
+                                                   UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
+                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult,
+                                                   debug_data);
+
+                            // OLD draft of v0.1.12: switching immediately to the future water
+                            // volume made the weighting discontinuous at the start of blending.
+                            // if (has_swat_water){
+                            //     water_cell = future_water_cell;
+                            // }
 
                             // Linear blend factor from 0 (start of blend) to 1 (end of blend)
                             double u = (static_cast<double>(shifted_iyr - UI.simOptions.nYears_historic)) /
                                     (static_cast<double>(UI.simOptions.nYears_blendEnd - UI.simOptions.nYears_historic));
 
+                            cell_debug.blend_u = u;
+                            cell_debug.c_hist = c_cell_hist;
+                            cell_debug.c_future = c_cell_fut;
+
                             c_cell = (1-u) * c_cell_hist + u * c_cell_fut;
                             gw_cell = gw_cell_fut * u;
+
+                            // CHANGE (v0.1.16): never blend or replace the SWAT perc_mm
+                            // weight. A failed HRU lookup excludes the cell.
+                            if (!has_swat_water){
+                                water_cell = 0.0;
+                            }
+
+                            // OLD (pre-v0.1.16):
+                            // water_cell = (1-u) * historic_water_cell + u * future_water_cell;
                         }
 
                         // Period 3: future loading only
                         else{
+                            cell_debug.regime = "future";
                             // We are in the future loading period
                             double cfP = ConcFromPump[IJ];
                             double surf_perc = UZ.getSurfPerc(IJ);
 
-                            calculateFutureLoading(c_cell, gw_cell, IJ, iswat, ver, initConc, cfP,
-                                                   strm.rivInfl, UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
-                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult);
+                            double future_water_cell = 0.0;
+                            const bool has_swat_water = calculateFutureLoading(
+                                                   c_cell, gw_cell, future_water_cell,
+                                                   IJ, iswat, ver, initConc, cfP, strm.rivInfl,
+                                                   UI.riverOptions.ConcValue, UI.simOptions.SurfConcValue,
+                                                   surf_perc, hru_raster, swat, UI.miscOptions.dp_mult,
+                                                   debug_data);
+
+                            // CHANGE (v0.1.16): keep the SWAT perc_mm weight initialized
+                            // above. If the HRU lookup fails, exclude the cell.
+                            if (!has_swat_water){
+                                water_cell = 0.0;
+                            }
+
+                            // OLD (pre-v0.1.16): water_cell = future_water_cell;
                         }
                     }
+                    } // valid SWAT HRU
                 }
 
-                // Accumulate for neighborhood averaging
-                c_strml = c_strml + c_cell;
-                gw_strml = gw_strml + gw_cell;
+                // CHANGE (v0.1.12): accumulate concentration times water volume. For future
+                // loading without concentration-level mixing this reduces exactly to summing
+                // m_total over cells and dividing by their total percolating-water volume.
+                if (water_cell > 0.0){
+                    weighted_c_sum = weighted_c_sum + c_cell * water_cell;
+                    weighted_gw_sum = weighted_gw_sum + gw_cell * water_cell;
+                    total_water = total_water + water_cell;
+                }
 
-                n_cells = n_cells + 1.0;
+                if (debug_file != nullptr) {
+                    cell_debug.water_weight = water_cell;
+                    cell_debug.c_cell = c_cell;
+                    cell_debug.c_gw = gw_cell;
+                    writeDebugCellRow(*debug_file, iyr, yyyy, iswat, debug_eid,
+                                      strm.Sid, buffer_cell, ii, jj, IJ,
+                                      strm.W, initConc,
+                                      strm.rivInfl, cell_debug);
+                }
+
+                buffer_cell = buffer_cell + 1;
+
+                // OLD (pre-v0.1.12): unweighted arithmetic accumulation.
+                // c_strml = c_strml + c_cell;
+                // gw_strml = gw_strml + gw_cell;
+                // n_cells = n_cells + 1.0;
             }// loop jj
         }// loop ii
-        c_strml = c_strml / n_cells;
-        gw_strml = gw_strml / n_cells;
 
-        if (c_strml > UI.simOptions.MaxConc){
+        if (total_water > 0.0){
+            c_strml = weighted_c_sum / total_water;
+            gw_strml = weighted_gw_sum / total_water;
+        }
+        else{
+            // No cell in the neighborhood represents a positive water volume.
+            c_strml = initConc;
+            gw_strml = 0.0;
+        }
+
+        // OLD (pre-v0.1.12): unweighted arithmetic average.
+        // c_strml = c_strml / n_cells;
+        // gw_strml = gw_strml / n_cells;
+
+        // CHANGE (v0.1.15): a negative MaxConc disables concentration capping.
+        // OLD (pre-v0.1.15): if (c_strml > UI.simOptions.MaxConc){
+        if (UI.simOptions.MaxConc >= 0.0 && c_strml > UI.simOptions.MaxConc){
             c_strml = UI.simOptions.MaxConc;
         }
     }

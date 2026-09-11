@@ -5,6 +5,9 @@
 #ifndef MANTISSA_MS_INPUT_H
 #define MANTISSA_MS_INPUT_H
 
+#include <algorithm>
+#include <sstream>
+#include <vector>
 #include <boost/mpi.hpp>
 #include <boost/program_options.hpp>
 #include "MS_structures.h"
@@ -22,7 +25,9 @@ namespace MS {
         bool read(int argc, char* argv[]);
 
         std::string configFile;
-        int dbg_id;
+        // OLD (pre-v0.1.15): only one debug well could be selected.
+        // int dbg_id;
+        std::vector<int> dbg_ids;
         bool doDebug = false;
         std::string dbg_file;
 
@@ -47,7 +52,7 @@ namespace MS {
         :
             world(world_in)
     {
-        Version = "0.1.11";
+        Version = "0.1.17";
     }
 
     bool UserInput::read(int argc, char **argv) {
@@ -120,7 +125,7 @@ namespace MS {
             ("Simulation.Nyears", po::value<int>()->default_value(50), "Number of simulation years")
             ("Simulation.StartYear", po::value<int>()->default_value(1945), "Starting year of simulation")
             ("Simulation.Porosity", po::value<int>()->default_value(2), "Porosity: 10, 20, 30,...")
-            ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration (before convolution)")
+            ("Simulation.MaxConc", po::value<double>()->default_value(10000), "Maximum loading concentration before convolution; negative disables cap")
             ("Simulation.MaxAge", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
             ("Simulation.SurfConcValue", po::value<double>()->default_value(-9), "Surface water salt concentration. Negative deactivates")
             ("Simulation.RiverConcValue", po::value<double>()->default_value(-9), "River salt concentration. Negative deactivates")
@@ -160,7 +165,7 @@ namespace MS {
 
             // [Other]
             ("Other.dbg_File", po::value<std::string>(), "Debugging output filename")
-            ("Other.dbg_ids", po::value<int>(), "well ids for debugging")
+            ("Other.dbg_ids", po::value<std::string>(), "comma-separated well ids for debugging")
             ("Other.PrintMatrices", po::value<int>(), "Print Matrices to test communication works")
             ("Other.Version", po::value<std::string>(), "version number")
         ;
@@ -286,9 +291,28 @@ namespace MS {
 
                 {// [Other]
                     dbg_file = vm_cfg["Other.dbg_File"].as<std::string>();
-                    dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
+                    // CHANGE (v0.1.15): accept a comma-separated list such as
+                    // "20241, 13, 573". Commas are converted to spaces so the
+                    // standard C++ stream parser can read the EIDs simply.
+                    const std::string dbg_ids_input = vm_cfg["Other.dbg_ids"].as<std::string>();
+                    std::string dbg_ids_text = dbg_ids_input;
+                    std::replace(dbg_ids_text.begin(), dbg_ids_text.end(), ',', ' ');
+
+                    std::istringstream dbg_ids_stream(dbg_ids_text);
+                    int dbg_eid = 0;
+                    while (dbg_ids_stream >> dbg_eid) {
+                        if (std::find(dbg_ids.begin(), dbg_ids.end(), dbg_eid) == dbg_ids.end()) {
+                            dbg_ids.push_back(dbg_eid);
+                        }
+                    }
+                    if (!dbg_ids_stream.eof()) {
+                        throw std::runtime_error("Other.dbg_ids contains an invalid well EID");
+                    }
+
+                    // OLD (pre-v0.1.15): one integer was read directly.
+                    // dbg_id = vm_cfg["Other.dbg_ids"].as<int>();
                     PrintMatrices = vm_cfg["Other.PrintMatrices"].as<int>() != 0;
-                    doDebug = !dbg_file.empty();
+                    doDebug = !dbg_file.empty() && !dbg_ids.empty();
                 }
 
                 simOptions.nYears_historic = historicOptions.BlendStart - simOptions.StartYear;
