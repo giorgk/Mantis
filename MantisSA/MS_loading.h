@@ -369,6 +369,7 @@ namespace MS{
                                     const MS::HRU_Raster &hru_raster,
                                     const MS::SWAT_data &swat,
                                     const std::vector<double> &ConcFromPump,
+                                    const std::vector<int> &WellEidFromPump,
                                     std::ofstream *debug_file = nullptr,
                                     int debug_eid = -1){
 
@@ -429,6 +430,7 @@ namespace MS{
                     water_cell = 0.0;
                 }
                 else{
+                    cell_debug.well_source_id = WellEidFromPump[IJ];
                     cell_debug.hru = hru_raster.getHRU(IJ);
                     cell_debug.hruidx = swat.hru_index(cell_debug.hru);
                     cell_debug.treated_conc_from_pump = ConcFromPump[IJ];

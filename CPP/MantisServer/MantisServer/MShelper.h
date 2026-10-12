@@ -368,13 +368,14 @@ namespace mantisServer {
     public:
         LinearData(){}
         bool readData(std::string filename, int Nr);
-        int ScenarioIndex(std::string scenario);
-        double getValue(int scenID, int lin_idx);
+        int ScenarioIndex(const std::string& scenario) const;
+        double getValue(int scenID, int lin_idx) const;
         void setNoDataValue(double v);
         double getNoDataValue(){return NoDataValue;}
         void multiply(double mult);
         void clear();
-        bool hasScenario(std::string &unsatName);
+        bool hasScenario(const std::string& unsatName) const;
+        bool clampRange(double minValue, double maxValue, int& clampedValues);
     private:
         std::map<std::string, int > ScenarioMap;
         std::vector<std::vector<double>> Data;
@@ -394,15 +395,15 @@ namespace mantisServer {
         ScenarioMap.clear();
     }
 
-    int LinearData::ScenarioIndex(std::string scenario) {
-        std::map<std::string, int >::iterator it = ScenarioMap.find(scenario);
+    int LinearData::ScenarioIndex(const std::string& scenario) const {
+        std::map<std::string, int >::const_iterator it = ScenarioMap.find(scenario);
         if (it == ScenarioMap.end())
             return -1;
         else
             return it->second;
     }
-    bool LinearData::hasScenario(std::string &unsatName){
-        std::map<std::string, int >::iterator it = ScenarioMap.find(unsatName);
+    bool LinearData::hasScenario(const std::string& unsatName) const {
+        std::map<std::string, int >::const_iterator it = ScenarioMap.find(unsatName);
         return it != ScenarioMap.end();
     }
 
@@ -414,7 +415,7 @@ namespace mantisServer {
         }
     }
 
-    double LinearData::getValue(int scenID, int lin_idx) {
+    double LinearData::getValue(int scenID, int lin_idx) const {
         if (scenID >=0 && scenID < Nscenarios){
             if (lin_idx >=0 && lin_idx < Nrows){
                 //if (bHFread)
@@ -429,6 +430,34 @@ namespace mantisServer {
         else{
             return  NoDataValue;
         }
+    }
+
+    bool LinearData::clampRange(double minValue, double maxValue, int& clampedValues) {
+        clampedValues = 0;
+        if (Nrows <= 0 || Nscenarios <= 0 ||
+            static_cast<int>(Data.size()) != Nscenarios) {
+            return false;
+        }
+        for (int scenario = 0; scenario < Nscenarios; ++scenario) {
+            if (static_cast<int>(Data[scenario].size()) != Nrows) {
+                return false;
+            }
+            for (int row = 0; row < Nrows; ++row) {
+                double& value = Data[scenario][row];
+                if (!std::isfinite(value)) {
+                    return false;
+                }
+                if (value < minValue) {
+                    value = minValue;
+                    ++clampedValues;
+                }
+                else if (value > maxValue) {
+                    value = maxValue;
+                    ++clampedValues;
+                }
+            }
+        }
+        return true;
     }
 
     void LinearData::setNoDataValue(double v) {

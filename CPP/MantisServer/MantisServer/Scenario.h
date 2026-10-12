@@ -12,6 +12,15 @@
 
 namespace mantisServer {
 
+    // Percentage is implemented first. The kinetic values reserve explicit
+    // policy choices for future residence-time-dependent implementations.
+    enum class DenitrificationMethod {
+        NONE,
+        FRACTION,
+        ZERO_ORDER_RATE,
+        FIRST_ORDER_RATE
+    };
+
     struct InitConcParam{
         double mean = 1;
         double std = 1;
@@ -97,6 +106,12 @@ namespace mantisServer {
         ///! This is a constant reduction coefficient that is applied over the simulation area on all loading types
         float constReduction;
         bool userSuppliedConstRed;
+
+        DenitrificationMethod denitrificationMethod = DenitrificationMethod::NONE;
+        std::string denitrificationMap;
+        int denitrificationMapID = -1;
+        double denitrificationThreshold = 0.0;
+        double denitrificationFractionRemoved = 0.0;
 
         //! This is the number of years to simulate starting from 1945
         int startSimulationYear;
@@ -210,6 +225,11 @@ namespace mantisServer {
         globalReduction = 1.0;
         constReduction = 1.0;
         userSuppliedConstRed = false;
+        denitrificationMethod = DenitrificationMethod::NONE;
+        denitrificationMap.clear();
+        denitrificationMapID = -1;
+        denitrificationThreshold = 0.0;
+        denitrificationFractionRemoved = 0.0;
         unsatZoneMobileWaterContent = 0.0;
         minRecharge = 10;// mm/year
         maxConc = 250;
@@ -388,6 +408,14 @@ namespace mantisServer {
             if (test == "constRed"){
                 userSuppliedConstRed = true;
                 ss >> constReduction;
+                continue;
+            }
+
+            if (test == "denit") {
+                denitrificationMethod = DenitrificationMethod::FRACTION;
+                ss >> denitrificationMap;
+                ss >> denitrificationThreshold;
+                ss >> denitrificationFractionRemoved;
                 continue;
             }
 
@@ -740,6 +768,17 @@ namespace mantisServer {
             if (tok_eq(key, "loadSubScen")) {
                 if (!require_tok(v1, "loadSubScen")) return false;
                 loadSubScen = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "denit")) {
+                if (!require_tok(v1, "denit")) return false;
+                denitrificationMap = tok_to_string(v1);
+                if (!require_tok(v2, "denit") ||
+                    !parse_double(v2, denitrificationThreshold)) return false;
+                if (!require_tok(v3, "denit") ||
+                    !parse_double(v3, denitrificationFractionRemoved)) return false;
+                denitrificationMethod = DenitrificationMethod::FRACTION;
                 continue;
             }
 

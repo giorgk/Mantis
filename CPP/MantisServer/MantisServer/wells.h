@@ -152,6 +152,11 @@ namespace mantisServer{
         double pumpingRate;
         double ratio;
         double angle;
+        // Compact active-cell index used by LinearData maps. This is the well
+        // location, not a streamline source-area location.
+        int gridRow = -1;
+        int gridCol = -1;
+        int activeCellIndex = -1;
     };
 
     void Well::calculateWeights() {
@@ -758,6 +763,7 @@ namespace mantisServer{
                           bool bReadWells, BMapCollection &Bmaps);
         void calcWellWeights();
         void calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList);
+        bool assignWellCellIndices(const BackgroundRaster& braster);
         std::map<std::string ,WellList> FlowScenarios;
         bool hasFlowScenario(std::string &flowScen, int por, int &porind);
     private:
@@ -798,6 +804,27 @@ namespace mantisServer{
                 wellit->second.calculateWeights();
             }
         }
+    }
+
+    bool FlowWellCollection::assignWellCellIndices(const BackgroundRaster& braster) {
+        bool allLocated = true;
+        std::map<std::string, WellList>::iterator flowit;
+        std::map<int, Well>::iterator wellit;
+        for (flowit = FlowScenarios.begin(); flowit != FlowScenarios.end(); ++flowit) {
+            for (wellit = flowit->second.Wells.begin();
+                 wellit != flowit->second.Wells.end(); ++wellit) {
+                Well& well = wellit->second;
+                if (!braster.locateCell(well.xcoord, well.ycoord,
+                                        well.gridRow, well.gridCol,
+                                        well.activeCellIndex)) {
+                    std::cout << "Well " << wellit->first << " in set "
+                              << flowit->first
+                              << " is outside the active raster" << std::endl;
+                    allLocated = false;
+                }
+            }
+        }
+        return allLocated;
     }
 
     void FlowWellCollection::calcWellSourceArea(BackgroundRaster &braster, RechargeScenarioList &rchList) {

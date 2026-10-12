@@ -11,8 +11,9 @@ namespace mantisServer{
     public:
         BackgroundRaster(){}
         bool readData(std::string filename, int Nr, int Nc, int Ncells);
-        int IJ(int row, int col);
+        int IJ(int row, int col) const;
         int linear_index(int row, int col);
+        bool locateCell(double x, double y, int& row, int& col, int& activeCellIndex) const;
         void getSurroundingPixels(int row, int col, int Ndepth, std::vector<int>& lin_inds);
         int Nr(){return Nrows;}
         int Nc(){return Ncols;}
@@ -133,7 +134,7 @@ namespace mantisServer{
         return true;
     }
 
-    int BackgroundRaster::IJ(int row, int col) {
+    int BackgroundRaster::IJ(int row, int col) const {
         if (row >=0 && col >=0 && row < Nrows && col < Ncols) {
             if (bHFread)
                 return raster[col][row];
@@ -142,6 +143,28 @@ namespace mantisServer{
         }
         else
             return -1;
+    }
+
+    bool BackgroundRaster::locateCell(double x, double y, int& row, int& col,
+                                      int& activeCellIndex) const {
+        row = -1;
+        col = -1;
+        activeCellIndex = -1;
+        if (cellSize <= 0.0 || x < Xorig || y < Yorig) {
+            return false;
+        }
+
+        col = static_cast<int>(std::floor((x - Xorig) / cellSize));
+        row = Nrows - 1 -
+              static_cast<int>(std::floor((y - Yorig) / cellSize));
+        if (row < 0 || col < 0 || row >= Nrows || col >= Ncols) {
+            row = -1;
+            col = -1;
+            return false;
+        }
+
+        activeCellIndex = IJ(row, col);
+        return activeCellIndex >= 0;
     }
 
     int BackgroundRaster::linear_index(int row, int col) {

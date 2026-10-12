@@ -134,6 +134,7 @@ namespace MS{
         row.set(DBG_STRM_W, strm_W);
         row.set(DBG_INIT_CONC, init_conc);
         row.set(DBG_TREATED_CONC_FROM_PUMP, data.treated_conc_from_pump);
+        row.set(DBG_WELL_SOURCE_ID, data.well_source_id);
         row.set(DBG_SHIFT, data.shift);
         row.set(DBG_SHIFTED_IYR, data.shifted_iyr);
         row.set(DBG_BLEND_U, data.blend_u);

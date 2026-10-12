@@ -12,6 +12,7 @@
 #include "wells.h"
 #include "Nload.h"
 #include "URFs.h"
+#include "Denitrification.h"
 
 namespace po = boost::program_options;
 
@@ -34,6 +35,8 @@ namespace mantisServer{
         RechargeScenarioList Rch;
         FlowWellCollection FWC;
         NLoadList NLL;
+        DenitrificationMaps Denitrification;
+        bool hasDenitrificationData = false;
     };
 
     bool Region::readRegionData(std::string inputfile) {
@@ -52,6 +55,7 @@ namespace mantisServer{
             // Data Options
             ("Data.BMAPS", po::value<std::string>(), "The name with the background maps")
             ("Data.NO3", po::value<std::string>(), "The main input file for Nitrate loading")
+            ("Data.DENITRIFICATION", po::value<std::string>(), "Named denitrification maps in LinearData format")
             //("Data.UNSAT", po::value<std::string>(), "The file with the unsaturated data")
             ("Data.UNSDEPTH", po::value<std::string>(), "The file with the Depth of unsaturated zone")
             ("Data.WELLS", po::value<std::string>(), "The main input file for Wells")
@@ -144,11 +148,57 @@ namespace mantisServer{
                 return false;
         }
 
+        if (vm_ro.count("Data.DENITRIFICATION")) {
+            std::cout << "-------- Denitrification --------" << std::endl;
+            const std::string denitrificationFile =
+                path + vm_ro["Data.DENITRIFICATION"].as<std::string>();
+            if (!Denitrification.readData(denitrificationFile, raster.Ncell())) {
+                return false;
+            }
+            if (!FWC.assignWellCellIndices(raster)) {
+                std::cout << "All wells must be in active raster cells when "
+                             "denitrification data are configured" << std::endl;
+                return false;
+            }
+            hasDenitrificationData = true;
+        }
+
         return true;
     }
 
     bool Region::validateScenario(std::string &outmsg, Scenario &scenario) {
         bool tf;
+
+        if (scenario.denitrificationMethod != DenitrificationMethod::NONE) {
+            if (!hasDenitrificationData) {
+                outmsg += "0 ERROR: Region [" + scenario.modelArea +
+                          "] has no denitrification data";
+                return false;
+            }
+            if (scenario.denitrificationMethod != DenitrificationMethod::FRACTION) {
+                outmsg += "0 ERROR: Requested denitrification method is not implemented";
+                return false;
+            }
+            if (!std::isfinite(scenario.denitrificationThreshold) ||
+                scenario.denitrificationThreshold < 0.0 ||
+                scenario.denitrificationThreshold > 1.0) {
+                outmsg += "0 ERROR: Denitrification threshold must be in [0,1]";
+                return false;
+            }
+            if (!std::isfinite(scenario.denitrificationFractionRemoved) ||
+                scenario.denitrificationFractionRemoved < 0.0 ||
+                scenario.denitrificationFractionRemoved > 1.0) {
+                outmsg += "0 ERROR: Denitrification fraction removed must be in [0,1]";
+                return false;
+            }
+            scenario.denitrificationMapID =
+                Denitrification.mapIndex(scenario.denitrificationMap);
+            if (scenario.denitrificationMapID < 0) {
+                outmsg += "0 ERROR: Denitrification map [" +
+                          scenario.denitrificationMap + "] could not be found";
+                return false;
+            }
+        }
 
         // Test for background map
         tf = Bmaps.hasMap(scenario.mapID);
@@ -331,6 +381,22 @@ namespace mantisServer{
             if (!wellit->second.bsimulateThis(scenario))
                 continue;
 
+            double denitrificationMultiplier = 1.0;
+            if (scenario.denitrificationMethod == DenitrificationMethod::FRACTION) {
+                double denitrificationValue = 0.0;
+                if (!Denitrification.getValue(scenario.denitrificationMapID,
+                                               wellit->second.activeCellIndex,
+                                               denitrificationValue)) {
+                    std::cout << "Invalid denitrification lookup for well "
+                              << wellit->first << std::endl;
+                    return false;
+                }
+                if (denitrificationValue > scenario.denitrificationThreshold) {
+                    denitrificationMultiplier =
+                        1.0 - scenario.denitrificationFractionRemoved;
+                }
+            }
+
             // Assign an initial value from the log normal distribution
             double wellInitConc = 0.0;
             if (scenario.initcondparam.bUse){
@@ -476,6 +542,11 @@ namespace mantisServer{
 
                 for (unsigned int i = 0; i < BTC.size(); ++i){
                     WellBTC[i] = WellBTC[i] + (BTC[i] + preBTC[i]) * strmlit->second.w;
+                }
+            }
+            if (denitrificationMultiplier != 1.0) {
+                for (std::size_t i = 0; i < WellBTC.size(); ++i) {
+                    WellBTC[i] *= denitrificationMultiplier;
                 }
             }
             if (scenario.printWellBTC){

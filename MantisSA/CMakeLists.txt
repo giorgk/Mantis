@@ -5,7 +5,7 @@ project(MantisSA LANGUAGES CXX)
 # -----------------------------
 # User options
 # -----------------------------
-option(USEHF "Compile with HDF5 support" OFF)
+option(USEHF "Compile with HDF5 support" ON)
 option(USEZLIB "Compile with ZLIB compression support" ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -49,21 +49,17 @@ endif()
 # -----------------------------
 # Boost
 # -----------------------------
-# On Windows with vcpkg/MSVC, imported config packages usually work well.
-# On Linux, older Boost installs may only work through the classic module mode.
+# On Windows with vcpkg/MSVC, config packages usually work well.
+# On Linux, older Boost installs may still prefer classic module mode.
 set(Boost_USE_MULTITHREADED ON)
 set(Boost_USE_STATIC_LIBS OFF)
 set(Boost_NO_WARN_NEW_VERSIONS ON)
 
-# Optional: this often helps on Linux with older system Boost installs
-# while still working on Windows/vcpkg.
+# Keep old behavior compatible with non-vcpkg Linux installs
 set(Boost_NO_BOOST_CMAKE ON)
 
 find_package(Boost REQUIRED COMPONENTS mpi serialization program_options system)
 
-target_include_directories(MantisSA PRIVATE ${Boost_INCLUDE_DIRS})
-
-# Prefer imported targets if they exist
 if(TARGET Boost::mpi)
     target_link_libraries(MantisSA PRIVATE
             Boost::mpi
@@ -72,7 +68,7 @@ if(TARGET Boost::mpi)
             Boost::system
     )
 else()
-    # Fallback for older FindBoost behavior
+    target_include_directories(MantisSA PRIVATE ${Boost_INCLUDE_DIRS})
     target_link_libraries(MantisSA PRIVATE ${Boost_LIBRARIES})
 endif()
 
@@ -102,28 +98,76 @@ if(USEHF)
     message(STATUS "Compile with HDF5")
     target_compile_definitions(MantisSA PRIVATE _USEHF=1)
 
-    find_package(HDF5 REQUIRED COMPONENTS CXX)
+    # First try config-mode package discovery (works with vcpkg)
+    find_package(hdf5 CONFIG QUIET)
 
-    # HighFive may not exist on older Linux systems.
-    # Use it only if available, otherwise continue with plain HDF5.
-    find_package(HighFive QUIET)
+    if(hdf5_FOUND)
+        message(STATUS "Using HDF5 from package config")
 
-    if(HighFive_FOUND)
-        message(STATUS "HighFive found")
-        if(TARGET HighFive)
-            target_link_libraries(MantisSA PRIVATE HighFive)
-        elseif(TARGET HighFive::HighFive)
-            target_link_libraries(MantisSA PRIVATE HighFive::HighFive)
+        # HighFive from vcpkg/config mode if available
+        find_package(HighFive CONFIG QUIET)
+        if(NOT HighFive_FOUND)
+            find_package(HighFive QUIET)
         endif()
-    else()
-        message(STATUS "HighFive not found; continuing with HDF5 only")
-    endif()
 
-    if(TARGET HDF5::HDF5)
-        target_link_libraries(MantisSA PRIVATE HDF5::HDF5)
+        if(HighFive_FOUND)
+            message(STATUS "HighFive found")
+            if(TARGET HighFive::HighFive)
+                target_link_libraries(MantisSA PRIVATE HighFive::HighFive)
+            elseif(TARGET HighFive_HighFive)
+                target_link_libraries(MantisSA PRIVATE HighFive_HighFive)
+            elseif(TARGET HighFive)
+                target_link_libraries(MantisSA PRIVATE HighFive)
+            endif()
+        else()
+            message(STATUS "HighFive not found; continuing with HDF5 only")
+        endif()
+
+        # Link whichever HDF5 target exists
+        if(TARGET hdf5::hdf5_cpp-shared)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5_cpp-shared)
+        elseif(TARGET hdf5::hdf5_cpp)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5_cpp)
+        elseif(TARGET hdf5::hdf5-shared)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5-shared)
+        elseif(TARGET hdf5::hdf5)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5)
+        else()
+            message(FATAL_ERROR "HDF5 config package found, but no known hdf5 target is available")
+        endif()
+
+        # Optional HL library if present
+        if(TARGET hdf5::hdf5_hl-shared)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5_hl-shared)
+        elseif(TARGET hdf5::hdf5_hl)
+            target_link_libraries(MantisSA PRIVATE hdf5::hdf5_hl)
+        endif()
+
     else()
-        target_include_directories(MantisSA PRIVATE ${HDF5_INCLUDE_DIRS})
-        target_link_libraries(MantisSA PRIVATE ${HDF5_LIBRARIES})
+        message(STATUS "Falling back to CMake FindHDF5 module")
+        find_package(HDF5 REQUIRED COMPONENTS CXX)
+
+        # HighFive may not exist on older Linux systems.
+        # Use it only if available, otherwise continue with plain HDF5.
+        find_package(HighFive QUIET)
+
+        if(HighFive_FOUND)
+            message(STATUS "HighFive found")
+            if(TARGET HighFive::HighFive)
+                target_link_libraries(MantisSA PRIVATE HighFive::HighFive)
+            elseif(TARGET HighFive)
+                target_link_libraries(MantisSA PRIVATE HighFive)
+            endif()
+        else()
+            message(STATUS "HighFive not found; continuing with HDF5 only")
+        endif()
+
+        if(TARGET HDF5::HDF5)
+            target_link_libraries(MantisSA PRIVATE HDF5::HDF5)
+        else()
+            target_include_directories(MantisSA PRIVATE ${HDF5_INCLUDE_DIRS})
+            target_link_libraries(MantisSA PRIVATE ${HDF5_LIBRARIES})
+        endif()
     endif()
 else()
     message(STATUS "Compile without HDF5")

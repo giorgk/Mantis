@@ -129,6 +129,27 @@ will return a help message and a list of options that one can configure at runti
 ```
 will start the server using the configuration described in configfile.dat. An example configuration file can be found [here](https://github.com/giorgk/Mantis/blob/master/CPP/MantisServer/config.dat)
 
+### Well-based denitrification
+
+A region can optionally load named denitrification maps in the existing
+`LinearData` format:
+
+```ini
+Data.DENITRIFICATION = denitrification.h5
+```
+
+Map values are expected to be between 0 and 1. At startup, finite values below
+0 or above 1 are clamped to the nearest bound and a warning is printed. A
+scenario enables the percentage model with:
+
+```text
+denit MapName 0.60 0.25
+```
+
+If the selected map's value at a well is strictly greater than `0.60`, Mantis
+removes `0.25` (25 percent) from the final flow-weighted well concentration.
+If `denit` is omitted, the simulation is unchanged.
+
 
 
 

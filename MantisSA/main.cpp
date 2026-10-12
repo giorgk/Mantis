@@ -493,7 +493,8 @@ int main(int argc, char* argv[]) {
                 MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VI.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
-                                               ConcFromPump, well_debug_file, itw->first);
+                                               ConcFromPump, WellEidFromPump,
+                                               well_debug_file, itw->first);
 
                 // Store the yearly loading history for this streamline.
                 strm.gw_conc.push_back(c_gw);
@@ -590,7 +591,7 @@ int main(int argc, char* argv[]) {
                 MS::CreateLoadingForStreamline(c_tot, c_gw, iyr, iswat, YYYY, VD.version,
                                                strm, UI, well.initConc,
                                                HISTLOAD, backRaster, UZ, hru_raster, swat,
-                                               ConcFromPump);
+                                               ConcFromPump, WellEidFromPump);
 
                 strm.gw_conc.push_back(c_gw);
                 strm.lf_conc.push_back(c_tot);

@@ -263,6 +263,7 @@ namespace MS{
     // report calculation details without changing their numerical results.
     struct CellDebugData {
         std::string regime;
+        int well_source_id = -1;
         int hru = -1;
         int hruidx = -1;
         int shift = -1;
