@@ -55,7 +55,7 @@ namespace mantisServer{
             // Data Options
             ("Data.BMAPS", po::value<std::string>(), "The name with the background maps")
             ("Data.NO3", po::value<std::string>(), "The main input file for Nitrate loading")
-            ("Data.DENITRIFICATION", po::value<std::string>(), "Named denitrification maps in LinearData format")
+            ("Data.DENIT", po::value<std::string>(), "Named denitrification maps in LinearData format")
             //("Data.UNSAT", po::value<std::string>(), "The file with the unsaturated data")
             ("Data.UNSDEPTH", po::value<std::string>(), "The file with the Depth of unsaturated zone")
             ("Data.WELLS", po::value<std::string>(), "The main input file for Wells")
@@ -148,18 +148,15 @@ namespace mantisServer{
                 return false;
         }
 
-        if (vm_ro.count("Data.DENITRIFICATION")) {
+        if (vm_ro.count("Data.DENIT")) {
             std::cout << "-------- Denitrification --------" << std::endl;
             const std::string denitrificationFile =
-                path + vm_ro["Data.DENITRIFICATION"].as<std::string>();
+                path + vm_ro["Data.DENIT"].as<std::string>();
             if (!Denitrification.readData(denitrificationFile, raster.Ncell())) {
                 return false;
             }
-            if (!FWC.assignWellCellIndices(raster)) {
-                std::cout << "All wells must be in active raster cells when "
-                             "denitrification data are configured" << std::endl;
-                return false;
-            }
+            // Wells outside the loading raster have zero denitrification.
+            FWC.assignWellCellIndices(raster);
             hasDenitrificationData = true;
         }
 
@@ -384,7 +381,9 @@ namespace mantisServer{
             double denitrificationMultiplier = 1.0;
             if (scenario.denitrificationMethod == DenitrificationMethod::FRACTION) {
                 double denitrificationValue = 0.0;
-                if (!Denitrification.getValue(scenario.denitrificationMapID,
+                // A negative cell index denotes a well outside the active raster.
+                if (wellit->second.activeCellIndex >= 0 &&
+                    !Denitrification.getValue(scenario.denitrificationMapID,
                                                wellit->second.activeCellIndex,
                                                denitrificationValue)) {
                     std::cout << "Invalid denitrification lookup for well "
