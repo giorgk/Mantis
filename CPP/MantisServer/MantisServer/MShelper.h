@@ -7,6 +7,8 @@
 #include <iostream>
 #include <iomanip>
 #include <map>
+#include <algorithm>
+#include <cctype>
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int_distribution.hpp>
@@ -185,16 +187,23 @@ namespace mantisServer {
         out << msg << std::endl;
     }
 
-    std::string getExtension(std::string filename){
-        // https://www.fluentcpp.com/2017/04/21/how-to-split-a-string-in-c/
-        // Solution 1.3: stepping away from the iterators
-        std::vector<std::string> tokens;
-        std::string token;
-        std::istringstream tokenStream(filename);
-        while (std::getline(tokenStream, token, '.')){
-            tokens.push_back(token);
+    std::string getExtension(const std::string& filename){
+        const std::string::size_type separator = filename.find_last_of("/\\");
+        const std::string::size_type dot = filename.find_last_of('.');
+        if (dot == std::string::npos ||
+            (separator != std::string::npos && dot < separator) ||
+            dot + 1 >= filename.size()) {
+            return "";
         }
-        return tokens.back();
+        std::string extension = filename.substr(dot + 1);
+        std::transform(extension.begin(), extension.end(), extension.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return extension;
+    }
+
+    bool isHdf5Filename(const std::string& filename) {
+        const std::string extension = getExtension(filename);
+        return extension == "h5" || extension == "hdf5";
     }
 
     bool isInTriangle(double ax, double ay, double bx, double by, double cx, double cy, double px, double py){
@@ -372,6 +381,9 @@ namespace mantisServer {
         double getValue(int scenID, int lin_idx) const;
         void setNoDataValue(double v);
         double getNoDataValue(){return NoDataValue;}
+        int scenarioCount() const { return Nscenarios; }
+        const std::string& getLastError() const { return lastError; }
+        int replaceInvalidLoadingValues();
         void multiply(double mult);
         void clear();
         bool hasScenario(const std::string& unsatName) const;
@@ -379,11 +391,12 @@ namespace mantisServer {
     private:
         std::map<std::string, int > ScenarioMap;
         std::vector<std::vector<double>> Data;
-        int Nrows;
-        int Nscenarios;
-        double NoDataValue;
+        int Nrows = 0;
+        int Nscenarios = 0;
+        double NoDataValue = 0.0;
         bool bDataValueSet = false;
-        bool bHFread;
+        bool bHFread = false;
+        std::string lastError;
     };
 
     void LinearData::clear() {
@@ -393,6 +406,8 @@ namespace mantisServer {
         bDataValueSet = false;
         Data.clear();
         ScenarioMap.clear();
+        bHFread = false;
+        lastError.clear();
     }
 
     int LinearData::ScenarioIndex(const std::string& scenario) const {
@@ -416,20 +431,14 @@ namespace mantisServer {
     }
 
     double LinearData::getValue(int scenID, int lin_idx) const {
-        if (scenID >=0 && scenID < Nscenarios){
-            if (lin_idx >=0 && lin_idx < Nrows){
-                //if (bHFread)
-                //    return Data[lin_idx][scenID];
-                //else
-                return Data[scenID][lin_idx];
-            }
-            else {
-                return NoDataValue;
-            }
+        if (scenID >= 0 && static_cast<std::size_t>(scenID) < Data.size() &&
+            lin_idx >= 0 &&
+            static_cast<std::size_t>(lin_idx) < Data[scenID].size()) {
+            return Data[scenID][lin_idx];
         }
-        else{
-            return  NoDataValue;
-        }
+        // TODO: Report invalid loading lookups without turning them into
+        // server failures; for now they safely return the no-data value.
+        return NoDataValue;
     }
 
     bool LinearData::clampRange(double minValue, double maxValue, int& clampedValues) {
@@ -465,17 +474,42 @@ namespace mantisServer {
         bDataValueSet = true;
     }
 
+    int LinearData::replaceInvalidLoadingValues() {
+        int replacements = 0;
+        for (std::size_t scenario = 0; scenario < Data.size(); ++scenario) {
+            for (std::size_t row = 0; row < Data[scenario].size(); ++row) {
+                if (!std::isfinite(Data[scenario][row]) || Data[scenario][row] < 0.0) {
+                    // TODO: Decide whether invalid nitrate loading should reject the request
+                    // instead of temporarily treating the value as no loading.
+                    Data[scenario][row] = NoDataValue;
+                    ++replacements;
+                }
+            }
+        }
+        return replacements;
+    }
+
     bool LinearData::readData(std::string filename, int Nr) {
+        lastError.clear();
         if (!bDataValueSet){
-            std::cout << "You must set up a no-data value before reading the file" << filename << std::endl;
+            lastError = "A no-data value must be set before reading " + filename;
+            std::cout << lastError << std::endl;
+            return false;
+        }
+        if (Nr <= 0) {
+            lastError = "The expected number of raster cells must be positive";
+            std::cout << lastError << std::endl;
             return false;
         }
         Nrows = Nr;
+        Nscenarios = 0;
+        Data.clear();
+        ScenarioMap.clear();
+        bHFread = false;
         auto start = std::chrono::high_resolution_clock::now();
 
 #if _USEHF>0
-        std::string ext = getExtension(filename);
-        if (ext.compare("h5") == 0){
+        if (isHdf5Filename(filename)){
             try {
                 std::cout << "Reading " << filename << std::endl;
                 const std::string NamesNameSet("Names");
@@ -487,54 +521,118 @@ namespace mantisServer {
                 std::vector<std::string> names;
                 datasetNames.read(names);
                 datasetData.read(Data);
-                for (unsigned int i = 0; i < names.size(); ++i){
-                    ScenarioMap.insert(std::pair<std::string, int>(names[i],i));
+                if (names.empty()) {
+                    lastError = "HDF5 dataset 'Names' is empty in " + filename;
+                    std::cout << lastError << std::endl;
+                    return false;
                 }
-                Nscenarios = ScenarioMap.size();
+                if (Data.size() != names.size()) {
+                    lastError = "HDF5 dataset 'Data' in " + filename +
+                                " must be oriented as [scenario][cell] and have one row per name";
+                    std::cout << lastError << std::endl;
+                    return false;
+                }
+                for (std::size_t i = 0; i < Data.size(); ++i) {
+                    if (Data[i].size() != static_cast<std::size_t>(Nrows)) {
+                        lastError = "HDF5 dataset 'Data' in " + filename +
+                                    " must contain exactly " + std::to_string(Nrows) +
+                                    " cells per scenario";
+                        std::cout << lastError << std::endl;
+                        return false;
+                    }
+                }
+                for (unsigned int i = 0; i < names.size(); ++i){
+                    if (names[i].empty() ||
+                        !ScenarioMap.insert(std::pair<std::string, int>(names[i],i)).second) {
+                        lastError = "HDF5 dataset 'Names' contains an empty or duplicate name in " + filename;
+                        std::cout << lastError << std::endl;
+                        return false;
+                    }
+                }
+                Nscenarios = static_cast<int>(names.size());
                 auto finish = std::chrono::high_resolution_clock::now();
                 std::chrono::duration<double> elapsed = finish - start;
                 std::cout << "Read data from " << filename << " in " << elapsed.count() << std::endl;
                 bHFread = true;
                 return true;
             }
-            catch (...) {
+            catch (const std::exception& e) {
+                lastError = "HDF5 error while reading " + filename + ": " + e.what();
+                std::cout << lastError << std::endl;
+                Data.clear();
+                ScenarioMap.clear();
+                Nscenarios = 0;
                 return false;
             }
+            catch (...) {
+                lastError = "Unknown HDF5 error while reading " + filename;
+                std::cout << lastError << std::endl;
+                Data.clear();
+                ScenarioMap.clear();
+                Nscenarios = 0;
+                return false;
+            }
+        }
+#else
+        if (isHdf5Filename(filename)) {
+            lastError = "This MantisServer build does not include HDF5 support";
+            std::cout << lastError << std::endl;
+            return false;
         }
 #endif
 
         std::ifstream ifile;
         ifile.open(filename);
         if (!ifile.is_open()){
-            std::cout << "Cant open file: " << filename << std::endl;
+            lastError = "Cannot open file: " + filename;
+            std::cout << lastError << std::endl;
             return false;
         }
         else{
             std::cout << "Reading " << filename << std::endl;
             std::string line;
             { //Get the number of Unsaturated scenarios
-                getline(ifile, line);
+                if (!getline(ifile, line)) {
+                    lastError = "Missing scenario count in " + filename;
+                    return false;
+                }
                 std::istringstream inp(line.c_str());
-                inp >> Nscenarios;
+                if (!(inp >> Nscenarios) || Nscenarios <= 0) {
+                    lastError = "Invalid scenario count in " + filename;
+                    return false;
+                }
                 Data.clear();
                 Data.resize(Nscenarios, std::vector<double>(Nr,NoDataValue));
             }
             {// Get the scenario names
                 std::string name;
                 for (int i = 0; i < Nscenarios; ++i){
-                    getline(ifile, line);
+                    if (!getline(ifile, line)) {
+                        lastError = "Missing scenario name in " + filename;
+                        return false;
+                    }
                     std::istringstream inp(line.c_str());
-                    inp >> name;
-                    ScenarioMap.insert(std::pair<std::string, int>(name, i));
+                    if (!(inp >> name) ||
+                        !ScenarioMap.insert(std::pair<std::string, int>(name, i)).second) {
+                        lastError = "Invalid or duplicate scenario name in " + filename;
+                        return false;
+                    }
                 }
             }
             {// Read the values
                 for (int i = 0; i < Nrows; ++i){
-                    getline(ifile, line);
+                    if (!getline(ifile, line)) {
+                        lastError = "Not enough raster rows in " + filename;
+                        return false;
+                    }
                     std::istringstream inp(line.c_str());
                     double v;
                     for (int j = 0; j < Nscenarios; ++j){
-                        inp >> v;
+                        if (!(inp >> v)) {
+                            lastError = "Invalid raster value in " + filename +
+                                        " at cell " + std::to_string(i);
+                            return false;
+                        }
                         Data[j][i] = v;
                     }
                 }

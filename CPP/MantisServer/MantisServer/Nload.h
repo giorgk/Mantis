@@ -8,6 +8,13 @@
 #include "Scenario.h"
 
 namespace mantisServer{
+    struct LoadBuildOptions {
+        int rasterScenarioID = -1;
+        RasterOperation modifierType = RasterOperation::DONTUSE;
+        LoadUnits modifierUnit = LoadUnits::UNKNOWN;
+        const LinearData* modifierRaster = nullptr;
+    };
+
     /*!
 	 * This is a list of available load types. Currently there are two types available.
 	 *  - GNLM loading from GNLM
@@ -93,13 +100,15 @@ namespace mantisServer{
                                   std::vector<double> &clean_prc,
                                   std::vector<double> &unsatDepth,
                                   std::vector<double>& LF,
-                                  Scenario& scenario, double& initConc);
+                                  Scenario& scenario, double& initConc,
+                                  const LoadBuildOptions& loadOptions);
         bool buildLoadingFromRaster(std::vector<int>& CVindex,
                                     std::vector<double> &rch,
                                     std::vector<double> &clean_prc,
                                     std::vector<double> &unsatDepth,
                                     std::vector<double>& LF,
-                                    Scenario& scenario,  double& initConc);
+                                     Scenario& scenario,  double& initConc,
+                                     const LoadBuildOptions& loadOptions);
 
 
         bool buildLoadingFromTimeSeries(std::vector<int>& cellIndex,
@@ -107,7 +116,8 @@ namespace mantisServer{
                                         std::vector<double> &clean_prc,
                                         std::vector<double> &unsatDepth,
                                         std::vector<double>& LF,
-                                        Scenario& scenario,  double& initConc);
+                                         Scenario& scenario,  double& initConc,
+                                         const LoadBuildOptions& loadOptions);
 
 
         LoadType getLtype() {
@@ -123,10 +133,10 @@ namespace mantisServer{
         bool isValidIndex(int index);
     private:
         //! The type of loading function GNLM, SWAT or RASTER
-        LoadType loadType;
+        LoadType loadType = LoadType::GTL;
         extrapMethod extMeth;
 
-        LoadUnits loadUnits;
+        LoadUnits loadUnits = LoadUnits::UNKNOWN;
         //! Container for the data
         std::vector<std::vector<double> > Ndata;
         //! Container for the Land use data
@@ -217,10 +227,19 @@ namespace mantisServer{
 
     bool NLoad::readData(std::string filename, LoadType ltype, LoadUnits lunit, int Npixels) {
         loadType = ltype;
+        loadUnits = lunit;
         auto start = std::chrono::high_resolution_clock::now();
         if (ltype == LoadType::RASTER){
             RasterLoading.setNoDataValue(0.0);
-            RasterLoading.readData(filename, Npixels);
+            if (!RasterLoading.readData(filename, Npixels)) {
+                return false;
+            }
+            const int replacedValues = RasterLoading.replaceInvalidLoadingValues();
+            if (replacedValues > 0) {
+                std::cout << "WARNING: Replaced " << replacedValues
+                          << " invalid nitrate loading value(s) with zero in "
+                          << filename << std::endl;
+            }
             return true;
         }
         else{
@@ -393,7 +412,8 @@ namespace mantisServer{
                                        std::vector<double> &clean_prc,
                                        std::vector<double> &unsatDepth,
                                        std::vector<double>& LF,
-                                       Scenario& scenario,  double& initConc) {
+                                       Scenario& scenario,  double& initConc,
+                                       const LoadBuildOptions& loadOptions) {
 
         bool out = false;
         int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
@@ -416,27 +436,36 @@ namespace mantisServer{
             tau_vals.push_back(static_cast<int>(std::ceil(tau)));
 
             // Find the loading value for each source area cell
-            if (scenario.modifierType == RasterOperation::DONTUSE){// Use the scenario from the Raster Initialization Data
-                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, cellIndex[j]);
+            if (loadOptions.modifierType == RasterOperation::DONTUSE){// Use the scenario from the Raster Initialization Data
+                double scen_value = RasterLoading.getValue(loadOptions.rasterScenarioID, cellIndex[j]);
                 if (loadUnits == LoadUnits::MASS){
                     scen_value = scen_value*100 / rch[j];
+                }
+                else {
+                    scen_value = scen_value*(1-clean_prc[j]);
                 }
                 load_vals.push_back(scen_value);
                 //load_value += scen_value;
             }
-            else if (scenario.modifierType == RasterOperation::Replace){// Replace the value with the user data
-                double user_value = scenario.userRasterLoad.getValue(0, cellIndex[j]);
-                if (scenario.modifierUnit == LoadUnits::MASS){
+            else if (loadOptions.modifierType == RasterOperation::Replace){// Replace the value with the user data
+                double user_value = loadOptions.modifierRaster->getValue(0, cellIndex[j]);
+                if (loadOptions.modifierUnit == LoadUnits::MASS){
                     user_value = user_value*100 / rch[j];
+                }
+                else {
+                    user_value = user_value*(1-clean_prc[j]);
                 }
                 load_vals.push_back(user_value);
                 //load_value += user_value;
             }
-            else if (scenario.modifierType == RasterOperation::Multiply){// Multiply the user value with the initialization scenario Raster
-                double user_value = scenario.userRasterLoad.getValue(0, cellIndex[j]);
-                double scen_value = RasterLoading.getValue(scenario.loadSubScenID, cellIndex[j]);
+            else if (loadOptions.modifierType == RasterOperation::Multiply){// Multiply the user value with the initialization scenario Raster
+                double user_value = loadOptions.modifierRaster->getValue(0, cellIndex[j]);
+                double scen_value = RasterLoading.getValue(loadOptions.rasterScenarioID, cellIndex[j]);
                 if (loadUnits == LoadUnits::MASS){
                     scen_value = scen_value*100 / rch[j];
+                }
+                else {
+                    scen_value = scen_value*(1-clean_prc[j]);
                 }
                 load_vals.push_back(scen_value*user_value);
                 //load_value += scen_value*user_value;
@@ -487,7 +516,8 @@ namespace mantisServer{
                                            std::vector<double> &clean_prc,
                                            std::vector<double> &unsatDepth,
                                            std::vector<double>& LF,
-                                           Scenario& scenario, double& initConc){
+                                           Scenario& scenario, double& initConc,
+                                           const LoadBuildOptions& loadOptions){
         bool out = false;
 
         int Nyears = scenario.endSimulationYear - scenario.startSimulationYear;
@@ -599,6 +629,9 @@ namespace mantisServer{
                         lf = Nbase*(1 - clean_prc[j]);
                     }
                 }
+                if (loadOptions.modifierType == RasterOperation::Multiply) {
+                    lf *= loadOptions.modifierRaster->getValue(0, cellIndex[j]);
+                }
                 LF[lfidx] = LF[lfidx] + lf;
             }
         }
@@ -619,15 +652,29 @@ namespace mantisServer{
                                      std::vector<double> &clean_prc,
                                      std::vector<double> &unsatDepth,
                                      std::vector<double>& LF,
-                                     Scenario& scenario,  double& initConc) {
+                                     Scenario& scenario,  double& initConc,
+                                     const LoadBuildOptions& loadOptions) {
         bool out = false;
 
+        if ((loadOptions.modifierType == RasterOperation::Replace ||
+             loadOptions.modifierType == RasterOperation::Multiply) &&
+            loadOptions.modifierRaster == nullptr) {
+            std::cout << "Runtime loading modifier is not available" << std::endl;
+            return false;
+        }
+        if (loadOptions.modifierType == RasterOperation::Replace) {
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth,
+                                         LF, scenario, initConc, loadOptions);
+            return out;
+        }
         if (loadType == LoadType::RASTER){
-            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth, LF, scenario, initConc);
+            out = buildLoadingFromRaster(CVindex, rch, clean_prc, unsatDepth,
+                                         LF, scenario, initConc, loadOptions);
             return out;
         }
         else{
-            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth, LF, scenario, initConc);
+            out = buildLoadingFromTimeSeries(CVindex, rch, clean_prc, unsatDepth,
+                                             LF, scenario, initConc, loadOptions);
             return out;
         }
     }

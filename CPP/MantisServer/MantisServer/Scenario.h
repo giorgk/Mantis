@@ -78,6 +78,10 @@ namespace mantisServer {
         std::string loadSubScen;
         int loadSubScenID;
 
+        //! Named raster used by the configured historic loading when it is RASTER.
+        std::string LoadTransitionSubScen;
+        int LoadTransitionSubScenID;
+
         //! The filename with the uploaded raster loading
         std::string modifierName;
         //! The operation type with respect to Scenario subscenario load option
@@ -211,10 +215,14 @@ namespace mantisServer {
         flowScen = "";
         loadScen = "";
         loadSubScen = "";
+        loadSubScenID = -1;
+        LoadTransitionSubScen = "";
+        LoadTransitionSubScenID = -1;
         wellType = "";
         flowWellScen = "";
         modifierName = "";
         modifierType = RasterOperation::UNKNOWN;
+        modifierUnit = LoadUnits::UNKNOWN;
         userRasterLoad.clear();
         regionIDs.clear();
         startReductionYear = 2020;
@@ -347,6 +355,10 @@ namespace mantisServer {
             }
             if (test == "loadSubScen") {
                 ss >> loadSubScen;
+                continue;
+            }
+            if (test == "LoadTransitionSubScen" || test == "loadTransitionSubScen") {
+                ss >> LoadTransitionSubScen;
                 continue;
             }
             if (test == "modifierName") {
@@ -768,6 +780,13 @@ namespace mantisServer {
             if (tok_eq(key, "loadSubScen")) {
                 if (!require_tok(v1, "loadSubScen")) return false;
                 loadSubScen = tok_to_string(v1);
+                continue;
+            }
+
+            if (tok_eq(key, "LoadTransitionSubScen") ||
+                tok_eq(key, "loadTransitionSubScen")) {
+                if (!require_tok(v1, "LoadTransitionSubScen")) return false;
+                LoadTransitionSubScen = tok_to_string(v1);
                 continue;
             }
 

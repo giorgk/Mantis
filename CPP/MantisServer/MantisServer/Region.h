@@ -246,58 +246,94 @@ namespace mantisServer{
                 outmsg += "does not have the Loading Scenario [" + scenario.loadScen + "]";
                 return false;
             }
-            else{
-                std::map<std::string, NLoad>::iterator loadit = NLL.NLoadMaps.find(scenario.loadScen);
-                if (loadit->second.getLtype() == LoadType::RASTER){
-                    bool testforSubScen = false;
-                    if (!scenario.modifierName.empty()){
-                        scenario.userRasterLoad.setNoDataValue(0.0);
-                        tf = scenario.userRasterLoad.readData(scenario.modifierName, raster.Ncell());
-                        if (!tf){
-                            outmsg += "0 ERROR: While reading user supplied loading [";
-                            outmsg += scenario.modifierName;
-                            outmsg += "]";
-                            return false;
-                        }
-                        if (scenario.modifierType == RasterOperation::Multiply){
-                            testforSubScen = true;
-                        }
-                        else if (scenario.modifierType == RasterOperation::Replace){
-                            testforSubScen = false;
-                        }
-                        else{
-                            outmsg += "0 ERROR: The modifier type is UNKNOWN. Valid options are (Replace or Multiply)";
-                            return false;
-                        }
+            std::map<std::string, NLoad>::iterator loadit = NLL.NLoadMaps.find(scenario.loadScen);
+            scenario.loadSubScenID = -1;
+            scenario.LoadTransitionSubScenID = -1;
 
-                    }
-                    else{
-                        testforSubScen = true;
-                        scenario.modifierType = RasterOperation::DONTUSE;
-                    }
-
-                    if (testforSubScen){
-                        scenario.loadSubScenID = loadit->second.getScenarioID(scenario.loadSubScen);
-                        if (scenario.loadSubScenID == -1){
-                            outmsg += "0 ERROR: The subScenario: (";
-                            outmsg += scenario.loadSubScen;
-                            outmsg += ") is not a valid option for the loading scenario ";
-                            outmsg += scenario.loadScen;
-                            return false;
-                        }
+            // Runtime data is always a single raster and applies only to the
+            // future loading, whether that configured loading is RASTER or GTL.
+            if (!scenario.modifierName.empty()){
+                if (!isHdf5Filename(scenario.modifierName)) {
+                    outmsg += "0 ERROR: Runtime raster loading must be an HDF5 file with extension .h5 or .hdf5";
+                    return false;
+                }
+#if _USEHF <= 0
+                outmsg += "0 ERROR: This MantisServer build does not include HDF5 support";
+                return false;
+#endif
+                scenario.userRasterLoad.setNoDataValue(0.0);
+                tf = scenario.userRasterLoad.readData(scenario.modifierName, raster.Ncell());
+                if (!tf){
+                    outmsg += "0 ERROR: While reading user supplied loading [";
+                    outmsg += scenario.modifierName;
+                    outmsg += "]: ";
+                    outmsg += scenario.userRasterLoad.getLastError();
+                    return false;
+                }
+                if (scenario.userRasterLoad.scenarioCount() != 1) {
+                    outmsg += "0 ERROR: Runtime raster loading must contain exactly one raster";
+                    return false;
+                }
+                const int replacedValues = scenario.userRasterLoad.replaceInvalidLoadingValues();
+                if (replacedValues > 0) {
+                    std::cout << "WARNING: Replaced " << replacedValues
+                              << " invalid runtime nitrate loading value(s) with zero in "
+                              << scenario.modifierName << std::endl;
+                }
+                if (scenario.modifierType == RasterOperation::Multiply){
+                    // The runtime raster is a dimensionless multiplier;
+                    // modifierUnit is intentionally ignored.
+                }
+                else if (scenario.modifierType == RasterOperation::Replace){
+                    if (scenario.modifierUnit == LoadUnits::UNKNOWN) {
+                        outmsg += "0 ERROR: modifierUnit must be CONC or MASS when modifierType is Replace";
+                        return false;
                     }
                 }
-
+                else{
+                    outmsg += "0 ERROR: The modifier type is UNKNOWN. Valid options are (Replace or Multiply)";
+                    return false;
+                }
+            }
+            else{
+                scenario.modifierType = RasterOperation::DONTUSE;
             }
 
-            if (scenario.loadScen.compare(scenario.LoadTransitionName) == 0){
+            // A configured future raster is needed unless Replace completely
+            // supplies the future loading at runtime.
+            if (loadit->second.getLtype() == LoadType::RASTER &&
+                scenario.modifierType != RasterOperation::Replace){
+                scenario.loadSubScenID = loadit->second.getScenarioID(scenario.loadSubScen);
+                if (scenario.loadSubScenID == -1){
+                    outmsg += "0 ERROR: The future raster subScenario: (";
+                    outmsg += scenario.loadSubScen;
+                    outmsg += ") is not a valid option for the loading scenario ";
+                    outmsg += scenario.loadScen;
+                    return false;
+                }
+            }
+
+            if (scenario.LoadTransitionName.compare("NONE") == 0){
                 scenario.buseLoadTransition = false;
-            }else{
-                if (scenario.LoadTransitionName.compare("NONE") != 0){
-                    tf = NLL.hasLoading(scenario.LoadTransitionName);
-                    if (!tf){
-                        outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
-                        outmsg += "does not have the Loading Scenario [" + scenario.LoadTransitionName + "]";
+            }
+            else{
+                std::map<std::string, NLoad>::iterator historicLoadit =
+                    NLL.NLoadMaps.find(scenario.LoadTransitionName);
+                if (historicLoadit == NLL.NLoadMaps.end()){
+                    outmsg += "0 ERROR: The Region [" + scenario.modelArea + "] ";
+                    outmsg += "does not have the configured historic Loading Scenario [" +
+                              scenario.LoadTransitionName + "]";
+                    return false;
+                }
+                scenario.buseLoadTransition = true;
+                if (historicLoadit->second.getLtype() == LoadType::RASTER){
+                    scenario.LoadTransitionSubScenID =
+                        historicLoadit->second.getScenarioID(scenario.LoadTransitionSubScen);
+                    if (scenario.LoadTransitionSubScenID == -1){
+                        outmsg += "0 ERROR: The historic raster subScenario: (";
+                        outmsg += scenario.LoadTransitionSubScen;
+                        outmsg += ") is not a valid option for the loading scenario ";
+                        outmsg += scenario.LoadTransitionName;
                         return false;
                     }
                 }
@@ -360,6 +396,18 @@ namespace mantisServer{
         if (scenario.buseLoadTransition){
             preLoadit = NLL.NLoadMaps.find(scenario.LoadTransitionName);
         }
+        LoadBuildOptions futureLoadOptions;
+        futureLoadOptions.rasterScenarioID = scenario.loadSubScenID;
+        futureLoadOptions.modifierType = scenario.modifierType;
+        futureLoadOptions.modifierUnit = scenario.modifierUnit;
+        if (scenario.modifierType != RasterOperation::DONTUSE) {
+            futureLoadOptions.modifierRaster = &scenario.userRasterLoad;
+        }
+
+        LoadBuildOptions historicLoadOptions;
+        historicLoadOptions.rasterScenarioID = scenario.LoadTransitionSubScenID;
+        historicLoadOptions.modifierType = RasterOperation::DONTUSE;
+
         std::map<std::string, RechargeScenario>::iterator rchit = Rch.RechargeList.find(scenario.rchName);
 
 
@@ -463,10 +511,14 @@ namespace mantisServer{
                 else
                 {
                     mainload.assign(NsimulationYears, 0.0);
-                    mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, mainload, scenario, wellInitConc);
+                    mainLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch,
+                                                            depth_val, mainload, scenario,
+                                                            wellInitConc, futureLoadOptions);
                     if (scenario.buseLoadTransition){
                         std::vector<double> preload(NsimulationYears, 0);
-                        preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch, depth_val, preload, scenario, wellInitConc);
+                        preLoadit->second.buildLoadingFunction(cell_lin_ind, rch_val, cln_rch,
+                                                               depth_val, preload, scenario,
+                                                               wellInitConc, historicLoadOptions);
                         // blend the two
                         double dYear = 0;
                         for (int i = 0; i < NsimulationYears; ++i){
